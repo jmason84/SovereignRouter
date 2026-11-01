@@ -1,0 +1,26 @@
+{
+  "models": [
+    {"id": "groq-gpt-oss-20b", "provider": "groq", "model": "openai/gpt-oss-20b",
+     "base_url": "https://api.groq.com/openai/v1", "api_key_file": "/state/groq.key", "lane": "private-free",
+     "context": 131072, "limits": {"tpm": 8000}, "quality": {"default": 2}, "max_data_class": "internal"},
+    {"id": "groq-gpt-oss-120b", "provider": "groq", "model": "openai/gpt-oss-120b",
+     "base_url": "https://api.groq.com/openai/v1", "api_key_file": "/state/groq.key", "lane": "private-free",
+     "context": 131072, "limits": {"tpm": 8000}, "quality": {"default": 4}, "max_data_class": "internal"},
+    {"id": "or-north-mini-code", "provider": "openrouter", "model": "cohere/north-mini-code:free",
+     "base_url": "https://openrouter.ai/api/v1", "api_key_file": "/state/openrouter.key", "lane": "private-free",
+     "context": 262144, "limits": {"rpm": 20, "rpd": 1000}, "quality": {"default": 3},
+     "extra_body": {"provider": {"data_collection": "deny"}}, "max_data_class": "internal"},
+    {"id": "or-dots-3", "provider": "openrouter", "model": "dots-studio/dots-3-note-preview:free",
+     "base_url": "https://openrouter.ai/api/v1", "api_key_file": "/state/openrouter.key", "lane": "private-free",
+     "context": 524288, "limits": {"rpm": 20, "rpd": 1000}, "quality": {"default": 3},
+     "extra_body": {"provider": {"data_collection": "deny"}}, "max_data_class": "internal"},
+    {"id": "deepinfra-deepseek-v4-flash", "provider": "deepinfra", "model": "deepseek-ai/DeepSeek-V4-Flash",
+     "base_url": "https://api.deepinfra.com/v1/openai", "api_key_file": "/state/deepinfra.key", "lane": "paid",
+     "price_in": 0.09, "price_out": 0.18, "cached_in": 0.018, "context": 262144,
+     "quality": {"default": 5}, "spend_alert_usd": 10, "max_data_class": "internal"},
+    {"id": "ollama-gpt-oss-120b", "provider": "ollama", "model": "gpt-oss:120b",
+     "base_url": "https://ollama.com/v1", "api_key_file": "/state/ollama.key", "lane": "paid",
+     "price_in": 0.15, "price_out": 0.60, "context": 131072, "quality": {"default": 4},
+     "spend_alert_usd": 5, "max_data_class": "internal"}
+  ]
+}

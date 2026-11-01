@@ -19,6 +19,8 @@ class ClientPolicy:
     premium: bool = False
     daily_cost_target_usd: float | None = None  # steers + alerts, never a cap
     aliases: dict = field(default_factory=dict)  # real model name -> alias
+    premium_monthly_alert_usd: float | None = None  # alert only (v0.5.3)
+    premium_daily_requests_alert: int | None = None  # alert when exceeded (v0.5.3)
 
 
 class Clients:
@@ -43,6 +45,8 @@ class Clients:
                 lanes=lanes, premium=c.get("premium", False),
                 daily_cost_target_usd=c.get("daily_cost_target_usd"),
                 aliases=c.get("aliases", {}),
+                premium_monthly_alert_usd=c.get("premium_monthly_alert_usd"),
+                premium_daily_requests_alert=c.get("premium_daily_requests_alert"),
             ))
         return cls(out, raw.get("admin_key_sha256"))
 

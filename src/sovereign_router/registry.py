@@ -33,6 +33,9 @@ class Model:
     spend_alert_usd: float | None = None  # monthly alert, never blocks
     status: str = "verified"  # verified | candidate | disabled
     max_data_class: str = "internal"
+    # v0.5.3: when no model is cleared for 'sensitive', requests with secrets go to entries marked here
+    # (owner-verified strongest no-retention terms) and raise an alert instead of failing.
+    sensitive_fallback: bool = False
     supports_tools: bool = True
     supports_json: bool = True
     supports_vision: bool = False

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 
@@ -40,6 +41,8 @@ class Ctx:
     skips: dict = field(default_factory=dict)
     classify_ms: float = 0.0
     steered: bool = False
+    secret_match: bool = False
+    sensitive_fallback: bool = False
 
 
 @dataclass
@@ -52,7 +55,8 @@ class Outcome:
 
 class Engine:
     def __init__(self, registry, store, http, governor, sticky, *, sidecar=None, default_max_tokens=2048,
-                 max_tokens_cap=16384):
+                 max_tokens_cap=16384, secret_scan: str | None = None):
+        self.secret_scan = secret_scan or os.environ.get("SOVEREIGN_SECRET_SCAN", "route")  # route|log|off
         self.registry, self.store, self.http = registry, store, http
         self.governor, self.sticky, self.sidecar = governor, sticky, sidecar
         self.default_max, self.max_cap = default_max_tokens, max_tokens_cap
@@ -82,7 +86,8 @@ class Engine:
             data_class = hdr  # a header may raise sensitivity, never lower it
         key = conversation_key(policy.name, msgs)
         prior = self.sticky.get(key)
-        if contains_secret(messages_text(msgs)) or (prior and prior.sensitive):
+        secret = self.secret_scan != "off" and contains_secret(messages_text(msgs))
+        if (secret and self.secret_scan == "route") or (prior and prior.sensitive):
             data_class = "sensitive"
 
         size = len(json.dumps({"m": msgs, "t": body.get("tools")}))
@@ -111,6 +116,7 @@ class Engine:
             cls = classifier.Classification(max(prior.level, 1), cls.task, 1.0, "sticky", "tool loop")
         ctx = Ctx(policy, body, bool(body.get("stream")), profile, cls, REQUIRED_QUALITY[cls.level], key, name)
         ctx.classify_ms = (time.perf_counter() - t0) * 1000
+        ctx.secret_match = bool(secret)
         ctx.required, ctx.steered = self.governor.adjust_required_quality(policy, cls.level, ctx.required)
         return ctx
 
@@ -119,7 +125,8 @@ class Engine:
         prior = self.sticky.get(ctx.key)
         return select(self.registry.usable(), ctx.policy, ctx.profile, ctx.cls.level, ctx.cls.task, required,
                       store=self.store, backstop_blocked=self.governor.paid_blocked_by_backstop(),
-                      preferred=prior.model_id if prior else None, exclude=tried)
+                      preferred=prior.model_id if prior else None, exclude=tried,
+                      over_target=self.governor.client_over_target(ctx.policy))
 
     async def execute(self, ctx: Ctx) -> Outcome:
         tried: set = set()
@@ -130,6 +137,14 @@ class Engine:
             restart = False
             sel = last_sel = self._select(ctx, required, tried)
             ctx.skips.update(sel.skips)
+            if sel.sensitive_fallback and not ctx.sensitive_fallback:
+                ctx.sensitive_fallback = True
+                day = time.strftime("%Y-%m-%d", time.gmtime(self.store.clock()))
+                await self.governor.alerter.send(
+                    "sensitive_fallback", f"sensitive-fallback:{ctx.policy.name}:{day}",
+                    f"{ctx.policy.name} sent a request containing a credential; no provider is cleared for "
+                    "sensitive data, so it went to the owner-marked no-retention fallback.",
+                    {"client": ctx.policy.name})
             for m in sel.ordered:
                 if attempts >= MAX_ATTEMPTS:
                     break
@@ -191,8 +206,7 @@ class Engine:
         else:
             cost = est_cost
             self.store.finalize(rid, est_in, cost)
-        if cost > 0:
-            await self.governor.after_call(ctx.policy, m)
+        await self.governor.after_call(ctx.policy, m, cost)
         return cost
 
     def _remember(self, ctx, m):
@@ -224,6 +238,21 @@ class Engine:
             "task": ctx.cls.task, "classifier": ctx.cls.layer, "confidence": ctx.cls.confidence,
             "reason": ctx.cls.reason, "model": m.id, "lane": m.lane, "paid": not m.is_free,
             "data_class": ctx.profile.data_class, "est_tokens": ctx.profile.est_tokens,
+            "secret_match": ctx.secret_match, "sensitive_fallback": ctx.sensitive_fallback,
             "steered": ctx.steered, "escalated": escalated, "skipped": ctx.skips,
             "usage": usage, "cost": round(cost, 8), "tool_loop": ctx.profile.tool_loop,
             "classify_ms": round(ctx.classify_ms, 1), "upstream_ms": round((time.perf_counter() - t0) * 1000, 1)}))
+
+    # --- v0.5.3 shadow mode: decision only, no upstream call, no quota use ---
+    def shadow(self, ctx: Ctx) -> dict:
+        sel = self._select(ctx, ctx.required, set())
+        m = sel.ordered[0] if sel.ordered else None
+        est = m.est_cost(ctx.profile.est_tokens, ctx.profile.max_tokens) if m else 0.0
+        self.store.record_shadow(ctx.policy.name, ctx.cls.level, m.id if m else None, m.lane if m else None, est)
+        route_log.info(json.dumps({"event": "shadow", "ts": time.time(), "client": ctx.policy.name,
+                                   "level": ctx.cls.level, "task": ctx.cls.task, "model": m.id if m else None,
+                                   "lane": m.lane if m else None, "est_cost": round(est, 8),
+                                   "est_tokens": ctx.profile.est_tokens}))
+        return {"model": m.id if m else None, "lane": m.lane if m else None, "level": ctx.cls.level,
+                "task": ctx.cls.task, "classifier": ctx.cls.layer, "est_cost_usd": round(est, 8),
+                "candidates": [x.id for x in sel.ordered], "skipped": sel.skips}

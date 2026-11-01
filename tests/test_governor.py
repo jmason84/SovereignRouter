@@ -22,7 +22,8 @@ async def test_alert_retried_after_webhook_failure_then_deduped():
     def hook(req):
         state["posts"] += 1
         return httpx.Response(200 if state["up"] else 500)
-    a = Alerter(store, "http://n8n.test/hook", httpx.AsyncClient(transport=httpx.MockTransport(hook)))
+    a = Alerter(store, "http://n8n.test/hook", httpx.AsyncClient(transport=httpx.MockTransport(hook)),
+                mode="push")
     assert await a.send("x", "k1", "msg") is False and a.failures == 1
     state["up"] = True
     assert await a.send("x", "k1", "msg") is True  # retried, delivered

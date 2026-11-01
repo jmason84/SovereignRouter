@@ -28,24 +28,32 @@ class Selection:
     policy_blocked: int = 0  # excluded by lane/data-class/capability
     never_fit: int = 0  # eligible but can never fit
     rate_limited: int = 0
+    sensitive_fallback: bool = False  # v0.5.3: no cleared model; owner-marked fallback used
 
 
 def select(models: list[Model], policy, profile: Profile, level: int, task: str, required: int, *,
            store, backstop_blocked: bool = False, preferred: str | None = None,
-           exclude: set | frozenset = frozenset()) -> Selection:
+           exclude: set | frozenset = frozenset(), over_target: bool = False) -> Selection:
     sel = Selection([], {})
     ok: list[Model] = []
+    # v0.5.3: above the client's daily target, premium needs an explicit request
+    premium_ok = policy.premium and (profile.explicit_premium or (level >= 5 and not over_target))
+    # v0.5.3: if nothing this client may use is cleared for the request's data class, fall back to
+    # entries the owner marked `sensitive_fallback` (strongest verified no-retention terms)
+    cleared = any(m.lane in policy.lanes and data_rank(m.max_data_class) >= data_rank(profile.data_class)
+                  for m in models)
+    fallback = profile.data_class == "sensitive" and not cleared
     for m in models:
         why = None
         if m.id in exclude:
             why = "already tried"
         elif m.lane not in policy.lanes:
             why = f"lane {m.lane} not allowed"; sel.policy_blocked += 1
-        elif m.lane == "premium" and not (policy.premium and (level >= 5 or profile.explicit_premium)):
+        elif m.lane == "premium" and not premium_ok:
             why = "premium not requested/permitted"; sel.policy_blocked += 1
         elif backstop_blocked and not m.is_free:
             why = "global backstop: paid lanes off today"
-        elif data_rank(m.max_data_class) < data_rank(profile.data_class):
+        elif data_rank(m.max_data_class) < data_rank(profile.data_class) and not (fallback and m.sensitive_fallback):
             why = f"not cleared for {profile.data_class} data"; sel.policy_blocked += 1
         elif profile.has_tools and not m.supports_tools:
             why = "no tool support"; sel.policy_blocked += 1
@@ -67,14 +75,15 @@ def select(models: list[Model], policy, profile: Profile, level: int, task: str,
     def cost(m):
         return m.est_cost(profile.est_tokens, profile.max_tokens)
 
-    want_premium = policy.premium and (level >= 5 or profile.explicit_premium)
+    want_premium = premium_ok
+    sel.sensitive_fallback = fallback and any(m.sensitive_fallback for m in ok)
     # Level 5 / explicit premium: the premium lane leads when the client may use it (v0.5.2 level table).
     good = sorted((m for m in ok if m.q(task) >= required),
                   key=lambda m: (0 if (want_premium and m.lane == "premium") else 1, cost(m), -m.q(task)))
     # Last resort: lower quality beats refusing the request. Best quality first.
     tail = sorted((m for m in ok if m.q(task) < required), key=lambda m: (-m.q(task), cost(m)))
     ordered = good + tail
-    if preferred:
+    if preferred and not profile.explicit_premium:  # an explicit premium request beats stickiness
         for i, m in enumerate(ordered):
             if m.id == preferred and m.q(task) >= required:
                 ordered.insert(0, ordered.pop(i))

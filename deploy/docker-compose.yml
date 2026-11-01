@@ -1,0 +1,55 @@
+# Portainer stack for VM103 (v0.5.3 canary, Phase 3). Not deployed yet.
+# Build first on VM103:  docker build -t sovereign-router:v0.5.3 .
+# State dir (mode 700) must hold registry.json, clients.json and mode-600 key files.
+services:
+  sovereign-router-v05:
+    image: sovereign-router:v0.5.3
+    pull_policy: never
+    container_name: sovereign-router-v05
+    restart: unless-stopped
+    environment:
+      SOVEREIGN_STATE_DIR: /state
+      SOVEREIGN_ALERT_MODE: pull            # n8n polls /admin/alerts every 15 min
+      SOVEREIGN_SECRET_SCAN: route          # route | log | off
+      # SOVEREIGN_GLOBAL_DAILY_BACKSTOP_USD: "25"   # emergency paid-lane switch: owner decision; also settable at runtime
+    volumes:
+      - /root/sovereign-router/data/v05/state:/state
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    networks: [sr05]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  sovereign-router-v05-proxy:
+    image: nginx:1.27-alpine
+    container_name: sovereign-router-v05-proxy
+    restart: unless-stopped
+    depends_on: [sovereign-router-v05]
+    ports:
+      - "192.168.0.166:6075:6075"
+    volumes:
+      - /root/sovereign-router/data/v05/nginx.conf:/etc/nginx/nginx.conf:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:rw,size=8m
+      - /var/run:rw,size=1m
+      - /tmp:rw,size=8m
+    security_opt:
+      - no-new-privileges:true
+    networks: [sr05]
+
+networks:
+  sr05:
+    driver: bridge

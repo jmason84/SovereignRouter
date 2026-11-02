@@ -1,0 +1,400 @@
+[HEADING_1] Sovereign Router v0.5.3: Architecture, Specification and Implementation Plan
+
+[NORMAL_TEXT] Launch Collective | Owner: Jordan Mason | Drafted 2026-10-31, revision v0.5.3 | Status: PLAN FOR NEXT PHASE. Supersedes v0.5.2: adds the response to the v0.5.2 review (runaway protection, alert-chain heartbeat, premium alert level, provisional targets, streaming and secret-scan corrections, classifier gating, key hygiene). Nothing here is deployed. No secrets in this document.
+
+[HEADING_2] Summary
+
+[NORMAL_TEXT] Build v0.5 as one router for OpenClaw, Hermes and n8n that sends every request to the cheapest model able to do it well, and only pays when the task needs it. v0.5 merges the working pieces of v0.3.3 (free-first ordering, paid fallback, per-model rate limits, complexity routing) and v0.4 alpha (proper source tree, failover rules, privacy lanes), then adds four things the research says matter most: a local difficulty classifier that runs on VM103, output checks that escalate to a stronger model when a cheap answer is unusable, sticky routing inside an agent's tool loop, and a feedback loop that learns from our own traffic.
+
+[NORMAL_TEXT] The largest saving is in catching easy requests. RouterArena (ICLR 2026) found that routers mostly fall short of the ideal because they fail to send easy queries to cheap models. Our v0.3.3 rules have the same problem: any mention of Docker, Proxmox or backups marks a request complex, which describes most Hermes traffic. Fixing that comes first.
+
+[NORMAL_TEXT] Spending is not capped. A request is never refused because of cost; instead the router keeps costs down by choosing cheaper capable models, steering toward cheaper options when a client runs above its daily target, and alerting Jordan when spend is unusual. For a true runaway (a looping agent, a leaked key) the plan adds an emergency paid-lane switch set far above normal spend: when tripped it moves paid traffic to free models rather than refusing it, and Jordan decides whether it is on and at what level.
+
+[NORMAL_TEXT] The cost and free-share targets below are provisional. Phase 0 measures the real free, paid and difficulty-level split, and the targets are reset from that data before Phase 3.
+
+[NORMAL_TEXT] Target: at least 50% lower blended cost per request than production v0.2.1, with no increase in failed agent turns, and under 300 ms of added routing latency for most requests. Production v0.2.1 stays available as the rollback path until Jordan signs off on cutover.
+
+[HEADING_2] Changes in v0.5.3
+
+[NORMAL_TEXT] A review of v0.5.2 found the plan sound and the no-cap decision workable, with gaps in runaway protection, alert reliability, premium spend and some measurements. Each finding and its resolution:
+
+[TABLE]
+  ROW: Review finding || Change in this revision || Section
+  ROW: The runaway alarm is the only protection; its 7-day average is near zero in the first week and a slow leak never trips it || Fixed thresholds for the first 14 days, a projected-month alert, a 3-day trend alert, and an optional emergency paid-lane switch (owner decision) that moves paid traffic to free models instead of refusing it || Cost governor
+  ROW: Alerts can fail silently (router to n8n to Signal) || Pull model with a heartbeat: n8n polls the router, a daily all-clear message proves the chain end to end, email fallback when Signal fails, and the router flags missed polls in /health || Alert delivery and dead-man check
+  ROW: Premium has no alert level || Premium alert proposed at $20 per month plus a per-day premium request count alert; set before OpenClaw moves (Phase 3 entry condition) || Client policies, Phase 3
+  ROW: Client targets are a soft steer; a classifier that over-assigns level 4 spends freely || Level distribution is measured per client and alerted when level 4 and 5 exceed 40% of a client's requests for a day; above target, level 4 is held to the cheapest quality-4 model and premium needs an explicit request || Cost governor, Telemetry
+  ROW: 60% free is optimistic for Hermes; the 50% baseline compares different traffic || Targets made provisional and per client; cost is compared on the same traffic (shadow mode for OpenClaw, Phase 0 data for Hermes) || Success measures, Phase 3
+  ROW: Streamed tool-call arguments cannot be validated after the response is committed || Streamed tool calls are buffered to completion and validated; streamed text is only checked before the first content chunk, and the doc states that limit || Output validation
+  ROW: Secret scan will false-positive on hashes and IDs; sensitive-lane policy unclear || Known-format detectors instead of raw entropy, hashes and UUIDs excluded, log-only trial in Phase 0; sensitive requests go only to providers Jordan has cleared for sensitive data || Request pipeline, Phase 0
+  ROW: Arch-Router likely exceeds 1.5 s on 2 CPUs; 85% within one level is too lenient || Arch-Router runs in the request path only if the benchmark shows p95 under 1.2 s; otherwise it labels traffic offline for the learning loop. Acceptance now measures under-classification of levels 4 and 5 || Difficulty classifier, Phase 2
+  ROW: Production keys copied into the canary; Groq and Ollama rotation open since 2026-10-22 || Separate keys per environment with provider-side limits where offered, and the overdue rotation scheduled in Phase 0 || Deployment, Phase 0
+  ROW: Phase 0 adds more patches to v0.3.3 || Phase 0 limited to one patch revision of flag-controlled rule changes plus measurement; everything else waits for the v0.5 source tree || Phase 0
+[/TABLE]
+[HEADING_2] Goals, non-goals and success measures
+
+[HEADING_3] Goals
+
+[NORMAL_TEXT] One OpenAI-compatible endpoint for OpenClaw (VM102), Hermes (VM112) and n8n (CT100), each with its own key and policy.
+
+[NORMAL_TEXT] Route on cost and capability per request: free first for easy work, cheapest capable model for hard work, premium only where the client policy allows it.
+
+[NORMAL_TEXT] No spending caps: a request is never refused for budget reasons (Jordan, 2026-10-31). Costs are kept down by routing (free first, then the cheapest capable model), daily cost targets that steer model choice, and alerts.
+
+[NORMAL_TEXT] Keep prompts private: classification runs locally, logs never hold prompt text, and requests containing secrets stay on private lanes.
+
+[NORMAL_TEXT] Every decision explainable from the logs: which model, why, what was skipped, what it cost.
+
+[HEADING_3] Non-goals for v0.5
+
+[NORMAL_TEXT] Training a router model on GPUs (Router-R1 style). VM103 has no GPU and the gain does not justify the hardware.
+
+[NORMAL_TEXT] Multi-call strategies that split one request into several model calls (knnmultiroundrouter, cascades with a judge on every request). They raise cost and latency for agent tool loops.
+
+[NORMAL_TEXT] Image or audio generation, embeddings API for clients, fine-tuning.
+
+[HEADING_3] Success measures (checked in the 7-day soak; cost and free-share targets provisional until Phase 0 data)
+
+[TABLE]
+  ROW: Measure || Target || Source
+  ROW: Cost on the same traffic: OpenClaw v0.5 decisions vs v0.2.1 actual (shadow mode); Hermes v0.5 vs v0.3.3 Phase 0 baseline || 50% lower or better (provisional) || Shadow log and route logs
+  ROW: Share of requests served free, per client || Set from Phase 0 data; working figures: OpenClaw 60%, Hermes 30 to 40% (Groq cannot fit Hermes prompts and OpenRouter free shares about 1,000 requests a day) || Route log
+  ROW: Quality escalations (cheap answer rejected) || Under 8% of requests || Route log escalation field
+  ROW: Failed requests returned to clients (4xx/5xx other than auth) || Under 1% || Route log
+  ROW: Added routing latency || p50 under 300 ms, p95 under 1.5 s || Route log timing fields
+  ROW: Days over the daily cost target || Fewer than 2 in 7, with an alert each time || Route log and daily cost summary
+  ROW: Requests refused for budget reasons || Zero (by design; the emergency switch, if on, only refuses requests no free model can serve) || Route log
+  ROW: True level 4 and 5 requests classified at level 3 or below || Under 5% on the labeled test set and in sampled review || Classifier evaluation
+  ROW: Alert chain health || Daily all-clear received every day; no missed poll longer than 30 minutes || n8n heartbeat and router /health
+[/TABLE]
+[HEADING_2] Where we are today
+
+[TABLE]
+  ROW: Component || Version || Serves || State
+  ROW: Stack 10, port 6070 || v0.2.1 production || OpenClaw || Paid tiers (DeepInfra, Gemini, OpenAI, Anthropic) with a $3/day soft budget that is exceeded early most days. Rollback path; unchanged.
+  ROW: Stack 12, 127.0.0.1:6073 via proxy stack 13 (:6074) || v0.3.3 canary || Hermes || Since 2026-10-31: free first, paid fallback, keyword complexity routing, OpenRouter free models with data_collection=deny, DeepSeek V4 Flash paid lane, spend alerts at $10 (DeepInfra) and $5 (Ollama) per month with no spending caps, JSON route logs, 429 instead of 503.
+  ROW: Stack 14, no host port || v0.4.0-alpha.1 || Nobody || Free-only design, proper failover rules, idle.
+[/TABLE]
+[HEADING_3] Lessons that shape v0.5
+
+[NORMAL_TEXT] Agent requests are large. Hermes turns are 12k to 28k tokens, mostly system prompt and tool definitions. Groq free models (8k tokens per minute per model) can never serve them, and the router must skip such models instead of waiting.
+
+[NORMAL_TEXT] Tool definitions say nothing about difficulty. Hermes sends tools on every request, so "has tools" cannot mean "complex".
+
+[NORMAL_TEXT] Keyword rules over-classify. An infrastructure agent mentions infrastructure in almost every request.
+
+[NORMAL_TEXT] Free capacity runs out fast. Seventeen Hermes turns used Ollama's 400k daily token limit in five minutes on 2026-10-31, which caused the 503 incident.
+
+[NORMAL_TEXT] Free providers differ on privacy. The two strongest free OpenRouter models are only offered by providers that train on prompts; they stay off.
+
+[NORMAL_TEXT] Prompt caching changes the price. DeepInfra bills cached input at 20% of the normal rate, so keeping one agent conversation on one model lowers cost.
+
+[NORMAL_TEXT] Startup patches have reached their limit. v0.5 ships as a built image from a source tree with tests.
+
+[HEADING_2] Architecture
+
+[HEADING_3] Request pipeline
+
+[NORMAL_TEXT] Authenticate the client key (sha256 hashes in clients file) and load the client policy: default data class, allowed lanes, premium permission, daily cost target.
+
+[NORMAL_TEXT] Normalize the body: allowlisted fields, max_tokens clamp with a 2048 default, model aliases (auto, cheap, strong, premium, code, long), real model names mapped to aliases per client policy.
+
+[NORMAL_TEXT] Sensitivity scan: known-format detectors for credentials (provider key prefixes, cloud access keys, PEM private key blocks, bearer tokens, password and secret assignments), in the style of gitleaks rules rather than raw entropy. Plain hex hashes, UUIDs, container IDs and commit SHAs are excluded. A match raises the request to data class sensitive, which only providers Jordan has cleared for sensitive data may serve; if none is cleared, the request goes to the private lane with the strongest verified no-retention terms and the event is alerted. The match itself is never logged. Runs log-only in Phase 0 to measure the false-positive rate before it changes routing.
+
+[NORMAL_TEXT] Profile the request: estimated tokens, tools present, images, JSON mode, position in a tool loop, the last user message, and the explicit alias if any.
+
+[NORMAL_TEXT] Classify difficulty into a task class and a level from 1 to 5, with a confidence score (see Difficulty classifier).
+
+[NORMAL_TEXT] Sticky check: if this conversation already has a model and that model is still eligible and within its provider rate limits, reuse it.
+
+[NORMAL_TEXT] Select candidates: policy eligibility, capability, context and per-minute fit, then order by cost among models whose quality for the task class meets the required level.
+
+[NORMAL_TEXT] Cost governor: record estimated tokens and cost before the call against provider rate limits. When a client is above its daily cost target, prefer cheaper models for levels 1 to 3 by lowering the required quality one level. Spending never blocks a request; provider rate limits only move traffic to the next model.
+
+[NORMAL_TEXT] Execute with failover on 401, 403, 408, 413, 429, 5xx, timeouts and connection errors.
+
+[NORMAL_TEXT] Validate the answer and escalate one quality level when it is unusable (see Output validation).
+
+[NORMAL_TEXT] Stream or return the answer with route headers, finalize usage and cost, write the route log line.
+
+[HEADING_3] Difficulty classifier
+
+[NORMAL_TEXT] Three layers, cheapest first. Each layer only runs when the one before it is not confident.
+
+[TABLE]
+  ROW: Layer || Method || Cost and speed on VM103 || Decides
+  ROW: Rules || Explicit alias, prompt size, images, JSON mode, plus keyword groups that only count together: an infrastructure term raises the level only when combined with a change verb (deploy, migrate, delete, restore, rotate) or a diagnosis verb (debug, fix, why, root cause). || Under 1 ms || Clear cases: explicit alias, greetings and formatting, very long asks, obvious production changes.
+  ROW: Embedding nearest-match || A small local embedding model (bge-small or all-MiniLM class, about 30M parameters) embeds the last user message, truncated to 1,500 characters, and compares it with a bank of labeled examples. Majority vote over the closest 7 gives a task class and level with confidence. || About 20 to 50 ms on CPU (to be benchmarked) || Most requests.
+  ROW: Local router model || Arch-Router-1.5B (quantized GGUF via llama.cpp) with our routes described in plain English. Input limited to the last user message and route descriptions, about 400 tokens. || Estimated 1 to 3 s on 2 CPUs. In the request path only if the Phase 2 benchmark shows p95 under 1.2 s; otherwise it runs offline after the fact. || Ambiguous requests (in path), or labels and audits for the learning loop (offline).
+[/TABLE]
+[NORMAL_TEXT] If the classifier sidecar is down or slow (over 1.5 s), the gateway falls back to the rules layer and logs it. Routing never waits on the classifier beyond that limit. When the classifier is uncertain between two levels, it picks the higher one for levels 3 to 5, because under-classifying a hard task costs more in failed work than the price difference.
+
+[NORMAL_TEXT] The example bank starts with about 150 hand-written examples covering typical Hermes and OpenClaw work and grows from production outcomes in phase 4. It stores embeddings and labels, not prompt text.
+
+[HEADING_3] Difficulty levels and routing rules
+
+[TABLE]
+  ROW: Level || Meaning || Examples || Required model quality || Typical choice
+  ROW: 1 Trivial || Chat, formatting, short lookups || "Say hello", "turn this into a bullet list" || 2 || Free small (Groq gpt-oss-20b) or any free model that fits
+  ROW: 2 Routine || Single-step tasks with clear instructions || Summarize a log, status check, read a file and report || 3 || Free large (Groq gpt-oss-120b for small prompts, OpenRouter free for big ones)
+  ROW: 3 Moderate || One change or one diagnosis with tools || Restart a container, explain an error, write a short script || 3, prefer 4 if free || Best free model that fits, else cheapest paid
+  ROW: 4 Complex || Multi-step work, debugging, planning, code changes || Migrate a stack, find a root cause, refactor || 4 || Cheapest quality-4 model (DeepSeek V4 Flash today)
+  ROW: 5 Critical || Production or security changes, architecture, explicit premium || Firewall or credential changes, cutover plans || 5 || Premium lane if the client policy allows it, else the best quality-4 model
+[/TABLE]
+[NORMAL_TEXT] The client can override with an alias (cheap, strong, premium) or the header X-Sovereign-Level. Overrides are logged.
+
+[HEADING_3] Sticky routing in agent tool loops
+
+[NORMAL_TEXT] An agent turn often spans many requests: the model calls a tool, the agent returns the result, the model continues. Switching models inside that loop wastes the provider's prompt cache and can break tool-call formats. v0.5 keys each conversation by client plus a hash of the first user message and system prompt, keeps the chosen model for 30 minutes of activity, and only switches when that model fails, hits a provider rate limit, or the level of a new user message is higher. The key is a hash; no prompt text is stored.
+
+[HEADING_3] Output validation and escalation
+
+[NORMAL_TEXT] Checks run on non-streamed answers and on the first chunks of streamed ones before the response is committed to the client:
+
+[NORMAL_TEXT] Empty answer with no tool call.
+
+[NORMAL_TEXT] finish_reason "length" with no usable content.
+
+[NORMAL_TEXT] Tool call whose arguments are not valid JSON, or whose function name is not in the request's tool list.
+
+[NORMAL_TEXT] JSON mode requested and the content does not parse.
+
+[NORMAL_TEXT] On failure the router retries once on the next candidate with quality one level higher, logs an escalation, and counts it against the original model's score for that task class.
+
+[NORMAL_TEXT] Streaming: when a streamed answer is a tool call, the router buffers the tool-call chunks until the call is complete (these are short), validates the arguments and only then sends them, so a malformed call can still be escalated. When a streamed answer is text, the router commits at the first content chunk; after that only the empty-answer and length checks can be logged, not escalated. Agents that need every answer validated can request non-streamed responses.
+
+[HEADING_3] Cost governor
+
+[NORMAL_TEXT] Spending is not capped. The governor keeps costs down by steering, and tells Jordan when spend is unusual.
+
+[NORMAL_TEXT] Per provider account: the provider's real rate limits (minute and day request and token windows) stay in the quota store. Reaching one moves traffic to the next model. Each paid provider has a monthly spend alert (DeepInfra $10, Ollama $5 today), which notifies but does not block. This is already live on the v0.3.3 canary as a logged spend_alert event.
+
+[NORMAL_TEXT] Per client: a daily cost target, not a cap. Above the target the router prefers cheaper models for levels 1 to 3, holds level 4 to the cheapest quality-4 model, allows premium only on an explicit request, and sends one alert that day.
+
+[NORMAL_TEXT] Level mix: when level 4 and 5 make up more than 40% of a client's requests in a day, the router alerts, because that usually means the classifier is over-assigning hard levels.
+
+[NORMAL_TEXT] Runaway alarm, hourly: during the first 14 days (no reliable history yet) it fires on fixed thresholds: paid spend over $0.50 in an hour, or a client over 2 times its daily target. After 14 days it fires when an hour exceeds 5 times the trailing 7-day hourly average, with a $1 minimum. It does not stop traffic.
+
+[NORMAL_TEXT] Slow-leak alarms: a projected-month alert when month-to-date spend extrapolates above the sum of the provider alert levels, and a trend alert when daily paid spend rises for 3 days in a row and ends above the client's target.
+
+[NORMAL_TEXT] Emergency paid-lane switch (owner decision, proposed on at $25 per day across all paid lanes, about 8 times today's production spend): when total paid spend for the day crosses it, paid and premium lanes are switched off until Jordan clears it or the day ends, and traffic moves to free models. Requests are still served where a free model fits; large requests that only paid models can serve get 429 with the reason. Jordan can raise, lower or disable it. This is the only mechanism that can limit spending, and it exists for runaways only.
+
+[NORMAL_TEXT] Manual kill switch per client from the admin endpoint, off by default.
+
+[NORMAL_TEXT] Estimated cost is recorded before the call and corrected to actual usage afterwards, including cached-token pricing.
+
+[HEADING_3] Alert delivery and dead-man check
+
+[NORMAL_TEXT] Pull, not push: an n8n workflow polls GET /admin/costs every 15 minutes and sends any new alerts to Signal. The router does not depend on n8n being reachable to keep serving.
+
+[NORMAL_TEXT] Daily all-clear: every day at 08:10 Mountain time the workflow sends a Signal message with the cost summary (spend by client, provider and level, free share, alerts raised). A missing message means the chain is broken, which Jordan can notice without any other tool.
+
+[NORMAL_TEXT] Fallback: if a Signal send fails, the same message goes by email through the registered mailbox connector.
+
+[NORMAL_TEXT] The router records the time of the last poll and reports the alert chain as degraded in /health when no poll has arrived for 30 minutes, so the gap is visible to Portainer health checks and the next poll.
+
+[HEADING_3] Telemetry and learning loop
+
+[NORMAL_TEXT] Each request writes one JSON route line: time, client, level, task class, classifier layer and confidence, chosen model, skipped models with reasons, escalations, latency split (classify, queue, upstream), token usage, cost. Never prompt or response text.
+
+[NORMAL_TEXT] Outcome signals recorded per request: escalation, upstream failure, the same request repeated by the client within 60 seconds (likely retry), and a tool-error result in the next turn of a sticky conversation. A nightly job turns these into per-model, per-task-class quality scores and proposes registry changes for owner approval.
+
+[NORMAL_TEXT] Optional, owner decision: a 2% sample of internal-class requests judged by a strong model for answer quality, expected to cost about $1 per month. The judge sees prompt text, so it is off unless approved.
+
+[HEADING_2] Model registry v2
+
+[NORMAL_TEXT] Extends the v0.3 and v0.4 schema. New fields:
+
+[NORMAL_TEXT] lane: private-free, public-only-free, paid, premium.
+
+[NORMAL_TEXT] quality: a map of task class to score 1 to 5 (chat, infra, code, reasoning, long-context), seeded by hand and updated from outcomes after approval.
+
+[NORMAL_TEXT] cached_input_usd_per_million and latency_p50_ms.
+
+[NORMAL_TEXT] spend_alert_usd: monthly alert level for paid entries (replaces the blocking monthly cap).
+
+[NORMAL_TEXT] extra_body: provider-specific fields such as OpenRouter's data_collection=deny.
+
+[NORMAL_TEXT] probe: a small test request run weekly; failure marks the entry candidate until re-verified.
+
+[HEADING_3] Starting model set
+
+[TABLE]
+  ROW: Model || Lane || Price in/out per 1M || Context || Starting quality || Notes
+  ROW: Groq openai/gpt-oss-20b || private-free || $0 || 131k (8k tokens/min) || 2 || Small prompts only
+  ROW: Groq openai/gpt-oss-120b || private-free || $0 || 131k (8k tokens/min) || 4 || Small prompts only
+  ROW: Groq qwen/qwen3.8-27b || private-free || $0 || 131k (8k tokens/min) || 3 || Small prompts only
+  ROW: OpenRouter cohere/north-mini-code:free || private-free (deny collection) || $0 || 256k || 3 || About 1,000 requests/day shared
+  ROW: OpenRouter dots-studio/dots-3-note-preview:free || private-free (deny collection) || $0 || 512k || 3 || Preview model, re-probe weekly
+  ROW: DeepInfra deepseek-ai/DeepSeek-V4-Flash || paid || $0.09 / $0.18 || 262k configured || 4 to 5 || Spend alert at $10/month (no cap), cached input 20%
+  ROW: Ollama Cloud gpt-oss:120b || paid || $0.15 / $0.60 || 131k || 4 || Spend alert at $5/month (no cap); daily request and token limits match the Ollama Cloud plan
+  ROW: Premium lane (carried from v0.2.1) || premium || Per model || Per model || 5 || Only for level 5 or explicit premium, clients with premium permission, own spend alert
+[/TABLE]
+[HEADING_2] Client policies
+
+[TABLE]
+  ROW: Client || Default data class || Lanes || Premium || Daily cost target (alert and steer, not a cap)
+  ROW: Hermes (VM112) || internal || private-free, paid || No (proposed) || $1 (proposed)
+  ROW: OpenClaw (VM102) || internal || private-free, paid, premium || Yes, level 5 or explicit request (proposed) || $3 (proposed)
+  ROW: n8n (CT100) || internal || private-free, paid || No || $0.50 (proposed)
+[/TABLE]
+[NORMAL_TEXT] Premium spend for OpenClaw has its own alerts: a monthly premium alert (proposed $20) and a daily premium request count alert (proposed more than 20 premium requests in a day). Every premium response carries its cost estimate in X-Sovereign-Cost-Estimate. Both levels are set by Jordan before OpenClaw moves to v0.5.
+
+[HEADING_2] Interfaces
+
+[NORMAL_TEXT] POST /v1/chat/completions (JSON and SSE streaming, tools, JSON mode, vision where the model supports it).
+
+[NORMAL_TEXT] GET /v1/models lists the aliases. GET /health. GET /v1/quota and GET /v1/usage scoped to the caller's key.
+
+[NORMAL_TEXT] Admin key only: POST /admin/reload (registry, clients, policies, example bank), GET /admin/routes (decision statistics for the last 24 hours), GET /admin/costs (spend by client, provider and level) and POST /admin/killswitch (optional per-client stop, off by default).
+
+[NORMAL_TEXT] Response headers: X-Sovereign-Model, X-Sovereign-Level, X-Sovereign-Task, X-Sovereign-Lane, X-Sovereign-Cost-Estimate, X-Sovereign-Escalated.
+
+[NORMAL_TEXT] Error contract: 429 with Retry-After and skip reasons only when every candidate is rate-limited by its provider or failing; 413 only when no eligible model can ever fit; 403 for lanes the client may not use.
+
+[HEADING_2] Deployment
+
+[NORMAL_TEXT] One Portainer stack on VM103 with two containers on an internal network: the gateway, and a classifier sidecar running llama.cpp server with Arch-Router-1.5B (Q8 GGUF, about 1.7 GB) and the small embedding model. Sidecar limits: 3 GB memory, 2 CPUs.
+
+[NORMAL_TEXT] VM103 capacity checked 2026-10-31: 16 GB RAM with about 14 GB available, 4 cores (Xeon E-2246G, AVX2), 37 GB free disk. Enough for the sidecar alongside the existing stacks.
+
+[NORMAL_TEXT] LAN port 6075 behind nginx, allowing only VM102, VM112 and CT100. The gateway itself binds to the internal network.
+
+[NORMAL_TEXT] Gateway image sovereign-router:v0.5.x built from a source tree with tests, pushed to the local registry on CT100 (192.168.0.28). No startup patches.
+
+[NORMAL_TEXT] Keys per environment: the canary and v0.5 get their own provider keys instead of copies of production keys, with provider-side spend limits set high where a provider offers them (OpenRouter keys support a credit limit). Production keys stay only in production.
+
+[NORMAL_TEXT] Hardening carried forward: read-only root filesystem, cap_drop ALL, no-new-privileges, memory, CPU and PID limits, no Docker socket. Provider keys in mode-600 files in the state directory, read at start, never in compose, registry, Drive or logs.
+
+[HEADING_2] Implementation plan
+
+[HEADING_3] Phase 0: measure and fix the obvious (on v0.3.3, 3 to 5 days)
+
+[NORMAL_TEXT] Limited to one patch revision of v0.3.3, with every rule change behind a flag that can be switched off in the registry. Anything larger waits for the v0.5 source tree.
+
+[NORMAL_TEXT] Collect 3 to 5 days of route logs and report, per client, the free and paid split, the difficulty-level distribution, escalations and cost per request. This sets the real targets.
+
+[NORMAL_TEXT] Replace "infrastructure keyword means complex" with the combined keyword and verb rule (flagged).
+
+[NORMAL_TEXT] Sensitivity scan in log-only mode: count matches and review a sample for false positives; no routing change yet.
+
+[NORMAL_TEXT] Output checks for malformed tool calls and length cut-offs (flagged).
+
+[NORMAL_TEXT] Alert chain: n8n polling workflow, Signal delivery, email fallback and the daily all-clear.
+
+[NORMAL_TEXT] Key hygiene: rotate the Groq and Ollama keys (open since 2026-10-22, owner action at the provider), and create separate canary keys for OpenRouter and DeepInfra so the canary no longer uses copies of production keys.
+
+[NORMAL_TEXT] Acceptance: a Phase 0 report with the measured split and level distribution; paid share of Hermes requests falls with no rise in failed turns; at least 3 consecutive daily all-clear messages received. Rollback: previous patch file and registry from /appdata backups.
+
+[HEADING_3] Phase 1: v0.5 core (about 1 week of build and test)
+
+[NORMAL_TEXT] Single source tree merging v0.3.3 routing and quotas with v0.4 alpha failover and lanes. Registry v2, client policies, cost governor with targets and alerts, sticky routing, route headers, admin endpoints.
+
+[NORMAL_TEXT] Test suite: v0.2.1 style end-to-end tests against mock upstreams, v0.4 failover matrix, concurrency and rate-limit tests, agent-shaped requests (no custom headers, 8 to 150 KB prompts, tool round trips, streaming tools, JSON mode).
+
+[NORMAL_TEXT] Acceptance: all tests pass; image built and stored in the local registry.
+
+[HEADING_3] Phase 2: classifier sidecar (3 to 5 days)
+
+[NORMAL_TEXT] Deploy llama.cpp server with Arch-Router-1.5B and the embedding model. Benchmark on VM103 with the sidecar's 2 CPUs: embedding path p50 under 50 ms; Arch-Router goes in the request path only if p95 is under 1.2 s on 400-token inputs, otherwise it runs offline as a labeler.
+
+[NORMAL_TEXT] Write the route descriptions and the first 150 labeled examples, plus a held-out set of 80 drawn from Phase 0 traffic patterns. Acceptance: exact level match 70% or better, and true level 4 and 5 requests classified at level 3 or below under 5%.
+
+[NORMAL_TEXT] Review the Katanemo license for Arch-Router before deployment. Fallback if unsuitable: a Qwen 1.5B to 3B instruct model with the same prompt (as in alexrudloff/llmrouter).
+
+[HEADING_3] Phase 3: canary with real traffic (2 weeks)
+
+[NORMAL_TEXT] Week 1: Hermes moves from v0.3.3 to v0.5 (new key, port 6075). v0.3.3 stays running for rollback.
+
+[NORMAL_TEXT] Shadow mode for OpenClaw: OpenClaw keeps using production v0.2.1, and v0.5 receives a decision-only copy of each request profile (no upstream call) to log what it would have chosen and cost. This shows savings before OpenClaw is moved.
+
+[NORMAL_TEXT] Week 2: OpenClaw moves to v0.5 with premium permission, once the premium alert levels are set and shadow mode shows lower cost on the same traffic. n8n follows.
+
+[NORMAL_TEXT] 7-day soak with daily review of route logs against the success measures.
+
+[HEADING_3] Phase 4: learning loop (after 2 to 4 weeks of data)
+
+[NORMAL_TEXT] Nightly job computes per-model, per-task-class quality from outcome signals and proposes registry updates.
+
+[NORMAL_TEXT] Grow the example bank from logged embeddings with outcome labels; evaluate an LLMRouter-style nearest-match or matrix-factorization router trained on our data against the current classifier.
+
+[NORMAL_TEXT] Optional judged sample if approved.
+
+[HEADING_3] Phase 5: production cutover (owner decision)
+
+[NORMAL_TEXT] Written go/no-go from Jordan after the soak report.
+
+[NORMAL_TEXT] Production endpoint switches to v0.5. v0.2.1 stays deployed but idle for 30 days as rollback, then is retired.
+
+[HEADING_2] Testing and acceptance criteria
+
+[NORMAL_TEXT] Auth, validation and lane-permission matrix tested live.
+
+[NORMAL_TEXT] Failover against a real second provider for 429, 5xx and timeout; provider rate limits never exceeded under concurrent load; no request refused for budget reasons; spend and runaway alerts reach Signal.
+
+[NORMAL_TEXT] Escalation path proven with a model forced to return empty or malformed tool calls.
+
+[NORMAL_TEXT] Sticky routing keeps one model across a 10-step tool loop and switches when that model is rate-limited or failing.
+
+[NORMAL_TEXT] No prompt or response text in any log, ledger or database (grep check on state directory and container logs).
+
+[NORMAL_TEXT] Real OpenClaw, Hermes and n8n traffic through the canary; 7-day soak meets the success measures.
+
+[HEADING_2] Risks and mitigations
+
+[TABLE]
+  ROW: Risk || Mitigation
+  ROW: Classifier sends a hard task to a weak model || Output checks with escalation, conservative thresholds, client override header, quality scores updated from outcomes
+  ROW: Free models disappear or change terms || verified_until expiry, weekly probe job, data_collection=deny on OpenRouter, paid fallback always configured
+  ROW: Classifier adds latency or fails || 1.5 s limit with fallback to rules; sidecar health in /health
+  ROW: Spending surprises (no caps by design) || Cost-first routing, per-client daily targets that steer to cheaper models, per-provider and premium spend alerts, hourly runaway alarm with fixed thresholds in the first 14 days, projected-month and trend alerts, optional emergency paid-lane switch, manual kill switch
+  ROW: Alerts fail silently || Pull-based polling, daily all-clear message, email fallback, degraded alert chain shown in /health
+  ROW: Classifier over-assigns hard levels and spend rises || Level-mix alert at 40% level 4 and 5, level 4 held to the cheapest quality-4 model above target, premium only on explicit request above target
+  ROW: Classifier under-assigns hard levels and quality drops || Ties go to the higher level for levels 3 to 5, under-classification measured in Phase 2 and sampled in production, output-check escalation
+  ROW: Secret scan reroutes normal infrastructure text || Known-format detectors, hashes and IDs excluded, log-only trial in Phase 0 before it affects routing
+  ROW: Secrets sent to a provider that keeps data || Sensitivity scan forces private lanes; nothing cleared for sensitive on free public lanes
+  ROW: Key exposure || Keys only in mode-600 files; separate keys per environment; rotation by overwriting the file and restarting; Groq and Ollama rotation scheduled in Phase 0
+[/TABLE]
+[HEADING_2] Rollback
+
+[NORMAL_TEXT] Phase 0: restore the previous registry and patch file from /appdata backups and redeploy the previous stack 12 compose.
+
+[NORMAL_TEXT] Phases 1 to 3: point the client back at v0.3.3 (Hermes) or v0.2.1 (OpenClaw) by changing its base URL and key; delete or stop the v0.5 stack.
+
+[NORMAL_TEXT] Phase 5: switch the production endpoint back to v0.2.1, which stays deployed for 30 days.
+
+[NORMAL_TEXT] VM level: Proxmox snapshot of VM103 before each phase deployment.
+
+[HEADING_2] Decisions needed from Jordan
+
+[NORMAL_TEXT] Emergency paid-lane switch: on or off, and the daily level (proposed on at $25 per day across paid lanes). It is the only mechanism that limits spending and is meant for runaways only.
+
+[NORMAL_TEXT] Which premium models OpenClaw keeps (from the v0.2.1 premium tier), the premium monthly alert (proposed $20) and the daily premium request alert (proposed 20). Needed before Phase 3 week 2.
+
+[NORMAL_TEXT] Which providers are cleared for sensitive data (secrets in prompts). Until one is cleared, such requests go to the private lane with the strongest verified no-retention terms and raise an alert.
+
+[NORMAL_TEXT] Client daily cost targets and runaway thresholds (proposed above). Spending itself is not capped (decided 2026-10-31).
+
+[NORMAL_TEXT] Whether to allow the 2% judged quality sample.
+
+[NORMAL_TEXT] Arch-Router licence acceptance, or use the Qwen fallback.
+
+[NORMAL_TEXT] Whether n8n joins in phase 3 or later.
+
+[HEADING_2] References
+
+[NORMAL_TEXT] RouterArena: An Open Platform for Comprehensive Comparison of LLM Routers (ICLR 2026)
+
+[NORMAL_TEXT] Arch-Router-1.5B (Katanemo)
+
+[NORMAL_TEXT] ulab-uiuc/LLMRouter and router families documentation
+
+[NORMAL_TEXT] alexrudloff/llmrouter (local classifier with difficulty tiers)
+
+[NORMAL_TEXT] ypollak2/llm-router (secrets routed to local models)
+
+[NORMAL_TEXT] bluefunda/llmrouter (rating policy, circuit breakers)
+
+[NORMAL_TEXT] lm-sys/RouteLLM and vLLM Semantic Router
+
+[NORMAL_TEXT] Internal: v0.4 Technical Specification (draft), ACTION LOG 2026-10-31 (v0.3.3 canary) and its addendum (paid caps changed to alerts), v0.5 first draft and v0.5.2, review of v0.5.2 (2026-10-31)

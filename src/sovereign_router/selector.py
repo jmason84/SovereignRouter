@@ -19,6 +19,8 @@ class Profile:
     tool_loop: bool = False
     data_class: str = "internal"
     explicit_premium: bool = False
+    over_target: bool = False  # client is above its daily cost target
+    sensitive_fallback: bool = False  # no provider cleared for sensitive: use no_retention lanes
 
 
 @dataclass
@@ -45,8 +47,12 @@ def select(models: list[Model], policy, profile: Profile, level: int, task: str,
             why = "premium not requested/permitted"; sel.policy_blocked += 1
         elif backstop_blocked and not m.is_free:
             why = "global backstop: paid lanes off today"
-        elif data_rank(m.max_data_class) < data_rank(profile.data_class):
+        elif profile.sensitive_fallback and not (m.no_retention and m.lane == "private-free"):
+            why = "sensitive fallback: needs verified no-retention private lane"; sel.policy_blocked += 1
+        elif (not profile.sensitive_fallback) and data_rank(m.max_data_class) < data_rank(profile.data_class):
             why = f"not cleared for {profile.data_class} data"; sel.policy_blocked += 1
+        elif m.lane == "premium" and profile.over_target and not profile.explicit_premium:
+            why = "over daily target: premium needs an explicit request"; sel.policy_blocked += 1
         elif profile.has_tools and not m.supports_tools:
             why = "no tool support"; sel.policy_blocked += 1
         elif profile.has_images and not m.supports_vision:
@@ -67,7 +73,7 @@ def select(models: list[Model], policy, profile: Profile, level: int, task: str,
     def cost(m):
         return m.est_cost(profile.est_tokens, profile.max_tokens)
 
-    want_premium = policy.premium and (level >= 5 or profile.explicit_premium)
+    want_premium = policy.premium and (profile.explicit_premium or (level >= 5 and not profile.over_target))
     # Level 5 / explicit premium: the premium lane leads when the client may use it (v0.5.2 level table).
     good = sorted((m for m in ok if m.q(task) >= required),
                   key=lambda m: (0 if (want_premium and m.lane == "premium") else 1, cost(m), -m.q(task)))

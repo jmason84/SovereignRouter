@@ -40,6 +40,7 @@ class Ctx:
     skips: dict = field(default_factory=dict)
     classify_ms: float = 0.0
     steered: bool = False
+    sensitive_fallback_used: bool = False
 
 
 @dataclass
@@ -52,10 +53,11 @@ class Outcome:
 
 class Engine:
     def __init__(self, registry, store, http, governor, sticky, *, sidecar=None, default_max_tokens=2048,
-                 max_tokens_cap=16384):
+                 max_tokens_cap=16384, secret_scan="enforce"):
         self.registry, self.store, self.http = registry, store, http
         self.governor, self.sticky, self.sidecar = governor, sticky, sidecar
         self.default_max, self.max_cap = default_max_tokens, max_tokens_cap
+        self.secret_scan = secret_scan  # enforce | log-only | off
 
     # --- 1-5: normalize, scan, profile, classify -----------------------------
     async def prepare(self, policy, raw: dict, headers: dict) -> Ctx:
@@ -82,7 +84,10 @@ class Engine:
             data_class = hdr  # a header may raise sensitivity, never lower it
         key = conversation_key(policy.name, msgs)
         prior = self.sticky.get(key)
-        if contains_secret(messages_text(msgs)) or (prior and prior.sensitive):
+        hit = self.secret_scan != "off" and contains_secret(messages_text(msgs))
+        if hit:
+            self.store.set_meta("secret_scan_hits", str(int(self.store.get_meta("secret_scan_hits") or 0) + 1))
+        if (hit and self.secret_scan == "enforce") or (prior and prior.sensitive):
             data_class = "sensitive"
 
         size = len(json.dumps({"m": msgs, "t": body.get("tools")}))
@@ -112,14 +117,24 @@ class Engine:
         ctx = Ctx(policy, body, bool(body.get("stream")), profile, cls, REQUIRED_QUALITY[cls.level], key, name)
         ctx.classify_ms = (time.perf_counter() - t0) * 1000
         ctx.required, ctx.steered = self.governor.adjust_required_quality(policy, cls.level, ctx.required)
+        profile.over_target = ctx.steered
         return ctx
 
     # --- 6-10: select, execute, validate, escalate ---------------------------
     def _select(self, ctx: Ctx, required: int, tried: set):
         prior = self.sticky.get(ctx.key)
-        return select(self.registry.usable(), ctx.policy, ctx.profile, ctx.cls.level, ctx.cls.task, required,
-                      store=self.store, backstop_blocked=self.governor.paid_blocked_by_backstop(),
-                      preferred=prior.model_id if prior else None, exclude=tried)
+        kw = dict(store=self.store, backstop_blocked=self.governor.paid_blocked_by_backstop(),
+                  preferred=prior.model_id if prior else None, exclude=tried)
+        sel = select(self.registry.usable(), ctx.policy, ctx.profile, ctx.cls.level, ctx.cls.task, required, **kw)
+        if (ctx.profile.data_class == "sensitive" and not sel.ordered and not ctx.profile.sensitive_fallback
+                and sel.policy_blocked and not any(m.max_data_class == "sensitive" for m in self.registry.usable())):
+            # Nobody is cleared for sensitive data: use the strongest verified no-retention private lane
+            # and raise an alert (v0.5.3) instead of refusing.
+            ctx.profile.sensitive_fallback = True
+            sel = select(self.registry.usable(), ctx.policy, ctx.profile, ctx.cls.level, ctx.cls.task, required, **kw)
+            if sel.ordered:
+                ctx.sensitive_fallback_used = True
+        return sel
 
     async def execute(self, ctx: Ctx) -> Outcome:
         tried: set = set()
@@ -172,6 +187,21 @@ class Engine:
                 return Outcome(m, self._headers(ctx, m, est_cost, escalated), json=data)
         raise self._failure(ctx, last_sel)
 
+    def shadow(self, ctx: Ctx) -> dict:
+        """Decision-only: what would v0.5 do with this request, and at what estimated cost. Makes no
+        upstream call and writes nothing to the usage ledger."""
+        sel = self._select(ctx, ctx.required, set())
+        top = sel.ordered[0] if sel.ordered else None
+        est = top.est_cost(ctx.profile.est_tokens, ctx.profile.max_tokens) if top else None
+        route_log.info(json.dumps({
+            "event": "shadow", "ts": time.time(), "client": ctx.policy.name, "level": ctx.cls.level,
+            "task": ctx.cls.task, "classifier": ctx.cls.layer, "model": top.id if top else None,
+            "paid": bool(top and not top.is_free), "est_tokens": ctx.profile.est_tokens,
+            "cost_estimate": est, "skipped": sel.skips}))
+        return {"model": top.id if top else None, "lane": top.lane if top else None, "level": ctx.cls.level,
+                "task": ctx.cls.task, "classifier": ctx.cls.layer, "cost_estimate_usd": est,
+                "est_tokens": ctx.profile.est_tokens, "skipped": sel.skips}
+
     def _failure(self, ctx: Ctx, sel) -> EngineError:
         skips = dict(ctx.skips)
         if sel is None or not sel.ordered and sel.rate_limited == 0 and not skips:
@@ -191,8 +221,12 @@ class Engine:
         else:
             cost = est_cost
             self.store.finalize(rid, est_in, cost)
-        if cost > 0:
-            await self.governor.after_call(ctx.policy, m)
+        await self.governor.after_call(ctx.policy, m)
+        if ctx.sensitive_fallback_used:
+            await self.governor.alerter.send(
+                "sensitive_fallback", f"sensitive:{ctx.policy.name}:{self.store.clock() // 3600:.0f}",
+                f"A request containing a detected secret from {ctx.policy.name} was served by {m.id} because no "
+                "provider is cleared for sensitive data.", {"client": ctx.policy.name, "model": m.id})
         return cost
 
     def _remember(self, ctx, m):

@@ -81,14 +81,22 @@ def classify_rules(text: str, *, alias: str | None = None, header_level: int | N
     return Classification(level, task, conf, "rules", why)
 
 
-async def classify(text: str, *, sidecar=None, timeout: float = 1.5, threshold: float = 0.6, **kw) -> Classification:
+def resolve_tie(a: Classification, b: Classification) -> Classification:
+    """When two layers disagree by one level and either is 3-5, take the higher: under-classifying a
+    hard task costs more in failed work than the price difference (v0.5.3)."""
+    if a.level != b.level and abs(a.level - b.level) == 1 and max(a.level, b.level) >= 3:
+        return a if a.level > b.level else b
+    return b
+
+
+async def classify(text: str, *, sidecar=None, timeout: float = 1.2, threshold: float = 0.6, **kw) -> Classification:
     base = classify_rules(text, **kw)
     if base.confidence >= threshold or sidecar is None:
         return base
     try:
         out = await asyncio.wait_for(sidecar(text), timeout)
         if out is not None:
-            return out
+            return resolve_tie(base, out)
     except Exception:  # sidecar down/slow: rules decision stands
         return Classification(base.level, base.task, base.confidence, "fallback", "sidecar unavailable")
     return base

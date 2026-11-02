@@ -16,23 +16,30 @@ def test_concurrent_reservations_never_exceed_limit():
     assert sum(1 for g in got if g) == 5
 
 
-async def test_alert_retried_after_webhook_failure_then_deduped():
-    store, state = Store(), {"up": False, "posts": 0}
+async def test_alert_outbox_dedupes_and_is_pulled(client):
+    a = client.app.state.alerter
+    assert await a.send("x", "k1", "msg") is True
+    assert await a.send("x", "k1", "msg") is False  # deduped by key
+    r = await client.get("/admin/alerts", headers=auth("admin"))
+    assert [x["key"] if "key" in x else x["kind"] for x in r.json()["alerts"]] == ["x"]
+    last = r.json()["alerts"][-1]["id"]
+    assert (await client.get(f"/admin/alerts?after={last}", headers=auth("admin"))).json()["alerts"] == []
 
-    def hook(req):
-        state["posts"] += 1
-        return httpx.Response(200 if state["up"] else 500)
-    a = Alerter(store, "http://n8n.test/hook", httpx.AsyncClient(transport=httpx.MockTransport(hook)))
-    assert await a.send("x", "k1", "msg") is False and a.failures == 1
-    state["up"] = True
-    assert await a.send("x", "k1", "msg") is True  # retried, delivered
-    assert await a.send("x", "k1", "msg") is True  # deduped
-    assert state["posts"] == 2 and a.health()["last_ok"]
+
+async def test_health_degrades_without_polls_and_recovers(client, clock):
+    assert (await client.get("/health")).json()["alert_chain"]["status"] == "ok"
+    clock.t += 31 * 60
+    h = (await client.get("/health")).json()
+    assert h["status"] == "degraded" and h["alert_chain"]["status"] == "degraded"
+    await client.get("/admin/costs", headers=auth("admin"))  # an n8n poll
+    assert (await client.get("/health")).json()["status"] == "ok"
 
 
 async def test_runaway_and_provider_alerts_do_not_block(client, upstream, clock):
     sent = []
-    client.app.state.alerter.send = lambda kind, key, msg, data=None: sent.append(kind) or asyncio.sleep(0, True)
+    async def rec(kind, key, msg, data=None):
+        sent.append(kind); return True
+    client.app.state.alerter.send = rec
     upstream.handlers["di"] = lambda req, body: httpx.Response(200, json=completion(usage=(120_000_000, 0, 0)))
     big = {"messages": [{"role": "system", "content": "context line " * 4000},
                         {"role": "user", "content": "migrate the docker stack"}]}
@@ -42,7 +49,7 @@ async def test_runaway_and_provider_alerts_do_not_block(client, upstream, clock)
 
 
 async def test_backstop_turns_paid_lanes_off_but_not_free(make_app, upstream):
-    app = make_app(); gov = app.state.governor; gov.backstop = 1.0
+    app = make_app(); gov = app.state.governor; gov.set_backstop(1.0)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://r") as c:
         m = app.state.engine.registry.get("deepseek")
         rid = app.state.store.reserve(m, "hermes", 4, 10, 2.0); app.state.store.finalize(rid, 10, 2.0)

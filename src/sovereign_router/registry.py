@@ -37,6 +37,9 @@ class Model:
     supports_json: bool = True
     supports_vision: bool = False
     bytes_per_token: float = 3.5
+    no_retention: bool = False  # verified no-retention/no-training terms (sensitive fallback lane)
+    latency_p50_ms: int | None = None
+    probe: dict | None = None  # weekly probe request; failure marks the entry candidate
 
     @property
     def is_free(self) -> bool:

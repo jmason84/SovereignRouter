@@ -1,44 +1,35 @@
-"""Alerts to an n8n webhook (which forwards to Signal).
-
-A failed delivery is NOT marked as sent, so it is retried on the next check,
-and the failure is counted and exposed on /health. `heartbeat()` is the
-dead-man signal: if the daily summary stops arriving, the chain is broken."""
+"""Alert outbox. Pull model (v0.5.3): alerts are stored, and an n8n workflow polls
+GET /admin/alerts (and /admin/costs) every 15 minutes and forwards them to Signal.
+The router never depends on n8n being reachable. Every poll is timestamped, and
+/health reports the chain as degraded when no poll has arrived for 30 minutes."""
 from __future__ import annotations
 
+import json
 import logging
-import time
-
-import httpx
 
 log = logging.getLogger("sovereign.alerts")
+POLL_STALE_SECONDS = 30 * 60
 
 
 class Alerter:
-    def __init__(self, store, webhook_url: str | None, client: httpx.AsyncClient | None = None):
-        self.store, self.url, self.http = store, webhook_url, client
-        self.failures = 0
-        self.last_ok: float | None = None
-        self.pending: list[dict] = []
+    def __init__(self, store):
+        self.store = store
+        self.started = store.clock()
 
     async def send(self, kind: str, key: str, message: str, data: dict | None = None) -> bool:
-        """Send once per `key`. Returns True when delivered (or already sent)."""
-        if self.store.alert_seen(key):
-            return True
-        payload = {"kind": kind, "message": message, "data": data or {}, "ts": time.time()}
-        log.warning(__import__("json").dumps({"event": "alert", "kind": kind, "key": key, "message": message}))
-        if not self.url or self.http is None:
-            self.pending.append(payload)
-            return False
-        try:
-            r = await self.http.post(self.url, json=payload, timeout=5)
-            r.raise_for_status()
-        except Exception as e:  # keep serving traffic; retry on the next check
-            self.failures += 1
-            log.error("alert delivery failed: %s", type(e).__name__)
-            return False
-        self.store.mark_alert(key)
-        self.last_ok = time.time()
-        return True
+        """Record an alert once per `key`. Returns True when newly recorded."""
+        new = self.store.add_alert(key, kind, message, json.dumps(data or {}))
+        if new:
+            log.warning(json.dumps({"event": "alert", "kind": kind, "key": key, "message": message}))
+        return new
+
+    def touch_poll(self):
+        self.store.set_meta("last_poll", str(self.store.clock()))
 
     def health(self) -> dict:
-        return {"webhook_configured": bool(self.url), "failures": self.failures, "last_ok": self.last_ok}
+        now = self.store.clock()
+        last = self.store.get_meta("last_poll")
+        ref = float(last) if last else self.started
+        degraded = now - ref > POLL_STALE_SECONDS
+        return {"status": "degraded" if degraded else "ok", "last_poll": float(last) if last else None,
+                "seconds_since_poll": int(now - ref)}

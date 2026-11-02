@@ -57,3 +57,15 @@ cutover. The no-cap revision removes the budget-outage problem of the first draf
 3. Run Phase 0 to get the real free/paid and level split before committing to the 60% and 50% targets.
 4. Start with rules plus embeddings; benchmark Arch-Router before depending on it.
 5. Rotate the carried-over keys and give canary its own provider keys.
+
+## Update: v0.5.3 and tests (2026-11-02)
+v0.5.3 adopted most of this review. The source tree now implements the v0.5.3 governor (fixed first-14-day
+thresholds, slow-leak, level-mix and premium alerts), the pulled alert outbox with poll-freshness health, known-format
+secret scan with log-only mode and the no-retention sensitive fallback, classifier tie-breaking, the emergency
+paid-lane switch (off until you set a value), and shadow mode. 66 tests pass against mock providers, including
+failure modes, 150 KB tool-heavy requests, concurrent bursts against rate limits, recovery after cooldown, and
+ledger/log privacy.
+
+Still not verified, because it needs the real VM103 canary and real providers: live provider failures, real
+Hermes/OpenClaw traffic, the 7-day soak, and the Phase 2 classifier sidecar benchmark. No production cutover is
+implied by this code.

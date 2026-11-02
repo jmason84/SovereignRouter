@@ -17,7 +17,7 @@ from .quota import Store
 from .registry import Registry
 from .sticky import StickyStore
 
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 
 
 def _bearer(request: Request) -> str | None:
@@ -31,13 +31,15 @@ def create_app(state_dir: str | None = None, http: httpx.AsyncClient | None = No
     allow_http = allow_http or os.environ.get("SOVEREIGN_ALLOW_HTTP") == "1"
     http = http or httpx.AsyncClient()
     store = Store(str(state / "quota.sqlite3"), clock=clock)
-    alerter = Alerter(store, os.environ.get("SOVEREIGN_ALERT_WEBHOOK"), http)
-    backstop = os.environ.get("SOVEREIGN_GLOBAL_DAILY_BACKSTOP_USD")
-    governor = Governor(store, alerter, global_daily_backstop_usd=float(backstop) if backstop else None)
+    alerter = Alerter(store)
+    backstop = os.environ.get("SOVEREIGN_EMERGENCY_PAID_SWITCH_USD")
     holder = {"registry": Registry.load(state / "registry.json", allow_http),
               "clients": Clients.load(state / "clients.json")}
+    governor = Governor(store, alerter, backstop_usd=float(backstop) if backstop else None,
+                        clients=holder["clients"], registry=holder["registry"])
     sticky = StickyStore(clock)
-    engine = Engine(holder["registry"], store, http, governor, sticky, sidecar=sidecar)
+    engine = Engine(holder["registry"], store, http, governor, sticky, sidecar=sidecar,
+                    secret_scan=os.environ.get("SOVEREIGN_SECRET_SCAN", "enforce"))
     app = FastAPI(title="Sovereign Router", version=VERSION)
     app.state.engine, app.state.store, app.state.alerter, app.state.governor = engine, store, alerter, governor
 
@@ -50,8 +52,12 @@ def create_app(state_dir: str | None = None, http: httpx.AsyncClient | None = No
 
     @app.get("/health")
     async def health():
-        return {"status": "ok", "version": VERSION, "models": len(holder["registry"].usable()),
-                "alerts": alerter.health(), "backstop": governor.backstop}
+        chain = alerter.health()
+        return {"status": "ok" if chain["status"] == "ok" else "degraded", "version": VERSION,
+                "models": len(holder["registry"].usable()), "alert_chain": chain,
+                "emergency_paid_switch_usd": governor.backstop,
+                "paid_lanes_off": governor.paid_blocked_by_backstop(),
+                "secret_scan": engine.secret_scan, "secret_scan_hits": int(store.get_meta("secret_scan_hits") or 0)}
 
     @app.get("/v1/models")
     async def models(request: Request):
@@ -110,6 +116,7 @@ def create_app(state_dir: str | None = None, http: httpx.AsyncClient | None = No
         except Exception as e:
             return JSONResponse({"error": {"message": f"reload rejected: {e}"}}, status_code=400)
         holder["registry"], holder["clients"], engine.registry = reg, cl, reg
+        governor.registry, governor.clients = reg, cl
         return {"reloaded": True, "models": len(reg.usable())}
 
     @app.get("/admin/routes")
@@ -124,12 +131,44 @@ def create_app(state_dir: str | None = None, http: httpx.AsyncClient | None = No
     async def costs(request: Request):
         if not admin(request):
             return JSONResponse({"error": {"message": "Forbidden"}}, status_code=403)
+        alerter.touch_poll()  # a poll proves the alert chain is alive
         day = utc_day_start(clock())
         by_client: dict = {}
         for r in store.breakdown(day):
             by_client[r[0]] = by_client.get(r[0], 0) + r[6]
         return {"today_total_usd": store.spend(day), "by_client": by_client,
-                "runaway_threshold_usd_per_hour": governor.runaway_threshold()}
+                "runaway_threshold_usd_per_hour": governor.runaway_threshold(),
+                "paid_lanes_off": governor.paid_blocked_by_backstop(),
+                "latest_alert_id": (store.alerts_after(0, 10**6) or [{"id": 0}])[-1]["id"]}
+
+    @app.get("/admin/alerts")
+    async def alerts(request: Request, after: int = 0):
+        if not admin(request):
+            return JSONResponse({"error": {"message": "Forbidden"}}, status_code=403)
+        alerter.touch_poll()
+        return {"alerts": store.alerts_after(after)}
+
+    @app.post("/admin/emergency-switch")
+    async def emergency(request: Request):
+        """Raise, lower or disable the emergency paid-lane switch. {"usd": 25} or {"usd": null}."""
+        if not admin(request):
+            return JSONResponse({"error": {"message": "Forbidden"}}, status_code=403)
+        b = await request.json()
+        usd = b.get("usd")
+        governor.set_backstop(None if usd is None else float(usd))
+        return {"emergency_paid_switch_usd": governor.backstop}
+
+    @app.post("/v1/shadow")
+    async def shadow(request: Request):
+        """Decision-only copy of a request: no upstream call, nothing billed."""
+        policy = auth(request)
+        if not policy:
+            return JSONResponse({"error": {"message": "Unauthorized"}}, status_code=401)
+        try:
+            ctx = await engine.prepare(policy, await request.json(), {k.lower(): v for k, v in request.headers.items()})
+        except EngineError as e:
+            return err(e)
+        return engine.shadow(ctx)
 
     @app.post("/admin/killswitch")
     async def killswitch(request: Request):

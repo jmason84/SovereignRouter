@@ -31,7 +31,7 @@ COPY requirements.txt .
 # detects what is importable at runtime and reports it in /health.
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY sidecar.py benchmark.py examples.jsonl held_out.jsonl route_descriptions.json ./
+COPY --chmod=644 sidecar.py benchmark.py examples.jsonl held_out.jsonl route_descriptions.json ./
 
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \

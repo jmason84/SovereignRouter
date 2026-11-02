@@ -1,0 +1,23 @@
+# Deploy-time override AS DEPLOYED on VM103, 2026-11-02 (see the execution
+# log appended to deploy-runbook.md). Kept in the repo so the running stack
+# is reproducible; the base compose file is unchanged.
+#
+# - Images are built on VM103; the local registry's TLS CA is not installed
+#   in VM103's Docker daemon and installing it needs a daemon restart that
+#   would blip production. pull_policy: never keeps this deploy on the
+#   locally built images (same tags the base compose references).
+# - CLASSIFIER_EMBEDDER=tfidf: the classifier's internal network has no
+#   internet access, so the bge-small embedding model cannot be downloaded
+#   at runtime; TF-IDF is the benchmarked mode (90.0% exact level, 0.0%
+#   L4/L5 under-classification on the held-out set).
+# - nginx runs as uid 101 (estate pattern, cf. hermes-canary-proxy): with
+#   cap_drop ALL a root master cannot chown its temp paths and fails.
+services:
+  gateway:
+    pull_policy: never
+  classifier:
+    pull_policy: never
+    environment:
+      CLASSIFIER_EMBEDDER: "tfidf"
+  nginx:
+    user: "101:101"

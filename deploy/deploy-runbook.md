@@ -198,3 +198,94 @@ Daily extras (not spec measures, check anyway): level-mix — alert if level 4+5
 - **VM level:** a **Proxmox snapshot of VM103 is taken before each phase deployment** (§1.2). Snapshot restore is the last resort, not the first — client-level rollback above is faster and doesn't touch the other stacks on VM103. If a snapshot restore is ever used, re-verify **all** VM103 stacks afterwards (:6070 prod, :6073/:6074 canary, :6060 routellm, Portainer edge agent), not just v0.5.
 
 After any rollback: keep the v0.5 route logs and state directory intact for diagnosis (copy them off before stopping/deleting the stack), and record what failed against §7 / `acceptance-checklist.md` before any re-attempt.
+
+---
+
+# Execution log — Phase 1 stack deploy, 2026-11-02 (executed by Muse on Jordan's "Lets deploy it")
+
+Scope executed: runbook §§1–5 (pre-flight, snapshot, backups, build, keys, stack
+deploy, smoke tests). §6 Phase 3 client moves were NOT executed — they remain
+gated on Jordan's separate go. No production client traffic moved.
+
+## Pre-flight, snapshot, backups
+- VM103 verified: Docker 29.5.3, port 6075 free, prod v0.2.1 :6070 / canary
+  :6073/:6074 / routellm :6060 all healthy; 37 GB disk free, ~14 GB RAM avail.
+- Proxmox snapshot `pre-v05-phase1-20261102` taken and verified in listsnapshot.
+- Prod state backup: `/root/backups/sovereign-router-data-20261102-0245.tar.gz`
+  on VM103 (data + clients + router.env). Registry backup on CT100:
+  `/root/backups/registry-20261102-0246.tar.gz` (registry data volume).
+- Muse's SSH key installed on VM103 root (via QGA); `Host vm103` added to the
+  operator ssh config (ProxyJump via pve).
+
+## Images
+- Built on VM103: `192.168.0.28:5000/sovereign-router:v0.5.0` (251 MB) and
+  `.../sovereign-router-classifier:v0.5.0` (9.49 GB — PyPI torch pulls CUDA
+  wheels; a CPU-only rebuild is a future size optimization, not a blocker).
+- Secret scan: build contexts contained no key material; image filesystems
+  grepped clean for key patterns.
+- DEVIATION: images were NOT pushed to the CT100 registry. VM103's Docker
+  cannot verify the registry's TLS certificate, and installing the CA needs
+  a daemon restart that would blip production. The stack runs the locally
+  built images via `docker-compose.override.vm103.yml` (pull_policy: never).
+  Push remains a maintenance-window follow-up.
+
+## Keys (runbook §3)
+- Fresh v0.5 client keys generated on VM103 for hermes / openclaw / n8n plus
+  an admin key; only sha256 hashes entered clients.json. Raw keys are sealed
+  in `/root/sovereign-router-v05/secrets/client-keys.txt` (mode 600) until
+  each client's Phase 3 delivery, then to be shredded.
+- Provider keys: DEVIATION from §3.1 (new per-env keys). No provider-console
+  access was available, so v0.5 reuses the keys already on VM103: the
+  canary's groq/openrouter/deepinfra/ollama key files and the OpenAI key from
+  /root/routellm/.env, copied to mode-600 files in the v0.5 secrets dir
+  (dir owned by the gateway uid, 700; key files 600).
+- FINDING (§3.2 confirmed open): the v0.3.3 canary's OpenRouter and DeepInfra
+  keys are hash-identical to production's — per-environment separation never
+  happened, and the Groq/Ollama rotation open since 2026-10-22 is still
+  outstanding. Both remain owner actions at the provider consoles.
+- Classifier runs TF-IDF (override CLASSIFIER_EMBEDDER=tfidf): the internal
+  network has no internet, so bge-small cannot download at runtime.
+
+## Defects found and fixed during deploy (all folded back into the repo)
+1. Gateway crash-loop: image files copied with mode 660 were unreadable by
+   the container's uid 10001. Fixed by chmod in the build context + rebuild;
+   Dockerfiles now use `COPY --chmod=644`.
+2. Gateway could not write its state dir or traverse the secrets dir (both
+   root-owned). State dir and secrets dir chowned to uid 10001; key files
+   stay mode 600.
+3. nginx crash-loop: with cap_drop ALL a root master cannot chown its temp
+   paths. Fixed per the estate's hermes-canary-proxy pattern: nginx runs as
+   user 101:101 (override), temp paths + pid moved to /tmp (nginx.conf), and
+   the bind-mounted nginx.conf made mode 644.
+
+## Verification (runbook §4 + §5, run from VM102, an allowlisted host)
+- All three containers healthy; the ONLY published port is
+  192.168.0.166:6075; hardening verified by inspect (read-only rootfs,
+  cap_drop ALL, no-new-privileges, memory limits, no docker.sock mount).
+- Non-allowlisted source (VM103 itself) gets 403 from nginx.
+- Production untouched and healthy: v0.2.1 :6070 ok, canary stack up.
+- /health: status ok, version 0.5.0, classifier_sidecar ok, 8 models,
+  3 clients, emergency switch enabled ($25/day); alert_chain "degraded" —
+  honest state until the §5.4 n8n polling workflow exists (not yet built).
+- Per client key (hermes/openclaw/n8n): /v1/models 200; non-stream chat 200
+  with X-Sovereign-Model/Level/Lane/Cost headers (routed groq/gpt-oss-120b,
+  private-free lane, $0); streaming SSE with [DONE]; JSON mode valid; tool
+  calls well-formed with valid JSON arguments, non-stream and streamed
+  (tool_choice=required); /v1/usage scoped per client.
+- Premium alias with the hermes key: 403 as policy requires.
+- Admin: /admin/costs 200 with admin key, 401 with a client key;
+  POST /v1/shadow 200 (decision only); GET /admin/alerts 200.
+- Route log (state/routes.jsonl) contains the test requests' routing fields;
+  a unique marker string sent in every test prompt appears NOWHERE in the
+  state dir — no prompt text is logged.
+- Known deliberate deviation: GET /v1/models answers without a key (public
+  model names only, by design decision recorded in docs/VERIFICATION.md);
+  all data and admin endpoints enforce keys.
+
+## State after deploy
+- v0.5 stack RUNNING on VM103 :6075, zero client traffic (no client points
+  at it yet). Rollback = stop/delete the v0.5 stack; nothing else changes.
+- Remaining, in order: registry CA install + image push (maintenance);
+  provider key separation + Groq/Ollama rotation (owner, provider consoles);
+  §5.4 alert-chain n8n workflow; Phase 3 Week 1 (Hermes move + OpenClaw
+  shadow) on Jordan's separate go.

@@ -11,8 +11,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY *.py ./
-COPY registry.json ./
+# --chmod: the container runs as uid 10001; build-context files with
+# restrictive modes (e.g. 660) are unreadable to it (deploy fix, 2026-11-02).
+COPY --chmod=644 *.py ./
+COPY --chmod=644 registry.json ./
 
 RUN useradd --uid 10001 --no-create-home sovereign \
     && mkdir -p /state && chown sovereign:sovereign /state

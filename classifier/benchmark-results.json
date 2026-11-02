@@ -1,0 +1,106 @@
+{
+  "held_out_n": 80,
+  "embedder": "tfidf-hash",
+  "exact_level_pct": 90.0,
+  "within_one_pct": 96.2,
+  "task_class_exact_pct": 85.0,
+  "l4_l5_total": 26,
+  "l4_l5_underclassified_pct": 0.0,
+  "latency_p50_ms": 35.88,
+  "latency_p95_ms": 58.92,
+  "layers": {
+    "rules": 33,
+    "embedding": 47
+  },
+  "per_level_exact_pct": {
+    "1": 100.0,
+    "2": 90.0,
+    "3": 66.7,
+    "4": 100.0,
+    "5": 100.0
+  },
+  "confusion_true_to_pred": {
+    "1": {
+      "1": 16
+    },
+    "2": {
+      "2": 18,
+      "3": 1,
+      "4": 1
+    },
+    "3": {
+      "1": 2,
+      "2": 2,
+      "3": 12,
+      "4": 2
+    },
+    "4": {
+      "4": 16
+    },
+    "5": {
+      "5": 10
+    }
+  },
+  "acceptance": {
+    "exact_level_ge_70": true,
+    "l4_l5_under_lt_5": true
+  },
+  "misses": [
+    {
+      "text": "summarize the last hour of the router log",
+      "true": 2,
+      "got": 3,
+      "layer": "embedding",
+      "confidence": 0.331
+    },
+    {
+      "text": "report how many requests went to premium yesterday",
+      "true": 2,
+      "got": 4,
+      "layer": "embedding",
+      "confidence": 0.301
+    },
+    {
+      "text": "fix this dockerfile where the copy path points at a folder that does not exist",
+      "true": 3,
+      "got": 1,
+      "layer": "embedding",
+      "confidence": 0.255
+    },
+    {
+      "text": "diagnose why the site is slow to load since this morning",
+      "true": 3,
+      "got": 4,
+      "layer": "embedding",
+      "confidence": 0.329
+    },
+    {
+      "text": "compare the two deployment options in this doc and give me a recommendation",
+      "true": 3,
+      "got": 1,
+      "layer": "embedding",
+      "confidence": 0.31
+    },
+    {
+      "text": "find out why the queue depth keeps growing during the day",
+      "true": 3,
+      "got": 4,
+      "layer": "embedding",
+      "confidence": 0.269
+    },
+    {
+      "text": "patch the script so it exits non-zero when the health check fails",
+      "true": 3,
+      "got": 2,
+      "layer": "embedding",
+      "confidence": 0.354
+    },
+    {
+      "text": "explain what this firewall rule does in plain language",
+      "true": 3,
+      "got": 2,
+      "layer": "rules",
+      "confidence": 0.86
+    }
+  ]
+}

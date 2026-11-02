@@ -1,0 +1,150 @@
+{"text": "hello", "level": 1, "task_class": "chat"}
+{"text": "hi there", "level": 1, "task_class": "chat"}
+{"text": "good morning", "level": 1, "task_class": "chat"}
+{"text": "thanks, that worked", "level": 1, "task_class": "chat"}
+{"text": "ok got it", "level": 1, "task_class": "chat"}
+{"text": "perfect, thanks", "level": 1, "task_class": "chat"}
+{"text": "say hello to the team in one line", "level": 1, "task_class": "chat"}
+{"text": "turn this into a bullet list: eggs, milk, bread, coffee", "level": 1, "task_class": "chat"}
+{"text": "make this a numbered list: first wake up, then stretch, then coffee", "level": 1, "task_class": "chat"}
+{"text": "rewrite this shorter: I am writing to inform you that the meeting has been moved", "level": 1, "task_class": "chat"}
+{"text": "capitalize this title: the quick brown fox", "level": 1, "task_class": "chat"}
+{"text": "put this in a markdown table: name age city \u2014 sam 30 denver, jo 25 omaha", "level": 1, "task_class": "chat"}
+{"text": "what is 17 plus 25?", "level": 1, "task_class": "chat"}
+{"text": "spell out the number 42", "level": 1, "task_class": "chat"}
+{"text": "give me a one-line version of: our standup moved to nine thirty tomorrow morning", "level": 1, "task_class": "chat"}
+{"text": "translate 'good night' into spanish", "level": 1, "task_class": "chat"}
+{"text": "is docker a word?", "level": 1, "task_class": "chat"}
+{"text": "say hi to the proxmox server for me", "level": 1, "task_class": "chat"}
+{"text": "good night, talk tomorrow", "level": 1, "task_class": "chat"}
+{"text": "hey, are you there?", "level": 1, "task_class": "chat"}
+{"text": "reformat this address into one line: 12 main st, rapid city, sd", "level": 1, "task_class": "chat"}
+{"text": "make this politer: send me the file now", "level": 1, "task_class": "chat"}
+{"text": "what day is it today?", "level": 1, "task_class": "chat"}
+{"text": "lowercase this: HELLO WORLD", "level": 1, "task_class": "chat"}
+{"text": "count the words in: the cat sat on the mat", "level": 1, "task_class": "chat"}
+{"text": "give me a fun fact about otters", "level": 1, "task_class": "chat"}
+{"text": "uppercase the word backup", "level": 1, "task_class": "chat"}
+{"text": "is the word nginx in this sentence: i like pancakes", "level": 1, "task_class": "chat"}
+{"text": "turn 'yes' into a full polite sentence", "level": 1, "task_class": "chat"}
+{"text": "say thank you in french", "level": 1, "task_class": "chat"}
+{"text": "is docker running?", "level": 2, "task_class": "infra"}
+{"text": "show me the proxmox backup status", "level": 2, "task_class": "infra"}
+{"text": "check whether the backup ran last night", "level": 2, "task_class": "infra"}
+{"text": "what containers are running on vm103?", "level": 2, "task_class": "infra"}
+{"text": "list the docker containers on the host", "level": 2, "task_class": "infra"}
+{"text": "how much disk space is left on the server?", "level": 2, "task_class": "infra"}
+{"text": "show me the last 20 lines of the nginx log", "level": 2, "task_class": "infra"}
+{"text": "summarize this log for me", "level": 2, "task_class": "infra"}
+{"text": "read the config file and tell me which port the service uses", "level": 2, "task_class": "infra"}
+{"text": "what is the cpu usage on vm112 right now?", "level": 2, "task_class": "infra"}
+{"text": "check the status of the n8n service", "level": 2, "task_class": "infra"}
+{"text": "did the cron job run this morning?", "level": 2, "task_class": "infra"}
+{"text": "show the uptime of the gateway container", "level": 2, "task_class": "infra"}
+{"text": "summarize this error message in plain english", "level": 2, "task_class": "chat"}
+{"text": "summarize this email thread into three bullets", "level": 2, "task_class": "chat"}
+{"text": "read this file and report the version number in it", "level": 2, "task_class": "code"}
+{"text": "what does this one-line bash command do: ls -la /var/log", "level": 2, "task_class": "code"}
+{"text": "check if port 6075 is listening", "level": 2, "task_class": "infra"}
+{"text": "how much ram is free on the proxmox host?", "level": 2, "task_class": "infra"}
+{"text": "list the snapshots for vm102", "level": 2, "task_class": "infra"}
+{"text": "show me today's spend from the route log", "level": 2, "task_class": "infra"}
+{"text": "when did the container last restart?", "level": 2, "task_class": "infra"}
+{"text": "summarize the meeting notes into action items", "level": 2, "task_class": "chat"}
+{"text": "find the line in this file that sets the timeout", "level": 2, "task_class": "code"}
+{"text": "what time does the backup job start?", "level": 2, "task_class": "infra"}
+{"text": "report the health check result for the router", "level": 2, "task_class": "infra"}
+{"text": "give me a short summary of this status report", "level": 2, "task_class": "chat"}
+{"text": "check whether ssh is reachable on vm102", "level": 2, "task_class": "infra"}
+{"text": "list the files in the downloads folder", "level": 2, "task_class": "code"}
+{"text": "what models did the router use yesterday?", "level": 2, "task_class": "infra"}
+{"text": "read the readme and tell me the install command", "level": 2, "task_class": "code"}
+{"text": "show the last backup result for the hestia vm", "level": 2, "task_class": "infra"}
+{"text": "is the cloudflare tunnel up?", "level": 2, "task_class": "infra"}
+{"text": "summarize this changelog in five lines", "level": 2, "task_class": "code"}
+{"text": "restart the n8n container on vm103", "level": 3, "task_class": "infra"}
+{"text": "restart the router container and confirm it comes back healthy", "level": 3, "task_class": "infra"}
+{"text": "explain why this container keeps exiting with code 137", "level": 3, "task_class": "infra"}
+{"text": "the backup job failed last night \u2014 look at the log and tell me why", "level": 3, "task_class": "infra"}
+{"text": "write a short bash script that lists containers using more than 1gb of ram", "level": 3, "task_class": "code"}
+{"text": "write a python function that parses an iso timestamp and returns epoch seconds", "level": 3, "task_class": "code"}
+{"text": "fix this regex so it matches only four-digit years", "level": 3, "task_class": "code"}
+{"text": "the site returns 502 \u2014 check nginx and the upstream and tell me what is wrong", "level": 3, "task_class": "infra"}
+{"text": "add a healthcheck to this docker compose service", "level": 3, "task_class": "code"}
+{"text": "update the nginx config to raise the upload limit to 50mb and reload it", "level": 3, "task_class": "infra"}
+{"text": "diagnose why ssh to vm112 times out from my laptop", "level": 3, "task_class": "infra"}
+{"text": "write a script that rotates log files older than 30 days", "level": 3, "task_class": "code"}
+{"text": "explain this stack trace and point at the failing line", "level": 3, "task_class": "code"}
+{"text": "the disk on vm103 is at 91% \u2014 find what is eating the space", "level": 3, "task_class": "infra"}
+{"text": "create a cron entry that runs the backup script at 2am daily", "level": 3, "task_class": "infra"}
+{"text": "debug why this unit test fails on the date boundary case", "level": 3, "task_class": "code"}
+{"text": "patch this function so it retries once on a 429 response", "level": 3, "task_class": "code"}
+{"text": "investigate why the tunnel drops every few hours and report back", "level": 3, "task_class": "infra"}
+{"text": "compare these two config files and list the differences that matter", "level": 3, "task_class": "reasoning"}
+{"text": "write a small script to check all our sites and print their http status", "level": 3, "task_class": "code"}
+{"text": "the container is slow since yesterday \u2014 look at its logs and metrics and explain", "level": 3, "task_class": "infra"}
+{"text": "help me write a commit message and a short pr description for this change", "level": 3, "task_class": "code"}
+{"text": "draft a plan to tidy up the unused docker images on the host", "level": 3, "task_class": "reasoning"}
+{"text": "explain why the cron job produced an empty report today", "level": 3, "task_class": "infra"}
+{"text": "fix the typo-level bug in this yaml where the port is quoted as a string", "level": 3, "task_class": "code"}
+{"text": "roll back the last deployment of the sidecar container to the previous image", "level": 3, "task_class": "infra"}
+{"text": "write a function that validates an email address and returns true or false", "level": 3, "task_class": "code"}
+{"text": "check why the queue worker stopped processing jobs and restart it if it is stuck", "level": 3, "task_class": "infra"}
+{"text": "summarize this 40-page vendor document into the decisions we need to make", "level": 3, "task_class": "long-context"}
+{"text": "read this long thread and extract every date and commitment mentioned", "level": 3, "task_class": "long-context"}
+{"text": "look through this entire log file and count how many times the timeout error appears", "level": 3, "task_class": "long-context"}
+{"text": "explain in simple terms how the sticky routing in this design doc works", "level": 3, "task_class": "reasoning"}
+{"text": "give me the pros and cons of moving the backup window to midnight", "level": 3, "task_class": "reasoning"}
+{"text": "draft the steps to add a new client key to the router, i will run them myself", "level": 3, "task_class": "infra"}
+{"text": "migrate the n8n stack from vm103 to the new host with zero downtime and verify every workflow afterwards", "level": 4, "task_class": "infra"}
+{"text": "find the root cause of the intermittent 502s across the gateway and fix it end to end", "level": 4, "task_class": "infra"}
+{"text": "refactor the router's failover module so rate-limit handling is in one place, and update the tests", "level": 4, "task_class": "code"}
+{"text": "debug why the agent's tool loop breaks after the third tool call and patch the streaming parser", "level": 4, "task_class": "code"}
+{"text": "plan the migration of all stateful containers to zfs storage, with rollback steps for each one", "level": 4, "task_class": "infra"}
+{"text": "the classifier keeps sending hard infra questions to the weak model \u2014 investigate, measure it, and propose a fix", "level": 4, "task_class": "reasoning"}
+{"text": "trace why memory grows on vm112 until the hermes service is killed, and implement a lasting fix", "level": 4, "task_class": "infra"}
+{"text": "rewrite the backup pipeline so failures retry, alert, and verify the snapshot actually exists", "level": 4, "task_class": "infra"}
+{"text": "design and implement retry with backoff across the router's provider clients, with tests for 429 and 5xx", "level": 4, "task_class": "code"}
+{"text": "compare deepseek, qwen coder and gpt-oss on our last month of route logs and recommend a new default paid model", "level": 4, "task_class": "reasoning"}
+{"text": "go through the entire repository, find every place we log request bodies, and remove them for privacy", "level": 4, "task_class": "long-context"}
+{"text": "root-cause the october 503 incident from the logs and write the postmortem with prevention steps", "level": 4, "task_class": "reasoning"}
+{"text": "implement sticky routing keyed by conversation hash with a 30 minute window, plus unit tests", "level": 4, "task_class": "code"}
+{"text": "upgrade the whole compose stack to the new image tags and fix whatever breaks, service by service", "level": 4, "task_class": "infra"}
+{"text": "plan a phased rollout of router v0.5 for hermes and openclaw with shadow mode and success criteria", "level": 4, "task_class": "reasoning"}
+{"text": "analyze this full week of route logs, find where we overpay, and quantify each saving", "level": 4, "task_class": "long-context"}
+{"text": "debug the race condition in the quota store that lets two requests both pass the rate limit", "level": 4, "task_class": "code"}
+{"text": "rebuild the ci pipeline so image builds are reproducible and signed, and document the process", "level": 4, "task_class": "code"}
+{"text": "investigate why openclaw turns cost ten times hermes turns and produce a costed fix plan", "level": 4, "task_class": "reasoning"}
+{"text": "consolidate the three overlapping monitoring scripts into one maintained tool with tests", "level": 4, "task_class": "code"}
+{"text": "move the classifier sidecar into its own stack with resource limits and a health-gated rollout", "level": 4, "task_class": "infra"}
+{"text": "write a load test that simulates 3 agents in tool loops and find where the router breaks", "level": 4, "task_class": "code"}
+{"text": "audit every workflow in n8n for dead webhooks and duplicated logic, then propose a cleanup order", "level": 4, "task_class": "long-context"}
+{"text": "diagnose the slow database queries behind the dashboard and rework the indexes", "level": 4, "task_class": "code"}
+{"text": "prepare a full disaster recovery runbook for vm103 failing, tested against the backups we actually have", "level": 4, "task_class": "infra"}
+{"text": "evaluate whether the embedding classifier can hit 70 percent exact match and design the benchmark to prove it", "level": 4, "task_class": "reasoning"}
+{"text": "implement the output validation layer that catches malformed tool calls and escalates one quality level", "level": 4, "task_class": "code"}
+{"text": "plan how to shrink hermes prompt size without losing tool definitions the agent needs", "level": 4, "task_class": "reasoning"}
+{"text": "migrate the route logs into a queryable store and backfill the last month", "level": 4, "task_class": "code"}
+{"text": "find why the backup verification passes even when snapshots are missing, across all the scripts involved", "level": 4, "task_class": "infra"}
+{"text": "rotate all provider api keys for production and the canary, update the mode-600 files, and verify each lane still works", "level": 5, "task_class": "infra"}
+{"text": "change the firewall rules so only vm102, vm112 and ct100 can reach port 6075, and prove the old access is closed", "level": 5, "task_class": "infra"}
+{"text": "plan and execute the production cutover from router v0.2.1 to v0.5 with rollback triggers and a go/no-go checklist", "level": 5, "task_class": "infra"}
+{"text": "audit our credential handling end to end and design the vault migration so no key ever appears in a log or compose file", "level": 5, "task_class": "reasoning"}
+{"text": "design the security architecture for exposing the mcp broker publicly, including auth, rate limits and abuse cases", "level": 5, "task_class": "reasoning"}
+{"text": "rotate the ssh keys on the proxmox host and every vm, revoke the old ones, and confirm nothing is locked out", "level": 5, "task_class": "infra"}
+{"text": "write the incident response plan for a leaked provider key, including revocation order and customer impact", "level": 5, "task_class": "reasoning"}
+{"text": "rework the network segmentation between the agent vms and the production lan, with a staged change plan", "level": 5, "task_class": "infra"}
+{"text": "perform a security audit of the router codebase focusing on auth bypass and secret leakage paths", "level": 5, "task_class": "code"}
+{"text": "plan the migration of all secrets out of environment variables into files with strict permissions, across every stack", "level": 5, "task_class": "infra"}
+{"text": "design the multi-tenant isolation model before we let any third party use this router", "level": 5, "task_class": "reasoning"}
+{"text": "execute the firewall cutover to the new gateway address during the maintenance window and validate all client routes", "level": 5, "task_class": "infra"}
+{"text": "decide the architecture for the learning loop: what outcome data we may keep, for how long, and who can see it", "level": 5, "task_class": "reasoning"}
+{"text": "rotate the cloudflare tunnel credentials and re-issue access policies for the homelab services", "level": 5, "task_class": "infra"}
+{"text": "build the emergency paid-lane switch: thresholds, alerts, manual clear, and an audit trail of every trip", "level": 5, "task_class": "code"}
+{"text": "threat-model the classifier sidecar: what happens if a crafted prompt tries to force premium routing at scale", "level": 5, "task_class": "reasoning"}
+{"text": "plan the certificate authority change for internal services and the order to re-issue every certificate", "level": 5, "task_class": "infra"}
+{"text": "write the go/no-go criteria and sign-off pack for the v0.5 production cutover decision", "level": 5, "task_class": "reasoning"}
+{"text": "harden the proxmox host: disable password ssh, enforce key-only access, and audit every authorized key", "level": 5, "task_class": "infra"}
+{"text": "design how sensitive prompts containing secrets are detected and forced onto private lanes, with false-positive handling", "level": 5, "task_class": "reasoning"}
+{"text": "implement admin kill switch per client with audit logging and a tested re-enable path", "level": 5, "task_class": "code"}
+{"text": "plan replacement of the shared relay login with per-domain smtp credentials across all homelab mail domains", "level": 5, "task_class": "infra"}

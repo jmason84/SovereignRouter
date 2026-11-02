@@ -1,0 +1,16 @@
+# Classifier sidecar — VM103 (4-core Xeon E-2246G, AVX2, no GPU)
+# The sidecar runs with ZERO third-party packages (stdlib HTTP server +
+# TF-IDF fallback embedder). The packages below enable the preferred paths:
+#
+#   fastapi + uvicorn        — production ASGI serving instead of stdlib http.server
+#   sentence-transformers    — the real embedding layer (bge-small-en-v1.5,
+#                              ~30M params). Pulls in torch (CPU wheel) and
+#                              numpy; budget ~1.5 GB of the sidecar's 3 GB RAM
+#                              limit for torch + model. If RAM gets tight on
+#                              VM103, the TF-IDF fallback remains fully
+#                              functional — set CLASSIFIER_EMBEDDER=tfidf.
+#
+fastapi>=0.110
+uvicorn>=0.29
+sentence-transformers>=2.7
+numpy>=1.26

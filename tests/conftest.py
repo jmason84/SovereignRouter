@@ -1,118 +1,193 @@
+"""Shared fixtures: an isolated gateway app per test + a fake upstream.
+
+The fake upstream is marker-driven: magic strings in the conversation
+text change its behaviour, so individual tests stay declarative. No real
+provider calls are ever made (httpx MockTransport).
+
+Markers:
+  FAIL_ALL                 -> every model returns 500
+  FAIL::<upstream model>   -> that model returns 429
+  PLEASE_EMPTY             -> groq gpt-oss-120b returns an empty answer
+  BADTOOL_STREAM           -> free models stream a tool call with bad JSON args
+"""
+
+from __future__ import annotations
+
 import hashlib
 import json
+import sys
+from pathlib import Path
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 
-from sovereign_router.gateway import create_app
+SRC = Path(__file__).resolve().parent.parent / "src"
+sys.path.insert(0, str(SRC))
 
-KEYS = {"hermes": "hk", "openclaw": "ok", "n8n": "nk", "admin": "ak"}
+from gateway import GatewayConfig, create_app  # noqa: E402
 
+RAW_KEYS = {
+    "hermes": "hermes-test-key",
+    "openclaw": "openclaw-test-key",
+    "n8n": "n8n-test-key",
+    "admin": "admin-test-key",
+}
 
-def sha(s):
-    return hashlib.sha256(s.encode()).hexdigest()
-
-
-def model(id, host, lane="private-free", q=3, pi=0.0, po=0.0, limits=None, ctx=131072, mdc="internal", **kw):
-    return {"id": id, "provider": host, "model": id, "base_url": f"http://{host}.test/v1", "lane": lane,
-            "price_in": pi, "price_out": po, "context": ctx, "limits": limits or {}, "quality": {"default": q},
-            "max_data_class": mdc, **kw}
-
-
-REGISTRY = {"models": [
-    model("groq20", "groq", q=2, limits={"tpm": 8000}, mdc="sensitive"),
-    model("groq120", "groq", q=4, limits={"tpm": 8000}, mdc="sensitive"),
-    model("orfree", "or", q=3, limits={"rpm": 20, "rpd": 1000}, ctx=262144),
-    model("deepseek", "di", lane="paid", q=5, pi=0.09, po=0.18, cached_in=0.018, ctx=262144, spend_alert_usd=10),
-    model("ollama", "ol", lane="paid", q=4, pi=0.15, po=0.6, spend_alert_usd=5),
-    model("opus", "pr", lane="premium", q=5, pi=15, po=75),
-]}
+FREE_MODELS = {
+    "openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b",
+    "cohere/north-mini-code:free", "dots-studio/dots-3-note-preview:free",
+}
 
 
-def clients(**over):
-    base = [
-        {"name": "hermes", "key_sha256": sha("hk"), "lanes": ["private-free", "paid"], "daily_cost_target_usd": 1.0},
-        {"name": "openclaw", "key_sha256": sha("ok"), "lanes": ["private-free", "paid", "premium"],
-         "premium": True, "daily_cost_target_usd": 3.0},
-        {"name": "n8n", "key_sha256": sha("nk"), "lanes": ["private-free"]},
-    ]
-    return {"admin_key_sha256": sha("ak"), "clients": base}
+def _sha(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
 
 
-class Upstream:
-    """Mock providers keyed by host. Each handler: (request, body) -> httpx.Response."""
-
-    def __init__(self):
-        self.handlers, self.calls = {}, []
-
-    def __call__(self, request: httpx.Request):
-        body = json.loads(request.content)
-        host = request.url.host.removesuffix(".test")
-        self.calls.append((host, body))
-        return self.handlers.get(host, ok_handler)(request, body)
+def _all_text(body: dict) -> str:
+    parts: list[str] = []
+    for m in body.get("messages") or []:
+        c = m.get("content")
+        if isinstance(c, str):
+            parts.append(c)
+        elif isinstance(c, list):
+            parts.extend(p.get("text", "") for p in c if isinstance(p, dict))
+    return "\n".join(parts)
 
 
-def completion(content="hello", tool_calls=None, usage=(100, 20, 0), finish="stop"):
-    msg = {"role": "assistant", "content": content}
+def _completion(model: str, content: str | None, *, tool_calls=None,
+                finish: str = "stop") -> dict:
+    msg: dict = {"role": "assistant", "content": content}
     if tool_calls:
         msg["tool_calls"] = tool_calls
-        msg["content"] = None
-    return {"id": "x", "choices": [{"index": 0, "message": msg, "finish_reason": finish}],
-            "usage": {"prompt_tokens": usage[0], "completion_tokens": usage[1],
-                      "prompt_tokens_details": {"cached_tokens": usage[2]}}}
+    return {
+        "id": "chatcmpl-fake", "object": "chat.completion", "model": model,
+        "choices": [{"index": 0, "message": msg, "finish_reason": finish}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 10,
+                  "total_tokens": 110},
+    }
 
 
-def ok_handler(request, body):
-    return httpx.Response(200, json=completion())
+def _sse(chunks: list[dict], usage: dict | None = None) -> bytes:
+    lines = [f"data: {json.dumps(c)}\n\n" for c in chunks]
+    if usage:
+        lines.append(f"data: {json.dumps({'id': 'x', 'choices': [], 'usage': usage})}\n\n")
+    lines.append("data: [DONE]\n\n")
+    return "".join(lines).encode()
 
 
-def sse(chunks):
-    return "".join(f"data: {c if isinstance(c, str) else json.dumps(c)}\n\n" for c in chunks)
+def _chunk(model: str, delta: dict, finish=None) -> dict:
+    return {"id": "chatcmpl-fake", "object": "chat.completion.chunk",
+            "model": model,
+            "choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
 
 
-def stream_response(chunks):
-    return httpx.Response(200, content=sse(chunks).encode(), headers={"content-type": "text/event-stream"})
+def fake_upstream(request: httpx.Request) -> httpx.Response:
+    body = json.loads(request.content)
+    model = body["model"]
+    text = _all_text(body)
+
+    if "FAIL_ALL" in text:
+        return httpx.Response(500, json={"error": {"message": "boom"}})
+    if f"FAIL::{model}" in text:
+        return httpx.Response(429, json={"error": {"message": "slow down"}})
+
+    if body.get("stream"):
+        usage = {"prompt_tokens": 100, "completion_tokens": 6, "total_tokens": 106}
+        tools = body.get("tools") or []
+        wants_tool = bool(tools) and "USE_TOOL" in text
+        if wants_tool:
+            name = tools[0]["function"]["name"]
+            bad = "BADTOOL_STREAM" in text and model in FREE_MODELS
+            # arguments split across chunks, but not inside the word
+            # "command", so tests can assert on the reassembled call
+            arg_parts = ["{not-", "json"] if bad else ['{"command": ', '"ls"}']
+            chunks = [
+                _chunk(model, {"role": "assistant", "tool_calls": [
+                    {"index": 0, "id": "call_1", "type": "function",
+                     "function": {"name": name, "arguments": ""}}]}),
+                _chunk(model, {"tool_calls": [
+                    {"index": 0, "function": {"arguments": arg_parts[0]}}]}),
+                _chunk(model, {"tool_calls": [
+                    {"index": 0, "function": {"arguments": arg_parts[1]}}]}),
+                _chunk(model, {}, finish="tool_calls"),
+            ]
+            return httpx.Response(200, content=_sse(chunks, usage),
+                                  headers={"content-type": "text/event-stream"})
+        chunks = [
+            _chunk(model, {"role": "assistant", "content": "Hello "}),
+            _chunk(model, {"content": "world"}),
+            _chunk(model, {}, finish="stop"),
+        ]
+        return httpx.Response(200, content=_sse(chunks, usage),
+                              headers={"content-type": "text/event-stream"})
+
+    # non-streaming
+    if "PLEASE_EMPTY" in text and model == "openai/gpt-oss-120b":
+        return httpx.Response(200, json=_completion(model, ""))
+    if "BADTOOL" in text and model in FREE_MODELS:
+        name = (body.get("tools") or [{}])[0].get("function", {}).get("name", "run")
+        return httpx.Response(200, json=_completion(
+            model, None, finish="tool_calls",
+            tool_calls=[{"id": "c1", "type": "function",
+                         "function": {"name": name, "arguments": "{oops"}}]))
+    if "UNKNOWNTOOL" in text and model in FREE_MODELS:
+        return httpx.Response(200, json=_completion(
+            model, None, finish="tool_calls",
+            tool_calls=[{"id": "c1", "type": "function",
+                         "function": {"name": "not_a_real_tool", "arguments": "{}"}}]))
+    if "BADJSON" in text and model in FREE_MODELS:
+        return httpx.Response(200, json=_completion(model, "this is not json"))
+    return httpx.Response(200, json=_completion(model, f"answer from {model}"))
 
 
-@pytest.fixture
-def upstream():
-    return Upstream()
+def build_app(tmp_path: Path, **cfg_kwargs):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    clients_file = tmp_path / "clients.json"
+    clients_file.write_text(json.dumps({
+        "admin_key_sha256": _sha(RAW_KEYS["admin"]),
+        "clients": [
+            {"id": "hermes", "key_sha256": _sha(RAW_KEYS["hermes"]),
+             "lanes": ["private-free", "paid"], "premium_allowed": False,
+             "daily_target_usd": 1.0},
+            {"id": "openclaw", "key_sha256": _sha(RAW_KEYS["openclaw"]),
+             "lanes": ["private-free", "paid", "premium"],
+             "premium_allowed": True, "daily_target_usd": 3.0,
+             "premium_monthly_alert_usd": 20.0, "premium_daily_count_alert": 20},
+            {"id": "n8n", "key_sha256": _sha(RAW_KEYS["n8n"]),
+             "lanes": ["private-free", "paid"], "premium_allowed": False,
+             "daily_target_usd": 0.5},
+        ],
+    }))
+    cfg_kwargs.setdefault("registry_path", SRC / "registry.json")
+    cfg = GatewayConfig(
+        state_dir=tmp_path / "state",
+        clients_path=clients_file,
+        provider_keys={"groq": "fake", "openrouter": "fake",
+                       "deepinfra": "fake", "ollama": "fake", "openai": "fake"},
+        **cfg_kwargs,
+    )
+    transport = httpx.MockTransport(fake_upstream)
+    return create_app(cfg, upstream_transport=transport)
 
 
-class Clock:
-    def __init__(self, t=1_800_000_000.0):
-        self.t = t
-
-    def __call__(self):
-        return self.t
+@pytest.fixture()
+def app(tmp_path):
+    return build_app(tmp_path)
 
 
-@pytest.fixture
-def clock():
-    return Clock()
+@pytest.fixture()
+def client(app):
+    with TestClient(app) as tc:
+        yield tc
 
 
-@pytest.fixture
-def make_app(tmp_path, upstream, clock):
-    def _make(registry=None, client_cfg=None, webhook=None, monkeypatch=None, **kw):
-        (tmp_path / "registry.json").write_text(json.dumps(registry or REGISTRY))
-        (tmp_path / "clients.json").write_text(json.dumps(client_cfg or clients()))
-        http = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
-        return create_app(str(tmp_path), http, allow_http=True, clock=clock, **kw)
-    return _make
+def auth(who: str) -> dict:
+    return {"Authorization": f"Bearer {RAW_KEYS[who]}"}
 
 
-@pytest.fixture
-async def client(make_app):
-    app = make_app()
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://router") as c:
-        c.app = app
-        yield c
-
-
-def auth(name="hermes"):
-    return {"Authorization": f"Bearer {KEYS[name]}"}
-
-
-def chat(text, **extra):
-    return {"model": "auto", "messages": [{"role": "user", "content": text}], **extra}
+def chat_body(text: str, **overrides) -> dict:
+    body = {"model": "auto",
+            "messages": [{"role": "user", "content": text}]}
+    body.update(overrides)
+    return body

@@ -1,69 +1,158 @@
-import asyncio
+"""Cost governor: steering above target, runaway thresholds (fixed for
+the first 14 days), level-mix alert, emergency switch default OFF."""
 
-import httpx
+from __future__ import annotations
 
-from conftest import auth, chat, completion, model
-from sovereign_router.alerts import Alerter
-from sovereign_router.governor import Governor
-from sovereign_router.quota import Store
-from sovereign_router.registry import parse_model
+import time
 
+import pytest
 
-def test_concurrent_reservations_never_exceed_limit():
-    store = Store()
-    m = parse_model(model("m", "x", limits={"rpm": 5}), allow_http=True)
-    got = [store.reserve(m, "c", 1, 10, 0) for _ in range(20)]
-    assert sum(1 for g in got if g) == 5
+from clients import ClientPolicy
+from governor import EmergencyConfig, Governor
+from quota import QuotaStore, UsageEvent
+
+DAY = 86_400.0
 
 
-async def test_alert_outbox_dedupes_and_is_pulled(client):
-    a = client.app.state.alerter
-    assert await a.send("x", "k1", "msg") is True
-    assert await a.send("x", "k1", "msg") is False  # deduped by key
-    r = await client.get("/admin/alerts", headers=auth("admin"))
-    assert [x["key"] if "key" in x else x["kind"] for x in r.json()["alerts"]] == ["x"]
-    last = r.json()["alerts"][-1]["id"]
-    assert (await client.get(f"/admin/alerts?after={last}", headers=auth("admin"))).json()["alerts"] == []
+@pytest.fixture()
+def store(tmp_path):
+    return QuotaStore(tmp_path / "quota.db")
 
 
-async def test_health_degrades_without_polls_and_recovers(client, clock):
-    assert (await client.get("/health")).json()["alert_chain"]["status"] == "ok"
-    clock.t += 31 * 60
-    h = (await client.get("/health")).json()
-    assert h["status"] == "degraded" and h["alert_chain"]["status"] == "degraded"
-    await client.get("/admin/costs", headers=auth("admin"))  # an n8n poll
-    assert (await client.get("/health")).json()["status"] == "ok"
+def _spend(store: QuotaStore, client: str, usd: float, *, lane="paid",
+           level=2, ago_s=60.0, provider="deepinfra"):
+    # Clamp the seeded timestamp into TODAY (local). The governor's daily
+    # windows are calendar-day based by design, so a raw `now - 7200`
+    # seed lands yesterday when the suite runs shortly after midnight
+    # and the daily alerts correctly do not fire (flake found 2026-11-02
+    # 00:1x MST: test_runaway_client_over_2x_target, test_premium_alerts).
+    ts = time.time() - ago_s
+    day0 = time.mktime(time.strptime(
+        time.strftime("%Y-%m-%d", time.localtime()), "%Y-%m-%d"))
+    ts = max(ts, day0 + 1)
+    store.record_usage(UsageEvent(
+        ts=ts, client_id=client, provider=provider,
+        model_id="m", lane=lane, level=level, task_class="chat",
+        input_tokens=1000, output_tokens=100, cached_tokens=0,
+        cost_usd=usd, estimated=False))
 
 
-async def test_runaway_and_provider_alerts_do_not_block(client, upstream, clock):
-    sent = []
-    async def rec(kind, key, msg, data=None):
-        sent.append(kind); return True
-    client.app.state.alerter.send = rec
-    upstream.handlers["di"] = lambda req, body: httpx.Response(200, json=completion(usage=(120_000_000, 0, 0)))
-    big = {"messages": [{"role": "system", "content": "context line " * 4000},
-                        {"role": "user", "content": "migrate the docker stack"}]}
-    r = await client.post("/v1/chat/completions", json=big, headers=auth())
-    assert r.status_code == 200  # $10.80 call: alerts fire, request is served
-    assert {"runaway", "provider_spend", "client_target"} <= set(sent)
+def _policy(client="hermes", target=1.0, **kw) -> ClientPolicy:
+    return ClientPolicy(id=client, key_sha256="x", daily_target_usd=target, **kw)
 
 
-async def test_backstop_turns_paid_lanes_off_but_not_free(make_app, upstream):
-    app = make_app(); gov = app.state.governor; gov.set_backstop(1.0)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://r") as c:
-        m = app.state.engine.registry.get("deepseek")
-        rid = app.state.store.reserve(m, "hermes", 4, 10, 2.0); app.state.store.finalize(rid, 10, 2.0)
-        big = {"messages": [{"role": "system", "content": "context line " * 4000},
-                            {"role": "user", "content": "migrate the docker stack"}]}
-        r = await c.post("/v1/chat/completions", json=big, headers=auth())
-        assert r.headers["x-sovereign-lane"] == "private-free"  # free-only while backstop is hit
+# ----------------------------------------------------------------------
+def test_steering_below_target_is_neutral(store):
+    gov = Governor(store)
+    st = gov.steering("hermes", 1.0, 2)
+    assert not st.above_target
+    assert st.required_quality_delta == 0
+    assert not st.cheapest_quality4_only
+    assert not st.premium_explicit_only
 
 
-async def test_daily_summary_is_the_heartbeat(client, upstream):
-    await client.post("/v1/chat/completions", json=chat("say hello"), headers=auth())
-    sent = []
-    async def fake(kind, key, msg, data=None):
-        sent.append((kind, msg)); return True
-    client.app.state.alerter.send = fake
-    r = await client.post("/admin/daily-summary", headers=auth("admin"))
-    assert r.json()["delivered"] is True and sent[0][0] == "daily_summary"
+def test_steering_above_target(store):
+    _spend(store, "hermes", 1.50)
+    gov = Governor(store)
+    st2 = gov.steering("hermes", 1.0, 2)
+    assert st2.above_target and st2.required_quality_delta == -1
+    st4 = gov.steering("hermes", 1.0, 4)
+    assert st4.cheapest_quality4_only
+    assert st4.premium_explicit_only
+    # one alert per day only
+    gov.steering("hermes", 1.0, 2)
+    alerts = store.alerts_since(time.time() - 3600)
+    assert sum(1 for a in alerts if a["kind"] == "client_above_target") == 1
+
+
+def test_level_mix_alert(store):
+    gov = Governor(store)
+    now = time.time()
+    for i in range(25):
+        _spend(store, "hermes", 0.01, level=4 if i < 15 else 2, ago_s=120)
+    gov.evaluate_alerts({"hermes": _policy()}, {}, now)
+    kinds = [a["kind"] for a in store.alerts_since(now - 3600)]
+    assert "level_mix" in kinds
+
+
+def test_runaway_fixed_threshold_first_14_days(store):
+    gov = Governor(store)  # fresh store: first_seen = now -> fixed window
+    _spend(store, "hermes", 0.60, ago_s=600)  # $0.60 in the last hour
+    gov.evaluate_alerts({"hermes": _policy()}, {}, time.time())
+    kinds = [a["kind"] for a in store.alerts_since(time.time() - 3600)]
+    assert "runaway_hourly" in kinds
+
+
+def test_runaway_client_over_2x_target(store):
+    gov = Governor(store)
+    _spend(store, "n8n", 1.20, ago_s=7200)  # >2x the $0.50 target, not last hour
+    gov.evaluate_alerts({"n8n": _policy("n8n", 0.5)}, {}, time.time())
+    kinds = [a["kind"] for a in store.alerts_since(time.time() - 3600)]
+    assert "runaway_client" in kinds
+
+
+def test_no_runaway_under_thresholds(store):
+    gov = Governor(store)
+    _spend(store, "hermes", 0.10, ago_s=600)
+    gov.evaluate_alerts({"hermes": _policy()}, {}, time.time())
+    kinds = [a["kind"] for a in store.alerts_since(time.time() - 3600)]
+    assert "runaway_hourly" not in kinds
+    assert "runaway_client" not in kinds
+
+
+def test_provider_spend_alert(store):
+    gov = Governor(store)
+    now = time.time()
+    _spend(store, "hermes", 11.0, ago_s=3600)
+    gov.evaluate_alerts({"hermes": _policy()}, {"deepinfra": 10.0}, now)
+    kinds = [a["kind"] for a in store.alerts_since(now - 3600)]
+    assert "provider_spend" in kinds
+
+
+def test_premium_alerts(store):
+    gov = Governor(store)
+    now = time.time()
+    for _ in range(21):
+        _spend(store, "openclaw", 0.05, lane="premium", ago_s=300,
+               provider="openai")
+    pol = _policy("openclaw", 3.0, premium_monthly_alert_usd=0.50,
+                  premium_daily_count_alert=20)
+    gov.evaluate_alerts({"openclaw": pol}, {}, now)
+    kinds = [a["kind"] for a in store.alerts_since(now - 3600)]
+    assert "premium_daily_count" in kinds
+    assert "premium_monthly_spend" in kinds  # 21 x $0.05 = $1.05 > $0.50
+
+
+def test_emergency_switch_default_off(store):
+    gov = Governor(store)  # default: disabled pending owner decision
+    _spend(store, "hermes", 100.0, ago_s=60)
+    off, _ = gov.paid_lanes_off()
+    assert off is False
+
+
+def test_emergency_switch_trips_and_clears(store):
+    gov = Governor(store, emergency=EmergencyConfig(enabled=True, daily_limit_usd=25.0))
+    _spend(store, "hermes", 30.0, ago_s=60)
+    off, reason = gov.paid_lanes_off()
+    assert off is True and reason == "emergency_paid_lane_off"
+    gov.clear_emergency()
+    off, _ = gov.paid_lanes_off()
+    assert off is False
+
+
+def test_spend_trend_alert(store):
+    gov = Governor(store)
+    now = time.time()
+    day0 = now - (now % 1)  # not used; ages below place spend on prior days
+    # 3 rising days ending above target: place at day boundaries via ago
+    lt = time.localtime(now)
+    midnight = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+    for days_ago, usd in ((3, 0.60), (2, 0.80), (1, 1.20)):
+        ts = midnight - (days_ago - 1) * DAY - 3600
+        store.record_usage(UsageEvent(
+            ts=ts, client_id="hermes", provider="deepinfra", model_id="m",
+            lane="paid", level=2, task_class="chat", input_tokens=100,
+            output_tokens=10, cached_tokens=0, cost_usd=usd, estimated=False))
+    gov.evaluate_alerts({"hermes": _policy()}, {}, now)
+    kinds = [a["kind"] for a in store.alerts_since(now - 3600)]
+    assert "spend_trend" in kinds

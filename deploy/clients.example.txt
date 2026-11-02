@@ -1,0 +1,38 @@
+# Sovereign Router v0.5 — clients file template (PLACEHOLDERS ONLY)
+#
+# The gateway authenticates client keys against sha256 hashes in this file
+# (spec: Request pipeline). The real clients.txt lives ONLY in the mode-600
+# secrets directory on VM103. It is never in this repo, the image, the
+# registry, Drive, or any log. The raw client keys are given to each client
+# (OpenClaw / Hermes / n8n) on their own host and nowhere else.
+#
+# Every environment gets its OWN client keys: v0.5 keys are not copies of
+# the v0.2.1 production keys or the v0.3.3 canary keys (spec: Deployment,
+# Phase 0 key hygiene).
+#
+# FORMAT (confirm against the final src/ clients loader before deploy —
+# this template documents the intended fields, it is not a live config):
+#
+#   <client-name>  sha256:<64-hex-hash-of-that-clients-v05-key>  <policy>
+#
+# One line per client. Lines beginning with # are comments.
+# Replace every <...> placeholder. The all-zero / all-f hashes below are
+# non-functional examples of the right shape — they match no real key.
+#
+# Proposed policies (spec: Client policies — targets are DECISIONS, see
+# DECISIONS.md #4; do not treat these numbers as approved):
+#
+# hermes    sha256:0000000000000000000000000000000000000000000000000000000000000000  policy=hermes;data_class=internal;lanes=private-free,paid;premium=no;daily_target_usd=1.00
+# openclaw  sha256:1111111111111111111111111111111111111111111111111111111111111111  policy=openclaw;data_class=internal;lanes=private-free,paid,premium;premium=level5-or-explicit;daily_target_usd=3.00
+# n8n       sha256:2222222222222222222222222222222222222222222222222222222222222222  policy=n8n;data_class=internal;lanes=private-free,paid;premium=no;daily_target_usd=0.50
+#
+# Admin access is NOT a client line. The admin key is a separate mode-600
+# file (admin.key) in the same secrets directory and unlocks only:
+#   POST /admin/reload  GET /admin/routes  GET /admin/costs
+#   POST /admin/killswitch (per-client, off by default)
+#
+# Generation pattern (run on the client host / VM103 at deploy time only):
+#   openssl rand -hex 32                 # the raw key — hand to that client
+#   printf '%s' '<raw-key>' | sha256sum  # the hash — put in clients.txt
+# Then delete every intermediate copy of the raw key except the client's
+# own configuration and the mode-600 secrets record.

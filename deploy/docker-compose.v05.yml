@@ -1,0 +1,198 @@
+# Sovereign Router v0.5 — Portainer stack (DEPLOY GATE: DO NOT DEPLOY YET)
+#
+# Status: packaging only, 2026-11-01. Nothing in this file has been deployed.
+# Gate blockers before use (see deploy-runbook.md and ../docs/BUILD-OUT.md):
+#   1. ../src/Dockerfile and ../classifier/Dockerfile must exist (parallel build)
+#      and the Phase 1 test suite must pass.
+#   2. The 7 owner decisions in DECISIONS.md must be answered.
+#   3. A Proxmox snapshot of VM103 must be taken immediately before deploy.
+#   4. Per-environment v0.5 keys must exist as mode-600 files in the state /
+#      secrets directory on VM103. NEVER put a real key, hash, or token in
+#      this file, in .env, in the image, or in the registry.
+#
+# Topology:
+#   LAN clients (VM102 / VM112 / CT100 only)
+#     -> nginx  192.168.0.166:6075  (the ONLY published port)
+#       -> gateway (no published port; proxy network + internal network)
+#         -> classifier sidecar (internal network only, no published port)
+#
+# Production v0.2.1 on :6070 is NOT part of this stack and MUST stay running
+# untouched — it is the rollback path.
+
+name: sovereign-router-v05
+
+services:
+  gateway:
+    build:
+      context: ../src
+      dockerfile: Dockerfile
+    image: 192.168.0.28:5000/sovereign-router:v0.5.0
+    container_name: sovereign-router-v05-gateway
+    restart: unless-stopped
+    # No ports: published. The gateway binds only to the Docker networks
+    # below. LAN reachability exists solely through the nginx service.
+    expose:
+      - "${GATEWAY_INTERNAL_PORT:-6075}"
+    environment:
+      # Non-secret configuration only. Real values come from the operator's
+      # copy of .env.example (renamed .env, never committed / never in Drive).
+      SOVEREIGN_ENV: "${SOVEREIGN_ENV:-v05}"
+      # Contract reconciled 2026-11-01 against the built images:
+      # gateway.py reads SOVEREIGN_STATE_DIR (registry.json + clients.json +
+      # keys/<provider>.key live there) and SOVEREIGN_SIDECAR_URL; its
+      # Dockerfile serves on 6075. Classifier timeout is fixed at 1.5 s in
+      # classifier.py (SIDECAR_TIMEOUT_S) — routing falls back to rules.
+      SOVEREIGN_STATE_DIR: "/app/state"
+      SOVEREIGN_SIDECAR_URL: "http://classifier:${CLASSIFIER_INTERNAL_PORT:-8080}"
+      # Emergency paid-lane switch: OFF until owner decision #1 (DECISIONS.md).
+      SOVEREIGN_EMERGENCY_SWITCH: "${SOVEREIGN_EMERGENCY_SWITCH:-1}"
+      SOVEREIGN_EMERGENCY_DAILY_USD: "${SOVEREIGN_EMERGENCY_DAILY_USD:-25}"
+      TZ: "America/Denver"
+    volumes:
+      # Runtime state: route logs (no prompt/response text), usage ledger,
+      # quota store, registry/policies as deployed. Host directory must be
+      # root-owned; see runbook pre-flight for permissions.
+      - ${STATE_DIR:-/root/sovereign-router-v05/state}:/app/state
+      # Provider + client keys: a directory of individual mode-600 files
+      # (see .env.example and clients.example.txt). Mounted read-only.
+      # Verify on the host before deploy:  stat -c '%a %n' <secrets-dir>/*
+      # Every file must report 600. The gateway reads keys at start only;
+      # rotation = overwrite the file + restart this service (spec: Risks).
+      - ${SECRETS_DIR:-/root/sovereign-router-v05/secrets}:/app/state/keys:ro
+    networks:
+      - proxy-net
+      - internal-net
+    # --- Hardening (spec: Deployment — carried forward from v0.3/v0.4) ---
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    # --- Resource limits ---
+    mem_limit: 4g
+    mem_reservation: 1g
+    cpus: 2.0
+    pids_limit: 256
+    # NOTE: no Docker socket mount, anywhere in this stack, by design.
+    healthcheck:
+      # Uses the gateway image's own tooling; if the final src image has no
+      # curl/wget, replace this one line with its native health command
+      # BEFORE deploy — do not delete the healthcheck.
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:6075/health',timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      classifier:
+        condition: service_started
+
+  classifier:
+    build:
+      context: ../classifier
+      dockerfile: Dockerfile
+    image: 192.168.0.28:5000/sovereign-router-classifier:v0.5.0
+    container_name: sovereign-router-v05-classifier
+    restart: unless-stopped
+    # No ports: published, internal network only. Serves Arch-Router-1.5B
+    # (llama.cpp, Q8 GGUF, ~1.7 GB) + the small embedding model
+    # (bge-small / all-MiniLM class) per spec: Difficulty classifier.
+    expose:
+      - "${CLASSIFIER_INTERNAL_PORT:-8080}"
+    environment:
+      # sidecar.py reads PORT (default 8080); examples are baked into the
+      # image, model weights download/cache under /tmp (tmpfs below).
+      PORT: "${CLASSIFIER_INTERNAL_PORT:-8080}"
+      TZ: "America/Denver"
+    volumes:
+      # Model weights + labeled example bank (embeddings and labels only,
+      # never prompt text — spec: Difficulty classifier). Read-only.
+      - ${MODELS_DIR:-/root/sovereign-router-v05/models}:/models:ro
+    networks:
+      - internal-net
+    # --- Hardening ---
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    # --- Resource limits: spec fixes the sidecar at 3 GB / 2 CPUs ---
+    mem_limit: 3g
+    mem_reservation: 2g
+    cpus: 2.0
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/health',timeout=2)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Model load on 2 CPUs is slow; do not flap during start-up.
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sovereign-router-v05-nginx
+    restart: unless-stopped
+    # The ONLY published endpoint for v0.5. Bound to the VM103 LAN address
+    # explicitly — never 0.0.0.0 by omission, never another host address.
+    ports:
+      - "192.168.0.166:6075:8080"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - proxy-net
+    # --- Hardening ---
+    read_only: true
+    cap_drop:
+      - ALL
+    # Port 8080 inside the container is unprivileged, so NET_BIND_SERVICE
+    # is not required and is intentionally NOT added back.
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /var/cache/nginx:size=32m
+      - /var/run:size=8m
+      - /tmp:size=32m,mode=1777
+    # --- Resource limits ---
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 100
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/nginx-health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      gateway:
+        condition: service_started
+
+networks:
+  # Gateway <-> classifier only. `internal: true` = no route off this
+  # network, no outbound internet from the classifier.
+  internal-net:
+    name: sovereign-v05-internal
+    internal: true
+  # nginx <-> gateway only. The gateway also sits on this network so nginx
+  # can reach it; the gateway publishes no host port on it.
+  proxy-net:
+    name: sovereign-v05-proxy

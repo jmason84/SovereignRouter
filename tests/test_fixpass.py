@@ -39,7 +39,7 @@ def _completion(model: str, content: str | None, *, finish: str = "stop") -> dic
     }
 
 
-def build_recording_app(tmp_path: Path, handler):
+def build_recording_app(tmp_path: Path, handler, registry_path: Path | None = None):
     """Gateway app whose upstream is `handler(model, body, call_no)`."""
     clients_file = tmp_path / "clients.json"
     clients_file.write_text(json.dumps({
@@ -67,7 +67,7 @@ def build_recording_app(tmp_path: Path, handler):
     cfg = GatewayConfig(
         state_dir=tmp_path / "state",
         clients_path=clients_file,
-        registry_path=SRC / "registry.json",
+        registry_path=registry_path or SRC / "registry.json",
         provider_keys={"groq": "fake", "openrouter": "fake",
                        "deepinfra": "fake", "ollama": "fake",
                        "openai": "fake"},
@@ -86,7 +86,14 @@ def test_registry_flags_loaded():
     assert premium.reasoning is True
     for mid in ("groq/gpt-oss-20b", "groq/gpt-oss-120b", "ollama/gpt-oss-120b"):
         assert reg.get(mid).reasoning is True, mid
-    plain = reg.get("openrouter/north-mini-code-free")
+    # 2026-11-04: north-mini-code-free gained the reasoning flag — its
+    # length_no_content signature (49 of 97 battery escalations on
+    # 2026-11-03) matches the reasoning models, so the doubled-budget
+    # same-model retry now applies to it too.
+    north = reg.get("openrouter/north-mini-code-free")
+    assert north.reasoning is True
+    assert north.completion_tokens_param is False
+    plain = reg.get("openrouter/dots-3-note-preview-free")
     assert plain.reasoning is False
     assert plain.completion_tokens_param is False
 
@@ -182,12 +189,53 @@ def test_reasoning_retry_only_once_then_escalates(tmp_path):
     assert len(oss_calls) == 2  # original + exactly one retry
 
 
+def _registry_without_reasoning(tmp_path: Path, model_id: str) -> Path:
+    """Copy of the production registry with one model's reasoning flag
+    stripped — lets mechanism tests pin behaviour for a non-reasoning
+    entry without depending on production flag state."""
+    data = json.loads((SRC / "registry.json").read_text())
+    for m in data["models"]:
+        if m["id"] == model_id:
+            m.pop("reasoning", None)
+    p = tmp_path / "registry.json"
+    p.write_text(json.dumps(data))
+    return p
+
+
 def test_non_reasoning_length_failure_escalates_without_retry(tmp_path):
-    # north-mini-code-free is not reasoning-flagged: a length failure must
-    # go straight to escalation (no same-model retry). Force it to be the
-    # first candidate with a large prompt (Groq TPM window skips Groq).
+    # A model WITHOUT the reasoning flag: a length failure must go
+    # straight to escalation (no same-model retry). Uses north-mini's
+    # routing shape (forced first candidate via a large prompt — Groq
+    # TPM window skips Groq) but with the flag stripped by fixture,
+    # because production north-mini IS flagged since 2026-11-04 (see
+    # test_north_mini_length_failure_retries_same_model below).
     def handler(model, body, n):
         if model == "cohere/north-mini-code:free":
+            return httpx.Response(200, json=_completion(model, "",
+                                                        finish="length"))
+        return httpx.Response(200, json=_completion(model, f"answer from {model}"))
+
+    reg = _registry_without_reasoning(tmp_path, "openrouter/north-mini-code-free")
+    app, calls = build_recording_app(tmp_path, handler, registry_path=reg)
+    big = "word " * 15000
+    with TestClient(app) as client:
+        r = client.post("/v1/chat/completions", json=chat_body(big),
+                        headers=auth("hermes"))
+    assert r.status_code == 200
+    north_calls = [c for c in calls
+                   if c["model"] == "cohere/north-mini-code:free"]
+    assert len(north_calls) <= 1  # never retried on the same model
+
+
+def test_north_mini_length_failure_retries_same_model(tmp_path):
+    # Production registry (2026-11-04): north-mini-code-free IS
+    # reasoning-flagged, so a length_no_content first attempt earns one
+    # same-model retry at doubled budget instead of an escalation.
+    seen: dict[str, int] = {}
+
+    def handler(model, body, n):
+        seen[model] = seen.get(model, 0) + 1
+        if model == "cohere/north-mini-code:free" and seen[model] == 1:
             return httpx.Response(200, json=_completion(model, "",
                                                         finish="length"))
         return httpx.Response(200, json=_completion(model, f"answer from {model}"))
@@ -198,6 +246,9 @@ def test_non_reasoning_length_failure_escalates_without_retry(tmp_path):
         r = client.post("/v1/chat/completions", json=chat_body(big),
                         headers=auth("hermes"))
     assert r.status_code == 200
+    assert r.headers["X-Sovereign-Model"] == "openrouter/north-mini-code-free"
+    assert r.headers["X-Sovereign-Escalated"] == "false"
     north_calls = [c for c in calls
                    if c["model"] == "cohere/north-mini-code:free"]
-    assert len(north_calls) <= 1  # never retried on the same model
+    assert len(north_calls) == 2  # original + exactly one retry
+    assert north_calls[1]["max_tokens"] == north_calls[0]["max_tokens"] * 2

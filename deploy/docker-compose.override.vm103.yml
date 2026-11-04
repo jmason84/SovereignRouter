@@ -16,9 +16,10 @@ services:
   gateway:
     pull_policy: never
     # Fix pass 2026-11-03: v0.5.1 (premium max_completion_tokens +
-    # reasoning same-model retry). Rollback: drop this image line and
-    # re-run compose up -d gateway to return to the base file's v0.5.0 image.
-    image: 192.168.0.28:5000/sovereign-router:v0.5.1
+    # reasoning same-model retry). North-mini fix 2026-11-04: v0.5.2
+    # (JSON-mode code-fence tolerance in validation). Rollback: point
+    # this image line back to v0.5.1 and re-run compose up -d gateway.
+    image: 192.168.0.28:5000/sovereign-router:v0.5.2
   classifier:
     pull_policy: never
     environment:

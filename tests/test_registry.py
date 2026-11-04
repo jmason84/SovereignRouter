@@ -21,6 +21,11 @@ def test_starting_registry_matches_spec_table():
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
     assert by_id["groq/qwen3.8-27b"].quality_for("chat") == 3
     assert by_id["openrouter/north-mini-code-free"].extra_body["provider"]["data_collection"] == "deny"
+    # 2026-11-04: north-mini's hidden reasoning expands to consume any
+    # budget on most code prompts (finish=length, zero content at every
+    # budget 512-8192; provider ignores reasoning caps) — the registry
+    # disables reasoning for it so it answers directly.
+    assert by_id["openrouter/north-mini-code-free"].extra_body["reasoning"]["enabled"] is False
     assert by_id["openrouter/dots-3-note-preview-free"].context_tokens == 512 * 1024
     di = by_id["deepinfra/deepseek-v4-flash"]
     assert (di.input_usd_per_million, di.output_usd_per_million) == (0.09, 0.18)

@@ -33,6 +33,28 @@ def _message(resp: dict[str, Any]) -> dict[str, Any]:
     return _first_choice(resp).get("message") or {}
 
 
+def _strip_code_fence(text: str) -> str:
+    """Remove one clean markdown code fence wrapping the whole content.
+
+    Some models wrap JSON output in a ```json ... ``` fence even when
+    JSON mode was requested (observed live 2026-11-04: cohere
+    north-mini-code via OpenRouter fences 4/4 samples when its reasoning
+    is disabled, and the wrapped payload itself is valid JSON). Only a
+    fence that wraps the entire content is stripped; prose around a
+    fence, partial fences, and unfenced text are returned unchanged so
+    genuinely unparseable content still fails validation.
+    """
+    t = text.strip()
+    if len(t) > 6 and t.startswith("```") and t.endswith("```"):
+        inner = t[3:-3]
+        # Drop an optional language-tag line (e.g. "json") on its own line.
+        first, sep, rest = inner.partition("\n")
+        if sep and first.strip().isalnum() and len(first.strip()) <= 10:
+            inner = rest
+        return inner.strip()
+    return text
+
+
 def validate_response(resp: dict[str, Any], *, tools: Optional[list[dict]] = None,
                       json_mode: bool = False) -> list[str]:
     """Return a list of failure codes; empty list means usable."""
@@ -72,7 +94,7 @@ def validate_response(resp: dict[str, Any], *, tools: Optional[list[dict]] = Non
 
     if json_mode and content:
         try:
-            json.loads(content)
+            json.loads(_strip_code_fence(content))
         except (ValueError, TypeError):
             failures.append("json_mode_parse_fail")
 

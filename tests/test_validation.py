@@ -51,6 +51,24 @@ def test_json_mode_parse():
     assert validate_response(_resp('{"a": 1}'), json_mode=True) == []
 
 
+def test_json_mode_fenced_payload_passes():
+    # 2026-11-04: north-mini-code (reasoning disabled) wraps JSON-mode
+    # output in a ```json fence; the payload inside is valid and usable.
+    fenced = '```json\n{\n  "name": "Alex Morgan",\n  "age": 28\n}\n```'
+    assert validate_response(_resp(fenced), json_mode=True) == []
+    bare_fence = '```\n{"a": 1}\n```'
+    assert validate_response(_resp(bare_fence), json_mode=True) == []
+
+
+def test_json_mode_fence_does_not_rescue_bad_content():
+    # A fence around non-JSON still fails, and prose around a fence is
+    # not stripped (only a clean whole-content fence is tolerated).
+    assert "json_mode_parse_fail" in validate_response(
+        _resp('```json\nnot json\n```'), json_mode=True)
+    assert "json_mode_parse_fail" in validate_response(
+        _resp('Here is the JSON:\n```json\n{"a": 1}\n```'), json_mode=True)
+
+
 def test_assembler_reassembles_split_arguments():
     asm = ToolCallAssembler()
     asm.feed({"choices": [{"delta": {"tool_calls": [

@@ -22,8 +22,8 @@
 # Proposed policies (spec: Client policies — targets are DECISIONS, see
 # DECISIONS.md #4; do not treat these numbers as approved):
 #
-# hermes    sha256:0000000000000000000000000000000000000000000000000000000000000000  policy=hermes;data_class=internal;lanes=private-free,paid;premium=no;daily_target_usd=1.00
-# openclaw  sha256:1111111111111111111111111111111111111111111111111111111111111111  policy=openclaw;data_class=internal;lanes=private-free,paid,premium;premium=level5-or-explicit;daily_target_usd=3.00
+# hermes    sha256:0000000000000000000000000000000000000000000000000000000000000000  policy=hermes;data_class=internal;lanes=private-free,paid;premium=no;daily_target_usd=0.25
+# openclaw  sha256:1111111111111111111111111111111111111111111111111111111111111111  policy=openclaw;data_class=internal;lanes=private-free,paid,premium;premium=level5-or-explicit;daily_target_usd=1.00
 # n8n       sha256:2222222222222222222222222222222222222222222222222222222222222222  policy=n8n;data_class=internal;lanes=private-free,paid;premium=no;daily_target_usd=0.50
 #
 # Admin access is NOT a client line. The admin key is a separate mode-600

@@ -20,6 +20,15 @@ Extends the v0.3/v0.4 schema per spec ("Model registry v2"):
   * ``sensitive_cleared``: provider cleared by the owner to receive
     data_class=sensitive prompts. Default False for every lane; until the
     owner clears one, sensitive requests are confined to private lanes.
+  * ``completion_tokens_param``: the upstream rejects ``max_tokens`` and
+    requires the output budget as ``max_completion_tokens`` (OpenAI's
+    gpt-5.5; live-diagnosed 2026-11-03 — every premium call 400'd on the
+    old parameter name). The gateway renames the field for these entries.
+  * ``reasoning``: the model may spend its output budget on hidden
+    reasoning before any visible content, so a small budget can come back
+    as finish_reason=length with no content. On that validation failure
+    the gateway retries the same model once with a doubled budget before
+    escalating (fix pass 2026-11-03).
 
 Provider API keys are NOT part of the registry. They live as mode-600
 files in the state directory (``keys/<provider>.key``), read at startup
@@ -71,6 +80,8 @@ class ModelEntry:
     supports_vision: bool = False
     supports_tools: bool = True
     sensitive_cleared: bool = False
+    completion_tokens_param: bool = False
+    reasoning: bool = False
     enabled: bool = True
     notes: str = ""
 

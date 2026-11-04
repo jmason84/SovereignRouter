@@ -47,7 +47,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -332,13 +332,27 @@ def create_app(config: Optional[GatewayConfig] = None,
     # upstream call helpers
     # ------------------------------------------------------------------
     def upstream_body(body: dict[str, Any], entry: ModelEntry,
-                      est_tokens: int, stream: bool) -> dict[str, Any]:
+                      est_tokens: int, stream: bool,
+                      max_tokens_override: Optional[int] = None) -> dict[str, Any]:
         out: dict[str, Any] = {k: v for k, v in body.items() if k in ALLOWED_FIELDS}
         out["model"] = entry.model
         out["stream"] = stream
         room = entry.context_tokens - est_tokens
-        requested = int(body.get("max_tokens") or DEFAULT_MAX_TOKENS)
-        out["max_tokens"] = max(64, min(requested, room)) if room > 64 else requested
+        requested = int(max_tokens_override or body.get("max_tokens")
+                        or body.get("max_completion_tokens")
+                        or DEFAULT_MAX_TOKENS)
+        budget = max(64, min(requested, room)) if room > 64 else requested
+        if entry.completion_tokens_param:
+            # OpenAI's gpt-5.5 rejects max_tokens outright ("Unsupported
+            # parameter: 'max_tokens'... Use 'max_completion_tokens'
+            # instead") — live-diagnosed 2026-11-03, when every premium
+            # call upstream-400'd and surfaced as a 429. Entries flagged
+            # completion_tokens_param get the budget under the name the
+            # upstream accepts.
+            out.pop("max_tokens", None)
+            out["max_completion_tokens"] = budget
+        else:
+            out["max_tokens"] = budget
         # extra_body: provider-specific fields (e.g. OpenRouter
         # data_collection=deny) merged one level deep.
         for k, v in entry.extra_body.items():
@@ -912,10 +926,14 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
     telemetry: Telemetry = app.state.telemetry
     escalated = False
     last_failures: list[str] = []
+    retried_same: set[int] = set()
+    budget_override: Optional[int] = None
     idx = 0
     while idx < len(candidates):
         entry = candidates[idx]
-        payload = upstream_body(body, entry, est_tokens, stream=False)
+        payload = upstream_body(body, entry, est_tokens, stream=False,
+                                max_tokens_override=budget_override)
+        budget_override = None
         t_u0 = time.perf_counter()
         try:
             resp = await call_upstream(entry, payload)
@@ -943,6 +961,24 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
 
         failures = validate_response(data, tools=tools or None, json_mode=json_mode)
         if failures and not escalated:
+            if "length_no_content" in failures and entry.reasoning \
+                    and idx not in retried_same:
+                # Reasoning models can spend the entire output budget on
+                # hidden reasoning and return finish_reason=length with
+                # no visible content (burn-in 2026-11-03: this was the
+                # dominant plain-traffic failure on groq/gpt-oss-120b and
+                # drove escalations to 9.1% vs the <8% target). One retry
+                # of the SAME model with a doubled budget clears most of
+                # these and is cheaper than escalating; it is not counted
+                # as an escalation. A second length failure falls through
+                # to the normal escalation below.
+                retried_same.add(idx)
+                current = payload.get("max_completion_tokens") \
+                    or payload.get("max_tokens") or DEFAULT_MAX_TOKENS
+                budget_override = int(current) * 2
+                record.signals.append(
+                    f"same_model_retry:{entry.id}:length_no_content")
+                continue
             # Escalate once: next candidate at quality+1 (spec). Fallback
             # (found by live E2E, 2026-11-02): when no candidate reaches
             # quality+1 — e.g. a level-1 chat where the best lane-allowed

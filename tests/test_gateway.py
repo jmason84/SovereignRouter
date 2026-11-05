@@ -103,7 +103,12 @@ def test_openclaw_premium_alias_uses_premium_lane(client):
                     headers=auth("openclaw"))
     assert r.status_code == 200
     assert r.headers["X-Sovereign-Lane"] == "premium"
-    assert r.headers["X-Sovereign-Model"] == "premium/gpt-5.5"
+    # v0.5.4 (2026-11-05 premium-lane expansion): normal premium
+    # selection is cost-first, so a quality-eligible premium request
+    # lands on the cheapest premium entry (deepseek-v4-pro), not on
+    # gpt-5.5. gpt-5.5 remains the top rung for classes where it is
+    # the only quality-5 entry and the pinned sensitive-rescue target.
+    assert r.headers["X-Sovereign-Model"] == "deepseek/deepseek-v4-pro"
 
 
 def test_hermes_level5_never_gets_premium(client):
@@ -275,7 +280,7 @@ def test_admin_costs_shape(client):
 def test_admin_reload(client):
     r = client.post("/admin/reload", headers=auth("admin"))
     assert r.status_code == 200
-    assert r.json()["models"] == 8
+    assert r.json()["models"] == 11
 
 
 def test_routes_log_has_no_prompt_text(client, app, tmp_path):

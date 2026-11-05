@@ -15,7 +15,8 @@ from registry import load_registry, validate_entry
 
 def test_starting_registry_matches_spec_table():
     reg = load_registry(SRC / "registry.json")
-    assert len(reg.entries) == 8
+    # 8 spec entries + 3 premium-lane additions (2026-11-05, v0.5.4).
+    assert len(reg.entries) == 11
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
@@ -36,6 +37,20 @@ def test_starting_registry_matches_spec_table():
     assert ol.spend_alert_usd == 5.0
     assert by_id["premium/gpt-5.5"].lane == "premium"
     assert by_id["premium/gpt-5.5"].quality_for("reasoning") == 5
+    # Premium-lane expansion 2026-11-05 (direct providers, peak-rate
+    # accounting for DeepSeek; Meta deployed disabled — billing 402).
+    ds = by_id["deepseek/deepseek-v4-pro"]
+    assert ds.lane == "premium" and ds.enabled is True
+    assert (ds.input_usd_per_million, ds.output_usd_per_million) == (1.32, 3.96)
+    assert ds.cached_input_usd_per_million == pytest.approx(0.044)
+    assert ds.effective_base_url == "https://api.deepseek.com"
+    glm = by_id["zai/glm-5.3"]
+    assert glm.lane == "premium" and glm.enabled is True
+    assert (glm.input_usd_per_million, glm.output_usd_per_million) == (1.40, 4.40)
+    assert glm.effective_base_url == "https://api.z.ai/api/paas/v4"
+    spark = by_id["meta/muse-spark-1.1"]
+    assert spark.lane == "premium" and spark.enabled is False
+    assert (spark.input_usd_per_million, spark.output_usd_per_million) == (1.25, 4.25)
 
 
 def test_cached_pricing_math():

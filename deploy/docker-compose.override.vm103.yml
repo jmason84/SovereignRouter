@@ -20,9 +20,12 @@ services:
     # (JSON-mode code-fence tolerance in validation). Sensitive rescue
     # 2026-11-05: v0.5.3 (auto+sensitive+zero-candidate -> one premium
     # fallback, escalation_reason sensitive_no_eligible_lane).
-    # Rollback: point this image line back to v0.5.2 and re-run
+    # Premium lane 2026-11-05: v0.5.4 (deepseek-v4-pro + glm-5.3 direct
+    # premium entries enabled, muse-spark-1.1 disabled — Meta billing;
+    # sensitive rescue pinned to gpt-5.5 via rescue_eligible).
+    # Rollback: point this image line back to v0.5.3 and re-run
     # compose up -d gateway.
-    image: 192.168.0.28:5000/sovereign-router:v0.5.3
+    image: 192.168.0.28:5000/sovereign-router:v0.5.4
   classifier:
     pull_policy: never
     environment:

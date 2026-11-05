@@ -47,7 +47,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.5.3"
+VERSION = "0.5.4"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -348,6 +348,15 @@ def create_app(config: Optional[GatewayConfig] = None,
         the governor's emergency paid-lane switch still vetoes it, and
         the entry must be enabled, verified, context-fitting and inside
         its provider limits.
+
+        Rescue pin (v0.5.4, 2026-11-05 premium-lane expansion): only
+        entries flagged ``rescue_eligible`` in the registry may serve
+        the rescue. The flag is set on premium/gpt-5.5 alone. The new
+        cheaper premium entries (DeepSeek, Z.ai, Meta) win NORMAL
+        cost-first selection, but rescued sensitive traffic keeps
+        landing exactly where it landed before they existed — the
+        owner has not cleared any new provider to receive sensitive
+        data, by rescue or otherwise.
         """
         if not client.premium_allowed or not client.lane_allowed("premium"):
             return None
@@ -357,6 +366,8 @@ def create_app(config: Optional[GatewayConfig] = None,
         fits: list[ModelEntry] = []
         for entry in app.state.registry.entries:
             if entry.lane != "premium" or not entry.enabled:
+                continue
+            if not entry.rescue_eligible:
                 continue
             if est_tokens + MIN_OUTPUT_TOKENS > entry.context_tokens:
                 continue

@@ -179,6 +179,72 @@ def test_hermes_sensitive_no_candidates_never_rescued(tmp_path):
 
 
 # ----------------------------------------------------------------------
+# v0.5.4 rescue pin: cheaper premium entries never rescue (2026-11-05)
+# ----------------------------------------------------------------------
+def test_rescue_pinned_to_gpt55_despite_cheaper_premium(tmp_path):
+    # The production registry now carries enabled premium entries far
+    # cheaper than gpt-5.5 (deepseek $1.32/$3.96, glm $1.40/$4.40).
+    # Cost-first rescue selection would land on deepseek; the pin must
+    # keep rescued sensitive traffic on premium/gpt-5.5 exactly.
+    reg = _registry_below_l4(tmp_path)
+    data = json.loads(reg.read_text())
+    premium = {m["id"]: m for m in data["models"] if m["lane"] == "premium"}
+    assert premium["deepseek/deepseek-v4-pro"].get("enabled", True) is True
+    assert premium["zai/glm-5.3"].get("enabled", True) is True
+    app, calls = build_recording_app(tmp_path, _ok_handler, registry_path=reg)
+    with TestClient(app) as client:
+        r = client.post("/v1/chat/completions",
+                        json=chat_body(SENSITIVE_TEXT),
+                        headers={**auth("openclaw"), **L4})
+    assert r.status_code == 200
+    assert r.headers["X-Sovereign-Model"] == "premium/gpt-5.5"
+    assert len(calls) == 1 and calls[0]["model"] == "gpt-5.5"
+    rec = app.state.telemetry.recent(0)[-1]
+    assert "sensitive_rescue:premium/gpt-5.5" in rec.signals
+    assert rec.escalation_reasons == ["sensitive_no_eligible_lane"]
+
+
+def test_rescue_unavailable_when_gpt55_disabled(tmp_path):
+    # With the only rescue-eligible entry disabled, the rescue must NOT
+    # fall through to a cheaper premium entry: the request 429s, the
+    # same as a world with no rescue at all.
+    data = json.loads((SRC / "registry.json").read_text())
+    for m in data["models"]:
+        if m["lane"] != "premium":
+            m["quality"] = {k: 3 for k in m["quality"]}
+        if m["id"] == "premium/gpt-5.5":
+            m["enabled"] = False
+    reg = tmp_path / "registry.json"
+    reg.write_text(json.dumps(data))
+    app, calls = build_recording_app(tmp_path, _ok_handler, registry_path=reg)
+    with TestClient(app) as client:
+        r = client.post("/v1/chat/completions",
+                        json=chat_body(SENSITIVE_TEXT),
+                        headers={**auth("openclaw"), **L4})
+    assert r.status_code == 429
+    assert calls == []
+    rec = app.state.telemetry.recent(0)[-1]
+    assert rec.status == 429
+    assert rec.escalated is False
+
+
+def test_premium_lane_registry_shape():
+    # The pin lives in the shipped registry data, not just in code.
+    import sys
+    sys.path.insert(0, str(SRC))
+    from registry import load_registry
+    entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
+    assert entries["premium/gpt-5.5"].rescue_eligible is True
+    assert entries["deepseek/deepseek-v4-pro"].enabled is True
+    assert entries["deepseek/deepseek-v4-pro"].rescue_eligible is False
+    assert entries["zai/glm-5.3"].enabled is True
+    assert entries["zai/glm-5.3"].rescue_eligible is False
+    # Meta billing unresolved at deploy time: present but disabled.
+    assert entries["meta/muse-spark-1.1"].enabled is False
+    assert entries["meta/muse-spark-1.1"].rescue_eligible is False
+
+
+# ----------------------------------------------------------------------
 # the premium alias path is unchanged (no rescue bookkeeping)
 # ----------------------------------------------------------------------
 def test_premium_alias_unchanged_by_rescue(tmp_path):

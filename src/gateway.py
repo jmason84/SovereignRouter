@@ -47,7 +47,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -327,6 +327,49 @@ def create_app(config: Optional[GatewayConfig] = None,
 
         candidates.sort(key=sort_key)
         return candidates, skipped
+
+    def sensitive_rescue_candidate(
+        *, client: ClientPolicy, est_tokens: int, paid_off_reason: str,
+    ) -> Optional[ModelEntry]:
+        """Last-resort premium candidate for a sensitive AUTO request
+        that normal filtering left with ZERO eligible candidates.
+
+        Origin (2026-11-04 auto trial): sensitive (basic_auth_url)
+        level-4 infra turns 429'd outright — the only quality-eligible
+        private-free model was TPM-limited, paid lanes are not cleared
+        for sensitive data, and premium is barred under the auto alias.
+        This is a no-candidate rescue ONLY: it runs after every normal
+        filter, never as a general premium escalation path, and it does
+        NOT clear premium (or any provider) for sensitive data — the
+        registry's sensitive_cleared flags are untouched; it is a
+        per-request exception when the alternative is a hard 429.
+        Hard controls still bind: the client must be premium-allowed
+        with the premium lane in its policy (hermes never qualifies),
+        the governor's emergency paid-lane switch still vetoes it, and
+        the entry must be enabled, verified, context-fitting and inside
+        its provider limits.
+        """
+        if not client.premium_allowed or not client.lane_allowed("premium"):
+            return None
+        if paid_off_reason:
+            return None
+        now = time.time()
+        fits: list[ModelEntry] = []
+        for entry in app.state.registry.entries:
+            if entry.lane != "premium" or not entry.enabled:
+                continue
+            if est_tokens + MIN_OUTPUT_TOKENS > entry.context_tokens:
+                continue
+            if not entry.is_verified(now):
+                continue
+            if app.state.store.check_provider_limits(
+                    entry.provider, entry.limits, est_tokens, now):
+                continue
+            fits.append(entry)
+        if not fits:
+            return None
+        fits.sort(key=lambda e: e.estimate_cost(est_tokens, 1024))
+        return fits[0]
 
     # ------------------------------------------------------------------
     # upstream call helpers
@@ -873,6 +916,25 @@ def create_app(config: Optional[GatewayConfig] = None,
         if has_tool_error:
             record.signals.append("tool_error_next_turn")
 
+        # Sensitive no-candidate rescue (v0.5.3): an AUTO request that
+        # is sensitive-classified and has NO eligible candidate would
+        # 429 outright (2026-11-04 auto trial: 20 failures in two
+        # bursts). Give it exactly one premium fallback attempt instead,
+        # recorded as an escalation with the distinct reason
+        # "sensitive_no_eligible_lane" so alert/soak accounting can
+        # count rescues separately from validation escalations.
+        # Ordinary routing, validation-failure escalations, explicit
+        # models and the premium alias never reach this branch.
+        rescue_reason: Optional[str] = None
+        if not candidates and alias == "auto" and data_class == "sensitive":
+            rescue_entry = sensitive_rescue_candidate(
+                client=client, est_tokens=est_tokens,
+                paid_off_reason=paid_off_reason)
+            if rescue_entry is not None:
+                candidates = [rescue_entry]
+                rescue_reason = "sensitive_no_eligible_lane"
+                record.signals.append(f"sensitive_rescue:{rescue_entry.id}")
+
         if not candidates:
             record.status = 429
             record.upstream_failure = True
@@ -900,14 +962,14 @@ def create_app(config: Optional[GatewayConfig] = None,
                 task_class=task_class, est_tokens=est_tokens, tools=tools,
                 json_mode=json_mode, skipped=skipped,
                 call_upstream=call_upstream, upstream_body=upstream_body,
-                t_start=t_start)
+                t_start=t_start, rescue_reason=rescue_reason)
         return await _json_response(
             app=app, body=body, candidates=candidates, record=record,
             client=client, conv_key=conv_key, level=level,
             task_class=task_class, est_tokens=est_tokens, tools=tools,
             json_mode=json_mode, skipped=skipped,
             call_upstream=call_upstream, upstream_body=upstream_body,
-            t_start=t_start)
+            t_start=t_start, rescue_reason=rescue_reason)
 
     return app
 
@@ -922,7 +984,8 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                          tools: list[dict[str, Any]], json_mode: bool,
                          skipped: list[dict[str, str]],
                          call_upstream: Any, upstream_body: Any,
-                         t_start: float) -> Any:
+                         t_start: float,
+                         rescue_reason: Optional[str] = None) -> Any:
     telemetry: Telemetry = app.state.telemetry
     escalated = False
     last_failures: list[str] = []
@@ -1009,8 +1072,13 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
         in_tok, out_tok, cached, cost = _usage_from_response(data, est_tokens, entry)
         record.model = entry.id
         record.lane = entry.lane
-        record.escalated = escalated
-        record.escalation_reasons = last_failures if escalated else []
+        # A rescue serve is recorded as an escalation with its distinct
+        # reason even though the local validation machine never fired;
+        # a validation escalation on top of a rescue keeps its own
+        # reasons (last_failures wins when both somehow apply).
+        record.escalated = escalated or rescue_reason is not None
+        record.escalation_reasons = last_failures if escalated else (
+            [rescue_reason] if rescue_reason else [])
         record.input_tokens, record.output_tokens = in_tok, out_tok
         record.cached_tokens, record.cost_usd = cached, cost
         record.status = 200
@@ -1029,12 +1097,13 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
         return JSONResponse(
             data, status_code=200,
             headers=_route_headers(entry, level, task_class,
-                                   record.cost_estimate_usd, escalated))
+                                   record.cost_estimate_usd, record.escalated))
 
     record.status = 429
     record.upstream_failure = True
-    record.escalated = escalated
-    record.escalation_reasons = last_failures
+    record.escalated = escalated or rescue_reason is not None
+    record.escalation_reasons = last_failures or (
+        [rescue_reason] if rescue_reason else [])
     telemetry.write(record)
     return _err(429, "all candidate models are rate-limited or failing",
                 "rate_limited",
@@ -1053,7 +1122,8 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                            est_tokens: int, tools: list[dict[str, Any]],
                            json_mode: bool, skipped: list[dict[str, str]],
                            call_upstream: Any, upstream_body: Any,
-                           t_start: float) -> Any:
+                           t_start: float,
+                           rescue_reason: Optional[str] = None) -> Any:
     telemetry: Telemetry = app.state.telemetry
     first = candidates[0]
     headers = _route_headers(first, level, task_class,
@@ -1062,6 +1132,12 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
 
     async def produce() -> AsyncIterator[str]:
         escalated = False
+        if rescue_reason is not None:
+            # No-candidate rescue (v0.5.3): the row must show the rescue
+            # even though the streaming validation machine never fired.
+            # A later tool-call escalation overwrites these reasons with
+            # its own, as before.
+            record.escalation_reasons = [rescue_reason]
         idx = 0
         finalized = False
         while idx < len(candidates):
@@ -1165,7 +1241,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         cost = entry.estimate_cost(in_tok, out_tok)
                         _finalize_stream(app, record, entry, client, conv_key,
                                          level, task_class, in_tok, out_tok, cost,
-                                         escalated)
+                                         escalated or rescue_reason is not None)
                         finalized = True
                         return
                     # text path finished (already committed live)
@@ -1183,7 +1259,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                     cost = entry.estimate_cost(in_tok, out_tok)
                     _finalize_stream(app, record, entry, client, conv_key,
                                      level, task_class, in_tok, out_tok, cost,
-                                     escalated)
+                                     escalated or rescue_reason is not None)
                     finalized = True
                     return
             except (httpx.TimeoutException, httpx.TransportError):
@@ -1194,6 +1270,10 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
         if not finalized:
             record.status = 429
             record.upstream_failure = True
+            if rescue_reason is not None:
+                # The rescue was attempted and its only candidate failed
+                # upstream — the row still records the rescue escalation.
+                record.escalated = True
             telemetry.write(record)
             yield ("data: " + json.dumps({
                 "error": {"message": "all candidate models are rate-limited or failing",

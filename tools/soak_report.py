@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 STATE = Path("/root/sovereign-router-v05/state")
 TZ = ZoneInfo("America/Denver")
-TARGETS = {"hermes": 1.0, "openclaw": 3.0, "n8n": 0.5}
+TARGETS = {"hermes": 1.25, "openclaw": 5.0, "n8n": 2.5}  # Week 2 gate values, 2026-11-03 (derived reset x Jordan's 5x bump)
 
 
 def pct(sorted_vals, q):
@@ -71,6 +71,9 @@ def main() -> int:
         p50, p95 = pct(routing_ms, 0.5), pct(routing_ms, 0.95)
         print(f"- Routing latency p50 {p50:.0f} ms / p95 {p95:.0f} ms (targets <300 / <1500)")
         print(f"- Premium requests: {len(premium)} (cost ${sum(r.get('cost_usd', 0) for r in premium):.4f})")
+        spill = [r for r in part
+                 if "free_exhausted_paid_fallthrough" in (r.get("escalation_reasons") or [])]
+        print(f"- Paid spillway: {len(spill)} turns (cost ${sum(r.get('cost_usd', 0) for r in spill):.4f}) — free exhausted, paid/premium served (v0.5.5)")
         print(f"- Level mix: {dict(sorted(levels.items(), key=lambda x: str(x[0])))}; L4+L5 = {l45 / n:.0%} (alert >40%)")
         print()
 

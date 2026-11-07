@@ -107,7 +107,7 @@ def test_openclaw_premium_alias_uses_premium_lane(client):
     # selection is cost-first, so a quality-eligible premium request
     # lands on the cheapest premium entry (deepseek-v4-pro), not on
     # gpt-5.5. gpt-5.5 remains the top rung for classes where it is
-    # the only quality-5 entry and the pinned sensitive-rescue target.
+    # the only quality-5 entry (and, by price, the spillway's last resort).
     assert r.headers["X-Sovereign-Model"] == "deepseek/deepseek-v4-pro"
 
 

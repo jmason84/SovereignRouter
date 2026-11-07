@@ -23,9 +23,12 @@ services:
     # Premium lane 2026-11-05: v0.5.4 (deepseek-v4-pro + glm-5.3 direct
     # premium entries enabled, muse-spark-1.1 disabled — Meta billing;
     # sensitive rescue pinned to gpt-5.5 via rescue_eligible).
-    # Rollback: point this image line back to v0.5.3 and re-run
+    # Paid spillway 2026-11-07: v0.5.5 (free-first / paid-spillway
+    # waterfall replaces the sensitive rescue + rescue_eligible pin;
+    # registry flag removed — state registry.json synced to match).
+    # Rollback: point this image line back to v0.5.4 and re-run
     # compose up -d gateway.
-    image: 192.168.0.28:5000/sovereign-router:v0.5.4
+    image: 192.168.0.28:5000/sovereign-router:v0.5.5
   classifier:
     pull_policy: never
     environment:

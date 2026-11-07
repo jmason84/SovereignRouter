@@ -17,6 +17,20 @@ Error contract (spec "Interfaces"):
     permission, and an active manual killswitch).
   * A request is NEVER refused for budget reasons.
 
+Free-first / paid-spillway waterfall (v0.5.5, owner ruling 2026-11-07):
+  candidate selection is free-first and unchanged; when it yields ZERO
+  eligible candidates — or every candidate fails upstream — ONE
+  spillway pass over the paid + premium entries (the gateway's normal
+  cost order, cheapest paid first) may serve the turn instead of a
+  429. In that pass ONLY, the sensitive provider-clearance wall and
+  the per-client premium gate are relaxed (the owner cleared paid
+  providers for sensitive data as the spillway of last resort);
+  quality, tools, context, verification and provider rate limits
+  still bind, and the governor's emergency paid-lane switch still
+  vetoes. Spillway serves are recorded as escalations with the reason
+  "free_exhausted_paid_fallthrough". This generalises and replaces
+  the v0.5.3 sensitive no-candidate rescue — one mechanism, not two.
+
 No startup patches: this is the v0.5 source tree (the v0.3.3 canary's
 PATCH_V033 mechanism is gone). Provider keys are read once at startup
 from mode-600 files in the state dir (``keys/<provider>.key``); they are
@@ -47,7 +61,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.5.4"
+VERSION = "0.5.5"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -58,6 +72,9 @@ ALLOWED_FIELDS = {
     "frequency_penalty", "seed", "user", "n",
 }
 FAILOVER_STATUSES = {401, 403, 408, 413, 429, 500, 502, 503, 504}
+# Escalation reason recorded on every turn the paid spillway serves
+# (v0.5.5 free-first / paid-spillway waterfall, owner ruling 2026-11-07).
+SPILLWAY_REASON = "free_exhausted_paid_fallthrough"
 DEFAULT_MAX_TOKENS = 2048          # spec: max_tokens clamp, 2048 default
 MIN_OUTPUT_TOKENS = 64             # reserve used by the context-fit check
 TOKEN_ESTIMATE_FACTOR = 1.05       # carried from v0.3 (o200k_base x1.05)
@@ -270,6 +287,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         has_tools: bool, data_class: str,
         premium_permitted: bool, paid_off_reason: str,
         premium_only: bool = False,
+        spillway: bool = False,
     ) -> tuple[list[ModelEntry], list[dict[str, str]]]:
         skipped: list[dict[str, str]] = []
         candidates: list[ModelEntry] = []
@@ -285,14 +303,23 @@ def create_app(config: Optional[GatewayConfig] = None,
                 # may serve it — falling back to a paid model would
                 # silently change what the client asked for.
                 skip("explicit_premium_only"); continue
-            if entry.lane == "premium":
+            if spillway:
+                # Spillway pass (v0.5.5): paid + premium entries only.
+                # Free entries were the first pass's business — their
+                # skip reasons are already on the route row; re-listing
+                # them here would only duplicate it. The lane list and
+                # the per-client premium gate do not apply in this pass
+                # (uniform last resort, owner ruling 2026-11-07).
+                if entry.lane not in ("paid", "premium"):
+                    continue
+            elif entry.lane == "premium":
                 if not premium_permitted:
                     skip("premium_not_allowed"); continue
             elif not client.lane_allowed(entry.lane):
                 skip("lane_not_allowed"); continue
             if paid_off_reason and entry.lane in ("paid", "premium"):
                 skip(paid_off_reason); continue
-            if data_class == "sensitive":
+            if data_class == "sensitive" and not spillway:
                 cleared = entry.sensitive_cleared or \
                     entry.provider in client.sensitive_cleared_providers
                 if entry.lane == "public-only-free":
@@ -301,6 +328,9 @@ def create_app(config: Optional[GatewayConfig] = None,
                     # Uncleared paid/premium may not receive secrets; the
                     # private-free lane is the spec's fallback (strongest
                     # verified no-retention terms) and stays eligible.
+                    # (In the spillway pass this wall is relaxed by the
+                    # owner's 2026-11-07 ruling — see
+                    # build_spillway_candidates.)
                     skip("sensitive_not_cleared"); continue
             if has_tools and not entry.supports_tools:
                 skip("tools_unsupported"); continue
@@ -328,59 +358,78 @@ def create_app(config: Optional[GatewayConfig] = None,
         candidates.sort(key=sort_key)
         return candidates, skipped
 
-    def sensitive_rescue_candidate(
-        *, client: ClientPolicy, est_tokens: int, paid_off_reason: str,
-    ) -> Optional[ModelEntry]:
-        """Last-resort premium candidate for a sensitive AUTO request
-        that normal filtering left with ZERO eligible candidates.
+    def build_spillway_candidates(
+        *, client: ClientPolicy, level: int, task_class: str,
+        required_quality: int, est_tokens: int, max_tokens: int,
+        has_tools: bool, data_class: str, paid_off_reason: str,
+        exclude_ids: frozenset = frozenset(),
+    ) -> tuple[list[ModelEntry], list[dict[str, str]]]:
+        """Free-first / paid-spillway pass (v0.5.5, owner ruling
+        2026-11-07: "allow paid models when we burn up the free — but
+        the priority should be free processing FIRST", sensitive turns
+        included, cheapest paid first).
 
-        Origin (2026-11-04 auto trial): sensitive (basic_auth_url)
-        level-4 infra turns 429'd outright — the only quality-eligible
-        private-free model was TPM-limited, paid lanes are not cleared
-        for sensitive data, and premium is barred under the auto alias.
-        This is a no-candidate rescue ONLY: it runs after every normal
-        filter, never as a general premium escalation path, and it does
-        NOT clear premium (or any provider) for sensitive data — the
-        registry's sensitive_cleared flags are untouched; it is a
-        per-request exception when the alternative is a hard 429.
-        Hard controls still bind: the client must be premium-allowed
-        with the premium lane in its policy (hermes never qualifies),
-        the governor's emergency paid-lane switch still vetoes it, and
-        the entry must be enabled, verified, context-fitting and inside
-        its provider limits.
+        Runs ONLY when normal free-first selection produced ZERO
+        eligible candidates, or every one of them failed upstream: the
+        turn would otherwise be a hard 429. Selection re-runs over the
+        paid + premium entries in the gateway's normal cost order
+        (cheapest paid first; premium/gpt-5.5 sorts last by price —
+        which is where the v0.5.4 rescue pin's effect now lives; the
+        pin flag and the v0.5.3 rescue path are gone, this is the one
+        mechanism).
 
-        Rescue pin (v0.5.4, 2026-11-05 premium-lane expansion): only
-        entries flagged ``rescue_eligible`` in the registry may serve
-        the rescue. The flag is set on premium/gpt-5.5 alone. The new
-        cheaper premium entries (DeepSeek, Z.ai, Meta) win NORMAL
-        cost-first selection, but rescued sensitive traffic keeps
-        landing exactly where it landed before they existed — the
-        owner has not cleared any new provider to receive sensitive
-        data, by rescue or otherwise.
+        Origin: the 2026-11-06 Hermes dead end (36x 429 in a day). An
+        hourly email-triage turn classified sensitive + L4 + infra at
+        ~45k tokens had exactly one free candidate, TPM-walled at
+        8k/min by size alone; paid was barred by the sensitive wall and
+        premium by the client gate, and the v0.5.3 rescue deliberately
+        excluded hermes — a policy dead end, not a defect.
+
+        Relaxed in this pass ONLY:
+          * the sensitive provider-clearance wall — the owner cleared
+            paid providers to receive sensitive turns as the spillway
+            of last resort;
+          * the per-client premium gate and lane list — the pass is a
+            uniform last resort for all three clients. Explicit
+            premium requests and explicit model pins never reach it
+            (callers gate on alias-based auto-selection), so it is not
+            a premium unlock.
+        Still binding: enabled/verified entries, tools support, the
+        quality floor (with the same level-5 -> quality-4 fallback as
+        normal selection), context fit, provider rate limits
+        (TPM/RPM/RPD/TPD), and the governor's emergency paid-lane
+        switch, which vetoes the pass outright (its reason lands in
+        the skip list via build_candidates). Governor steering
+        (above-target quality delta is already inside required_quality;
+        the cheapest-quality-4 narrowing and premium-explicit-only
+        rules) shapes normal selection only — a last-resort pass that
+        recreated the dead end above target would defeat its purpose.
+
+        ``exclude_ids`` drops entries already attempted upstream this
+        turn (execution-time engagement after failover exhaustion).
         """
-        if not client.premium_allowed or not client.lane_allowed("premium"):
-            return None
-        if paid_off_reason:
-            return None
-        now = time.time()
-        fits: list[ModelEntry] = []
-        for entry in app.state.registry.entries:
-            if entry.lane != "premium" or not entry.enabled:
-                continue
-            if not entry.rescue_eligible:
-                continue
-            if est_tokens + MIN_OUTPUT_TOKENS > entry.context_tokens:
-                continue
-            if not entry.is_verified(now):
-                continue
-            if app.state.store.check_provider_limits(
-                    entry.provider, entry.limits, est_tokens, now):
-                continue
-            fits.append(entry)
-        if not fits:
-            return None
-        fits.sort(key=lambda e: e.estimate_cost(est_tokens, 1024))
-        return fits[0]
+        candidates, skipped = build_candidates(
+            client=client, level=level, task_class=task_class,
+            required_quality=required_quality, est_tokens=est_tokens,
+            max_tokens=max_tokens, has_tools=has_tools,
+            data_class=data_class, premium_permitted=True,
+            paid_off_reason=paid_off_reason, spillway=True)
+        if not candidates and level == 5 and required_quality >= 5:
+            # Mirror normal selection's level-5 fallback: quality 4
+            # may serve a level-5 turn rather than failing it.
+            candidates2, skipped2 = build_candidates(
+                client=client, level=level, task_class=task_class,
+                required_quality=4, est_tokens=est_tokens,
+                max_tokens=max_tokens, has_tools=has_tools,
+                data_class=data_class, premium_permitted=True,
+                paid_off_reason=paid_off_reason, spillway=True)
+            if candidates2:
+                candidates = candidates2
+                skipped = skipped + skipped2 + [
+                    {"model": "-", "reason": "level5_fallback_quality4"}]
+        if exclude_ids:
+            candidates = [c for c in candidates if c.id not in exclude_ids]
+        return candidates, skipped
 
     # ------------------------------------------------------------------
     # upstream call helpers
@@ -698,6 +747,21 @@ def create_app(config: Optional[GatewayConfig] = None,
             if match is not None:
                 candidates.remove(match)
                 candidates.insert(0, match)
+        # Paid spillway (v0.5.5): shadow must predict what the live
+        # path would do — a zero-candidate decision here would be a
+        # served paid turn live. Same gate as chat_completions.
+        if not candidates and alias is not None and alias != "premium" \
+                and explicit_entry is None \
+                and not (explicit_premium and premium_permitted):
+            spill_candidates, spill_skipped = build_spillway_candidates(
+                client=client, level=level, task_class=task_class,
+                required_quality=required_quality, est_tokens=est_tokens,
+                max_tokens=max_tokens, has_tools=bool(tools),
+                data_class=data_class, paid_off_reason=paid_off_reason)
+            if spill_candidates:
+                candidates = spill_candidates
+                skipped = skipped + [{"model": "-", "reason": "paid_spillway_pass"}] \
+                    + spill_skipped
 
         first = candidates[0] if candidates else None
         return {
@@ -902,9 +966,11 @@ def create_app(config: Optional[GatewayConfig] = None,
                 app.state.store.add_alert(
                     "sensitive_no_cleared_provider", client.id,
                     f"sensitive_fallback:{client.id}",
-                    f"Client {client.id}: sensitive request served on the "
-                    "private lane because no provider is cleared for "
-                    "sensitive data yet (owner decision pending).")
+                    f"Client {client.id}: sensitive request had no "
+                    "cleared provider in free-first selection; under "
+                    "the v0.5.5 free-first / paid-spillway ruling "
+                    "(2026-11-07) it may fall through to a paid "
+                    "provider as a last resort.")
 
         record = RouteRecord(
             ts=time.time(), client=client.id, level=level, task_class=task_class,
@@ -927,24 +993,44 @@ def create_app(config: Optional[GatewayConfig] = None,
         if has_tool_error:
             record.signals.append("tool_error_next_turn")
 
-        # Sensitive no-candidate rescue (v0.5.3): an AUTO request that
-        # is sensitive-classified and has NO eligible candidate would
-        # 429 outright (2026-11-04 auto trial: 20 failures in two
-        # bursts). Give it exactly one premium fallback attempt instead,
-        # recorded as an escalation with the distinct reason
-        # "sensitive_no_eligible_lane" so alert/soak accounting can
-        # count rescues separately from validation escalations.
-        # Ordinary routing, validation-failure escalations, explicit
-        # models and the premium alias never reach this branch.
-        rescue_reason: Optional[str] = None
-        if not candidates and alias == "auto" and data_class == "sensitive":
-            rescue_entry = sensitive_rescue_candidate(
-                client=client, est_tokens=est_tokens,
-                paid_off_reason=paid_off_reason)
-            if rescue_entry is not None:
-                candidates = [rescue_entry]
-                rescue_reason = "sensitive_no_eligible_lane"
-                record.signals.append(f"sensitive_rescue:{rescue_entry.id}")
+        # Free-first / paid spillway (v0.5.5, owner ruling 2026-11-07):
+        # normal selection above is the free-first pass and is
+        # unchanged. When it yields ZERO eligible candidates, one
+        # spillway pass over paid + premium in cost order may serve
+        # the turn instead of a 429 — the generalisation of the
+        # v0.5.3 sensitive rescue (same situation, 2026-11-04 bursts;
+        # industrialised by the 2026-11-06 hermes triage dead end) to
+        # every client and data class. Alias-based auto-selection
+        # only: explicit premium requests and explicit model pins keep
+        # their existing semantics and never spill — the pass is not a
+        # premium unlock. The response functions also engage it (via
+        # spillway_builder) when free candidates existed but every
+        # attempt failed upstream.
+        premium_only_mode = explicit_premium and premium_permitted
+        spillway_allowed = bool(
+            alias is not None and alias != "premium"
+            and explicit_entry is None and not premium_only_mode)
+
+        def spillway_builder(exclude_ids: frozenset):
+            if not spillway_allowed:
+                return [], []
+            return build_spillway_candidates(
+                client=client, level=level, task_class=task_class,
+                required_quality=required_quality, est_tokens=est_tokens,
+                max_tokens=max_tokens, has_tools=bool(tools),
+                data_class=data_class, paid_off_reason=paid_off_reason,
+                exclude_ids=exclude_ids)
+
+        spillway_reason: Optional[str] = None
+        if not candidates:
+            spill_candidates, spill_skipped = spillway_builder(frozenset())
+            if spill_candidates or spill_skipped:
+                skipped.append({"model": "-", "reason": "paid_spillway_pass"})
+                skipped.extend(spill_skipped)
+            if spill_candidates:
+                candidates = spill_candidates
+                spillway_reason = SPILLWAY_REASON
+                record.signals.append(f"paid_spillway:{spill_candidates[0].id}")
 
         if not candidates:
             record.status = 429
@@ -973,14 +1059,16 @@ def create_app(config: Optional[GatewayConfig] = None,
                 task_class=task_class, est_tokens=est_tokens, tools=tools,
                 json_mode=json_mode, skipped=skipped,
                 call_upstream=call_upstream, upstream_body=upstream_body,
-                t_start=t_start, rescue_reason=rescue_reason)
+                t_start=t_start, spillway_reason=spillway_reason,
+                spillway_builder=spillway_builder)
         return await _json_response(
             app=app, body=body, candidates=candidates, record=record,
             client=client, conv_key=conv_key, level=level,
             task_class=task_class, est_tokens=est_tokens, tools=tools,
             json_mode=json_mode, skipped=skipped,
             call_upstream=call_upstream, upstream_body=upstream_body,
-            t_start=t_start, rescue_reason=rescue_reason)
+            t_start=t_start, spillway_reason=spillway_reason,
+            spillway_builder=spillway_builder)
 
     return app
 
@@ -996,15 +1084,38 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                          skipped: list[dict[str, str]],
                          call_upstream: Any, upstream_body: Any,
                          t_start: float,
-                         rescue_reason: Optional[str] = None) -> Any:
+                         spillway_reason: Optional[str] = None,
+                         spillway_builder: Any = None) -> Any:
     telemetry: Telemetry = app.state.telemetry
     escalated = False
     last_failures: list[str] = []
     retried_same: set[int] = set()
     budget_override: Optional[int] = None
+    attempted: set[str] = set()
+    # The paid spillway engages at most once per turn: either the
+    # caller adopted its list at selection time (spillway_reason
+    # already set), or it engages in the loop guard below when every
+    # first-pass candidate failed upstream (v0.5.5).
+    spillway_engaged = spillway_reason is not None
     idx = 0
-    while idx < len(candidates):
+    while True:
+        if idx >= len(candidates):
+            if spillway_builder is not None and not spillway_engaged:
+                extra, extra_skipped = spillway_builder(frozenset(attempted))
+                if extra:
+                    spillway_engaged = True
+                    spillway_reason = SPILLWAY_REASON
+                    skipped.append({"model": "-", "reason": "paid_spillway_pass"})
+                    skipped.extend(extra_skipped)
+                    record.signals.append(f"paid_spillway:{extra[0].id}")
+                    candidates = extra
+                    idx = 0
+                    retried_same = set()
+                    budget_override = None
+                    continue
+            break
         entry = candidates[idx]
+        attempted.add(entry.id)
         payload = upstream_body(body, entry, est_tokens, stream=False,
                                 max_tokens_override=budget_override)
         budget_override = None
@@ -1083,13 +1194,15 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
         in_tok, out_tok, cached, cost = _usage_from_response(data, est_tokens, entry)
         record.model = entry.id
         record.lane = entry.lane
-        # A rescue serve is recorded as an escalation with its distinct
-        # reason even though the local validation machine never fired;
-        # a validation escalation on top of a rescue keeps its own
-        # reasons (last_failures wins when both somehow apply).
-        record.escalated = escalated or rescue_reason is not None
-        record.escalation_reasons = last_failures if escalated else (
-            [rescue_reason] if rescue_reason else [])
+        # A spillway serve is recorded as an escalation with its
+        # distinct reason even though the local validation machine
+        # never fired; validation-escalation failures from the same
+        # turn stay in front of it when both somehow apply.
+        record.escalated = escalated or spillway_reason is not None
+        reasons = list(last_failures) if escalated else []
+        if spillway_reason and spillway_reason not in reasons:
+            reasons.append(spillway_reason)
+        record.escalation_reasons = reasons
         record.input_tokens, record.output_tokens = in_tok, out_tok
         record.cached_tokens, record.cost_usd = cached, cost
         record.status = 200
@@ -1112,9 +1225,11 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
 
     record.status = 429
     record.upstream_failure = True
-    record.escalated = escalated or rescue_reason is not None
-    record.escalation_reasons = last_failures or (
-        [rescue_reason] if rescue_reason else [])
+    record.escalated = escalated or spillway_reason is not None
+    reasons = list(last_failures) if escalated else []
+    if spillway_reason and spillway_reason not in reasons:
+        reasons.append(spillway_reason)
+    record.escalation_reasons = reasons
     telemetry.write(record)
     return _err(429, "all candidate models are rate-limited or failing",
                 "rate_limited",
@@ -1134,7 +1249,8 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                            json_mode: bool, skipped: list[dict[str, str]],
                            call_upstream: Any, upstream_body: Any,
                            t_start: float,
-                           rescue_reason: Optional[str] = None) -> Any:
+                           spillway_reason: Optional[str] = None,
+                           spillway_builder: Any = None) -> Any:
     telemetry: Telemetry = app.state.telemetry
     first = candidates[0]
     headers = _route_headers(first, level, task_class,
@@ -1142,17 +1258,44 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
     http: httpx.AsyncClient = app.state.http
 
     async def produce() -> AsyncIterator[str]:
+        nonlocal candidates, spillway_reason
         escalated = False
-        if rescue_reason is not None:
-            # No-candidate rescue (v0.5.3): the row must show the rescue
-            # even though the streaming validation machine never fired.
-            # A later tool-call escalation overwrites these reasons with
-            # its own, as before.
-            record.escalation_reasons = [rescue_reason]
+        if spillway_reason is not None:
+            # Selection-time spillway (v0.5.5): the row must show the
+            # fallthrough even though the streaming validation machine
+            # never fired. A later tool-call escalation overwrites
+            # these reasons with its own, as before.
+            record.escalation_reasons = [spillway_reason]
+        attempted: set[str] = set()
+        # Engages at most once per turn (see _json_response).
+        spillway_engaged = spillway_reason is not None
         idx = 0
         finalized = False
-        while idx < len(candidates):
+        while True:
+            if idx >= len(candidates):
+                # Every candidate failed upstream: engage the paid
+                # spillway once rather than ending the stream in a
+                # 429 (v0.5.5; mirrors the JSON path's loop guard).
+                if spillway_builder is not None and not spillway_engaged:
+                    extra, extra_skipped = spillway_builder(
+                        frozenset(attempted))
+                    if extra:
+                        spillway_engaged = True
+                        spillway_reason = SPILLWAY_REASON
+                        if SPILLWAY_REASON not in record.escalation_reasons:
+                            record.escalation_reasons = [
+                                *record.escalation_reasons, SPILLWAY_REASON]
+                        record.signals.append(
+                            f"paid_spillway:{extra[0].id}")
+                        skipped.append({"model": "-",
+                                        "reason": "paid_spillway_pass"})
+                        skipped.extend(extra_skipped)
+                        candidates = extra
+                        idx = 0
+                        continue
+                break
             entry = candidates[idx]
+            attempted.add(entry.id)
             payload = upstream_body(body, entry, est_tokens, stream=True)
             url = f"{entry.effective_base_url}/chat/completions"
             hdrs = {"Content-Type": "application/json"}
@@ -1252,7 +1395,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         cost = entry.estimate_cost(in_tok, out_tok)
                         _finalize_stream(app, record, entry, client, conv_key,
                                          level, task_class, in_tok, out_tok, cost,
-                                         escalated or rescue_reason is not None)
+                                         escalated or spillway_reason is not None)
                         finalized = True
                         return
                     # text path finished (already committed live)
@@ -1270,7 +1413,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                     cost = entry.estimate_cost(in_tok, out_tok)
                     _finalize_stream(app, record, entry, client, conv_key,
                                      level, task_class, in_tok, out_tok, cost,
-                                     escalated or rescue_reason is not None)
+                                     escalated or spillway_reason is not None)
                     finalized = True
                     return
             except (httpx.TimeoutException, httpx.TransportError):
@@ -1281,9 +1424,9 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
         if not finalized:
             record.status = 429
             record.upstream_failure = True
-            if rescue_reason is not None:
-                # The rescue was attempted and its only candidate failed
-                # upstream — the row still records the rescue escalation.
+            if spillway_reason is not None:
+                # The spillway was attempted and its candidates failed
+                # upstream too — the row still records the escalation.
                 record.escalated = True
             telemetry.write(record)
             yield ("data: " + json.dumps({

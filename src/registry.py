@@ -29,13 +29,13 @@ Extends the v0.3/v0.4 schema per spec ("Model registry v2"):
     as finish_reason=length with no content. On that validation failure
     the gateway retries the same model once with a doubled budget before
     escalating (fix pass 2026-11-03).
-  * ``rescue_eligible``: the entry may serve the sensitive no-candidate
-    rescue (gateway v0.5.3). Default False; set True ONLY on the premium
-    entry the owner has designated as the rescue target (premium/gpt-5.5).
-    The 2026-11-05 premium-lane expansion added cheaper premium entries
-    that win normal cost-first selection, but rescued SENSITIVE traffic
-    keeps landing on gpt-5.5 alone until the owner rules otherwise —
-    this flag is that pin (gateway v0.5.4).
+  * ``rescue_eligible``: REMOVED in gateway v0.5.5 (2026-11-07). The
+    v0.5.3 sensitive no-candidate rescue it pinned (to premium/gpt-5.5)
+    was generalised into the free-first / paid-spillway waterfall by
+    the owner's ruling of 2026-11-07; gpt-5.5's last-resort position
+    is now expressed by its price in the spillway's cost order, not by
+    a flag. Registry files still carrying the key load unchanged
+    (unknown keys are ignored by the loader).
 
 Provider API keys are NOT part of the registry. They live as mode-600
 files in the state directory (``keys/<provider>.key``), read at startup
@@ -89,7 +89,6 @@ class ModelEntry:
     sensitive_cleared: bool = False
     completion_tokens_param: bool = False
     reasoning: bool = False
-    rescue_eligible: bool = False
     enabled: bool = True
     notes: str = ""
 

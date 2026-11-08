@@ -39,8 +39,13 @@ def _completion(model: str, content: str | None, *, finish: str = "stop") -> dic
     }
 
 
-def build_recording_app(tmp_path: Path, handler, registry_path: Path | None = None):
-    """Gateway app whose upstream is `handler(model, body, call_no)`."""
+def build_recording_app(tmp_path: Path, handler, registry_path: Path | None = None,
+                        provider_keys_extra: dict | None = None):
+    """Gateway app whose upstream is `handler(model, body, call_no)`.
+
+    `provider_keys_extra` merges additional fake provider keys over
+    the base set (e.g. {"siliconflow": "fake"} for tests that need a
+    normally-keyless provider to be selectable)."""
     clients_file = tmp_path / "clients.json"
     clients_file.write_text(json.dumps({
         "admin_key_sha256": _sha(RAW_KEYS["admin"]),
@@ -70,7 +75,8 @@ def build_recording_app(tmp_path: Path, handler, registry_path: Path | None = No
         registry_path=registry_path or SRC / "registry.json",
         provider_keys={"groq": "fake", "openrouter": "fake",
                        "deepinfra": "fake", "ollama": "fake",
-                       "openai": "fake"},
+                       "openai": "fake", "deepseek": "fake", "zai": "fake",
+                       **(provider_keys_extra or {})},
     )
     app = create_app(cfg, upstream_transport=httpx.MockTransport(transport_handler))
     return app, calls

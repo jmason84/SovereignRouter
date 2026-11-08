@@ -164,7 +164,8 @@ def build_app(tmp_path: Path, **cfg_kwargs):
         state_dir=tmp_path / "state",
         clients_path=clients_file,
         provider_keys={"groq": "fake", "openrouter": "fake",
-                       "deepinfra": "fake", "ollama": "fake", "openai": "fake"},
+                       "deepinfra": "fake", "ollama": "fake", "openai": "fake",
+                       "deepseek": "fake", "zai": "fake"},
         **cfg_kwargs,
     )
     transport = httpx.MockTransport(fake_upstream)

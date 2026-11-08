@@ -412,7 +412,7 @@ def test_emergency_switch_vetoes_spillway(tmp_path):
         registry_path=SRC / "registry.json",
         provider_keys={"groq": "fake", "openrouter": "fake",
                        "deepinfra": "fake", "ollama": "fake",
-                       "openai": "fake"},
+                       "openai": "fake", "deepseek": "fake", "zai": "fake"},
         emergency_enabled=True, emergency_daily_usd=0.0,  # tripped at $0
     )
     calls: list[dict] = []
@@ -470,14 +470,14 @@ def test_shadow_reflects_spillway(tmp_path):
     assert calls == []  # shadow never calls upstream
 
 
-def test_registry_and_version_shape_v055():
+def test_registry_and_version_shape_v056():
     import sys
     sys.path.insert(0, str(SRC))
     import gateway
     from registry import load_registry
-    assert gateway.VERSION == "0.5.5"
+    assert gateway.VERSION == "0.5.6"
     entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
-    assert len(entries) == 11
+    assert len(entries) == 13
     # the rescue pin is gone from code and data alike
     assert not hasattr(entries["premium/gpt-5.5"], "rescue_eligible")
     assert entries["deepseek/deepseek-v4-pro"].enabled is True
@@ -485,3 +485,10 @@ def test_registry_and_version_shape_v055():
     # Meta billing still unresolved: present but disabled, so the
     # spillway cannot land on it either.
     assert entries["meta/muse-spark-1.1"].enabled is False
+    # SiliconFlow (v0.5.6): GLM-5.3 enabled in the paid lane, V4 Pro
+    # present but disabled; both sensitive-excluded (see
+    # tests/test_siliconflow_slot.py for the behavioural proofs).
+    assert entries["siliconflow/glm-5.3"].enabled is True
+    assert entries["siliconflow/glm-5.3"].spillway_sensitive_excluded is True
+    assert entries["siliconflow/deepseek-v4-pro"].enabled is False
+    assert entries["siliconflow/deepseek-v4-pro"].spillway_sensitive_excluded is True

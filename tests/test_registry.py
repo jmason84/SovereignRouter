@@ -15,8 +15,9 @@ from registry import load_registry, validate_entry
 
 def test_starting_registry_matches_spec_table():
     reg = load_registry(SRC / "registry.json")
-    # 8 spec entries + 3 premium-lane additions (2026-11-05, v0.5.4).
-    assert len(reg.entries) == 11
+    # 8 spec entries + 3 premium-lane additions (2026-11-05, v0.5.4)
+    # + 2 SiliconFlow entries (2026-11-07, v0.5.6).
+    assert len(reg.entries) == 13
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
@@ -51,6 +52,26 @@ def test_starting_registry_matches_spec_table():
     spark = by_id["meta/muse-spark-1.1"]
     assert spark.lane == "premium" and spark.enabled is False
     assert (spark.input_usd_per_million, spark.output_usd_per_million) == (1.25, 4.25)
+    # SiliconFlow slot 2026-11-07 (v0.5.6): GLM-5.3 in the paid lane
+    # at half of Z.ai direct; V4 Pro present but disabled. Both are
+    # flagged spillway_sensitive_excluded (posture UNCLEAR — probe).
+    sf = by_id["siliconflow/glm-5.3"]
+    assert sf.lane == "paid" and sf.enabled is True
+    assert sf.model == "zai-org/GLM-5.3"
+    assert (sf.input_usd_per_million, sf.output_usd_per_million) == (0.70, 2.20)
+    assert sf.cached_input_usd_per_million == pytest.approx(0.13)
+    assert sf.effective_base_url == "https://api.siliconflow.com/v1"
+    assert sf.spillway_sensitive_excluded is True
+    assert sf.quality == glm.quality  # same model as zai/glm-5.3
+    sfp = by_id["siliconflow/deepseek-v4-pro"]
+    assert sfp.lane == "premium" and sfp.enabled is False
+    assert sfp.model == "deepseek-ai/DeepSeek-V4-Pro"
+    assert (sfp.input_usd_per_million, sfp.output_usd_per_million) == (1.00, 1.50)
+    assert sfp.cached_input_usd_per_million == pytest.approx(0.135)
+    assert sfp.spillway_sensitive_excluded is True
+    # the flag defaults off everywhere else
+    assert all(not e.spillway_sensitive_excluded
+               for e in reg.entries if e.provider != "siliconflow")
 
 
 def test_cached_pricing_math():

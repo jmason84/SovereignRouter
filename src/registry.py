@@ -29,6 +29,15 @@ Extends the v0.3/v0.4 schema per spec ("Model registry v2"):
     as finish_reason=length with no content. On that validation failure
     the gateway retries the same model once with a doubled budget before
     escalating (fix pass 2026-11-03).
+  * ``spillway_sensitive_excluded``: per-model sensitive exclusion
+    (gateway v0.5.6, 2026-11-07). The v0.5.5 spillway relaxes the
+    sensitive provider-clearance wall for the paid + premium pool as
+    a whole, but a flagged entry is NEVER a candidate for a
+    data_class=sensitive request in any pass — its provider's data
+    posture was reviewed and not cleared for sensitive traffic
+    (SiliconFlow: training not contractually prohibited, retention
+    unspecified, no ZDR — probe 2026-11-07). Non-sensitive requests
+    are unaffected; the entry keeps its normal cost-order position.
   * ``rescue_eligible``: REMOVED in gateway v0.5.5 (2026-11-07). The
     v0.5.3 sensitive no-candidate rescue it pinned (to premium/gpt-5.5)
     was generalised into the free-first / paid-spillway waterfall by
@@ -63,6 +72,7 @@ PROVIDER_BASE_URLS: dict[str, str] = {
     "ollama": "https://ollama.com/v1",
     "openai": "https://api.openai.com/v1",
     "anthropic": "https://api.anthropic.com/v1",
+    "siliconflow": "https://api.siliconflow.com/v1",
 }
 
 
@@ -87,6 +97,7 @@ class ModelEntry:
     supports_vision: bool = False
     supports_tools: bool = True
     sensitive_cleared: bool = False
+    spillway_sensitive_excluded: bool = False
     completion_tokens_param: bool = False
     reasoning: bool = False
     enabled: bool = True

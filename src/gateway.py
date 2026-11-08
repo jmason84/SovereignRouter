@@ -31,6 +31,23 @@ Free-first / paid-spillway waterfall (v0.5.5, owner ruling 2026-11-07):
   "free_exhausted_paid_fallthrough". This generalises and replaces
   the v0.5.3 sensitive no-candidate rescue — one mechanism, not two.
 
+SiliconFlow non-sensitive paid slot (v0.5.6, owner ruling 2026-11-07):
+  SiliconFlow joins the paid pool at half of Z.ai direct's GLM-5.3
+  price, but its data posture was graded UNCLEAR by the 2026-11-07
+  probe (training never explicitly prohibited, retention unspecified,
+  no ZDR), so it must never receive a sensitive-classified turn —
+  including via the spillway, whose whole point is relaxing the
+  clearance wall. Registry entries carry ``spillway_sensitive_excluded``
+  for this: candidate selection drops a flagged entry for sensitive
+  requests in EVERY pass (normal, spillway, shadow, explicit pins),
+  while non-sensitive requests see it in its normal cost-order
+  position. The same change makes a provider with no usable key
+  loaded (missing/empty ``keys/<provider>.key``) skip at selection
+  time (``provider_key_missing``) instead of burning a failover
+  attempt on an unauthenticated upstream call — SiliconFlow ships
+  keyless until the owner's key lands, and must be invisible until
+  then, never an error source.
+
 No startup patches: this is the v0.5 source tree (the v0.3.3 canary's
 PATCH_V033 mechanism is gone). Provider keys are read once at startup
 from mode-600 files in the state dir (``keys/<provider>.key``); they are
@@ -61,7 +78,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.5.5"
+VERSION = "0.5.6"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -298,6 +315,18 @@ def create_app(config: Optional[GatewayConfig] = None,
 
             if not entry.enabled:
                 skip("disabled"); continue
+            if data_class == "sensitive" and entry.spillway_sensitive_excluded:
+                # Per-model sensitive exclusion (v0.5.6): the owner's
+                # spillway ruling relaxes the clearance wall for the
+                # paid pool in general, but a flagged provider's data
+                # posture was never cleared for sensitive traffic
+                # (SiliconFlow — probe 2026-11-07), so a flagged entry
+                # is not a candidate for a sensitive request in ANY
+                # pass, this one included. The check sits outside the
+                # `not spillway` wall below on purpose: the spillway
+                # must not relax it. Non-sensitive requests never see
+                # this branch; the entry keeps its cost-order place.
+                skip("sensitive_spillway_excluded"); continue
             if premium_only and entry.lane != "premium":
                 # Explicit premium request (alias): only the premium lane
                 # may serve it — falling back to a paid model would
@@ -319,6 +348,15 @@ def create_app(config: Optional[GatewayConfig] = None,
                 skip("lane_not_allowed"); continue
             if paid_off_reason and entry.lane in ("paid", "premium"):
                 skip(paid_off_reason); continue
+            if not app.state.provider_keys.get(entry.provider):
+                # No usable key loaded for this provider (missing or
+                # empty keys/<provider>.key): the provider is
+                # unavailable, full stop. Skipping at selection time
+                # keeps a keyless provider from burning a failover
+                # attempt on an unauthenticated upstream call, and a
+                # request can never fail *because* a provider is
+                # keyless — the next candidate simply serves.
+                skip("provider_key_missing"); continue
             if data_class == "sensitive" and not spillway:
                 cleared = entry.sensitive_cleared or \
                     entry.provider in client.sensitive_cleared_providers
@@ -397,7 +435,10 @@ def create_app(config: Optional[GatewayConfig] = None,
         Still binding: enabled/verified entries, tools support, the
         quality floor (with the same level-5 -> quality-4 fallback as
         normal selection), context fit, provider rate limits
-        (TPM/RPM/RPD/TPD), and the governor's emergency paid-lane
+        (TPM/RPM/RPD/TPD), per-model sensitive exclusions
+        (``spillway_sensitive_excluded``, v0.5.6 — a flagged provider
+        is out for sensitive turns even here), provider key presence,
+        and the governor's emergency paid-lane
         switch, which vetoes the pass outright (its reason lands in
         the skip list via build_candidates). Governor steering
         (above-target quality delta is already inside required_quality;
@@ -942,7 +983,17 @@ def create_app(config: Optional[GatewayConfig] = None,
                 candidates.remove(explicit_entry)
                 candidates.insert(0, explicit_entry)
             elif explicit_entry.lane in client.lanes and not (
-                    paid_off_reason and explicit_entry.lane in ("paid", "premium")):
+                    paid_off_reason and explicit_entry.lane in ("paid", "premium")) \
+                    and app.state.provider_keys.get(explicit_entry.provider) \
+                    and not (data_class == "sensitive"
+                             and explicit_entry.spillway_sensitive_excluded):
+                # The force-insert must not resurrect what selection
+                # excluded on safety or availability grounds: a
+                # sensitive-excluded entry (v0.5.6) stays out even
+                # when pinned by name, and a keyless provider is
+                # unavailable rather than an unauthenticated attempt.
+                # (Both skip reasons are already on the route row
+                # from build_candidates.)
                 candidates.insert(0, explicit_entry)
         # Sticky reuse: same model if still eligible and no higher level.
         sticky_used = False

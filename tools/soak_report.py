@@ -74,6 +74,19 @@ def main() -> int:
         spill = [r for r in part
                  if "free_exhausted_paid_fallthrough" in (r.get("escalation_reasons") or [])]
         print(f"- Paid spillway: {len(spill)} turns (cost ${sum(r.get('cost_usd', 0) for r in spill):.4f}) — free exhausted, paid/premium served (v0.5.5)")
+        if spill:
+            # Per-model attribution (v0.5.6): which paid/premium entry
+            # actually served each spillway turn — SiliconFlow serves
+            # (siliconflow/*) must be visible by name, not folded into
+            # the aggregate.
+            by_model: dict[str, list[float]] = {}
+            for r in spill:
+                by_model.setdefault(r.get("model") or "?", []).append(
+                    r.get("cost_usd", 0.0))
+            parts = ", ".join(
+                f"{m} ×{len(c)} (${sum(c):.4f})"
+                for m, c in sorted(by_model.items()))
+            print(f"  - Spillway serves by model: {parts}")
         print(f"- Level mix: {dict(sorted(levels.items(), key=lambda x: str(x[0])))}; L4+L5 = {l45 / n:.0%} (alert >40%)")
         print()
 

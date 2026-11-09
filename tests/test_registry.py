@@ -52,14 +52,18 @@ def test_starting_registry_matches_spec_table():
     assert g20.limits == {"rpm": 1000, "tpm": 250000}
     qw = by_id["groq/qwen3.8-27b"]
     assert (qw.input_usd_per_million, qw.output_usd_per_million) == (0.80, 4.00)
-    # Hugging Face probe entries (2026-11-09): present but DISABLED
-    # and flagged non-sensitive-only, pending the owner's HF token.
+    # Hugging Face entries (2026-11-09): probe-proven and ENABLED on
+    # the owner's order; still flagged non-sensitive-only, paid lane.
     for hf_id in ("huggingface/gpt-oss-120b-cerebras",
                   "huggingface/deepseek-v4-flash"):
         hf = by_id[hf_id]
-        assert hf.enabled is False and hf.spillway_sensitive_excluded is True
+        assert hf.enabled is True and hf.spillway_sensitive_excluded is True
         assert hf.effective_base_url == "https://router.huggingface.co/v1"
         assert hf.lane == "paid"
+    assert by_id["huggingface/gpt-oss-120b-cerebras"].model == \
+        "openai/gpt-oss-120b:cerebras"
+    assert by_id["huggingface/deepseek-v4-flash"].model == \
+        "deepseek-ai/DeepSeek-V4-Flash:deepinfra"
     assert by_id["premium/gpt-5.5"].lane == "premium"
     assert by_id["premium/gpt-5.5"].quality_for("reasoning") == 5
     # Premium-lane expansion 2026-11-05 (direct providers, peak-rate

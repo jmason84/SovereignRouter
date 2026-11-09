@@ -387,3 +387,12 @@ INFO:     [CONTAINER_LOOPBACK_IP]:35046 - "GET /health HTTP/1.1" 200 OK
 RECOVERED and live-verified healthy: gateway, Nginx, classifier.
 UNVERIFIED / PENDING: dedicated CRM authentication, network permission from CT107, Twenty model auto, secure admin-key rotation, complete integration.
 This record does not claim that the CRM connection is working.
+
+
+8 — OWNER-REPORTED RESOLUTION / MUSE HANDOFF (2026-11-09)
+
+Status: OWNER-REPORTED FIXED. In the conversation the owner stated: “SO MUSE FIXED IT - WE GOT IT.”
+Attribution: Muse completed the final fix, as reported by the owner. Treat the Twenty CRM / Sovereign Router integration as operational according to owner confirmation; this is not the same as a connector-observed end-to-end model-auto test.
+Evidence boundary: The exact commands Muse ran, any changed client registry entries, Nginx source-IP allowlist changes, model configuration, HTTP test responses, and deployed revisions were NOT supplied in this chat. Do not reconstruct or invent them. Previous failure analysis and terminal transcripts remain preserved above. If a reproducible runbook is desired, collect Muse's change summary or version-controlled diff plus a credential-safe success test and append a verified technical closure.
+Residual security action: the previously shared admin credential remains exposed; rotation and dependent-service updates have not been documented as completed.
+No further production changes were made by ChatGPT to close this record.

@@ -337,3 +337,53 @@ Earlier assistant recommended: Bash “read -rsp” curl diagnostic; corrected P
 - Sovereign Router v0.5.3 architecture: https://docs.google.com/document/d/1lm_siB4tWOnBen3aAlG6itBqoXANnSBH7k85W0l0CJ4/edit
 - Project GitHub (public; redact secrets before posting): https://github.com/jmason84/SovereignRouter
 - Explicit caveat: Times are those in user output. Repeated shell commands are summarized by repetition count, not claimed as separately archived system logs. Re-run requirements remain unverified unless a user/connector supplies actual outputs.
+
+
+
+7 — ADDENDUM: NOVEMBER 9, 2026, SUBSEQUENT RECOVERY RE-RUN AND INDEPENDENT HEALTH CONFIRMATION
+
+SOURCE: New terminal transcript supplied by the owner after the initial incident report was committed. This addendum is additive and does not change the earlier command/evidence record.
+
+7.1 EXACT USER-SUBMITTED COMMANDS (this attempt)
+
+root@[ROUTER_HOST]:~# install -d -m 700 /root/sovereign-router-v05/client-credentials
+root@[ROUTER_HOST]:~# mv /root/sovereign-router-v05/secrets/twenty-crm.key \
+   /root/sovereign-router-v05/client-credentials/twenty-crm.key
+mv: cannot stat '/root/sovereign-router-v05/secrets/twenty-crm.key': No such file or directory
+root@[ROUTER_HOST]:~# chmod 600 /root/sovereign-router-v05/client-credentials/twenty-crm.key
+root@[ROUTER_HOST]:~# docker restart sovereign-router-v05-gateway
+sovereign-router-v05-gateway
+root@[ROUTER_HOST]:~# docker ps --filter name=sovereign-router-v05-gateway
+CONTAINER ID   IMAGE                                     STATUS                  PORTS      NAMES
+3f82789675cc   [INTERNAL_REGISTRY_IP]:5000/sovereign-router:v0.5.6   Up 5 seconds (healthy)   6075/tcp   sovereign-router-v05-gateway
+root@[ROUTER_HOST]:~# docker logs --tail 15 sovereign-router-v05-gateway
+INFO:     [CONTAINER_LOOPBACK_IP]:34748 - "GET /health HTTP/1.1" 200 OK
+INFO:     [CONTAINER_LOOPBACK_IP]:47988 - "GET /health HTTP/1.1" 200 OK
+INFO:     [CONTAINER_LOOPBACK_IP]:38618 - "GET /health HTTP/1.1" 200 OK
+INFO:     [DOCKER_PROXY_IP]:50004 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     [DOCKER_PROXY_IP]:50004 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     [CONTAINER_LOOPBACK_IP]:57132 - "GET /health HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1]
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:6075 (Press CTRL+C to quit)
+INFO:     [CONTAINER_LOOPBACK_IP]:35046 - "GET /health HTTP/1.1" 200 OK
+
+7.2 INTERPRETATION
+- The mv command FAILED because the original source pathname did not exist. This is consistent with the key having been moved already during the preceding recovery. Do not interpret this error as proof that the key was lost; the subsequent chmod on the destination path produced no error, which supports destination-file existence. Confirm contents only by local hash comparison; never print raw key in shared logs.
+- The repeated install -d is safe and preserves an existing directory. chmod succeeded without output. docker restart succeeded.
+- The new docker ps shows gateway Up (healthy). The new logs show both historical completed chat requests (HTTP 200) and post-restart internal health (HTTP 200), with clean Uvicorn startup. The two POST completions are not proven to originate from Twenty; they only establish prior gateway inference serving.
+- User output contains an interleaved terminal fragment near docker ps (\"--tail 15 sovereign-router-v05-gateway\") attributable to terminal rendering/typing; the intact following docker logs command is included above.
+- LIVE read-only Portainer cross-check made during documentation: gateway \"Up 3 minutes (healthy)\", Nginx \"Up 7 days (healthy)\", classifier \"Up 7 days (healthy)\". No changes to the running environment were performed by the assistant.
+- CRM key still needs careful registration: the active registry was restored from backup with the original three clients. No successful /v1/models authentication using twenty-crm, no test from CT107, and no end-to-end Twenty model auto response have been evidenced.
+- Nginx's allowlist must be inspected and verified; the user opened its config in nano earlier but no successful nginx -t or nginx -s reload after gateway recovery was supplied.
+- This addendum supersedes any implication that the most recent mv command succeeded. Earlier successful move is supported by the previous transcript; subsequent failed duplicate move is preserved here as a separate event.
+
+7.3 STATUS AT END OF ADDENDUM
+RECOVERED and live-verified healthy: gateway, Nginx, classifier.
+UNVERIFIED / PENDING: dedicated CRM authentication, network permission from CT107, Twenty model auto, secure admin-key rotation, complete integration.
+This record does not claim that the CRM connection is working.

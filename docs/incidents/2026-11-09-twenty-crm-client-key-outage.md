@@ -388,11 +388,31 @@ RECOVERED and live-verified healthy: gateway, Nginx, classifier.
 UNVERIFIED / PENDING: dedicated CRM authentication, network permission from CT107, Twenty model auto, secure admin-key rotation, complete integration.
 This record does not claim that the CRM connection is working.
 
+---
 
-8 — OWNER-REPORTED RESOLUTION / MUSE HANDOFF (2026-11-09)
+8 — REPAIR BY Muse (2026-11-09, after this log reached GitHub)
 
-Status: OWNER-REPORTED FIXED. In the conversation the owner stated: “SO MUSE FIXED IT - WE GOT IT.”
-Attribution: Muse completed the final fix, as reported by the owner. Treat the Twenty CRM / Sovereign Router integration as operational according to owner confirmation; this is not the same as a connector-observed end-to-end model-auto test.
-Evidence boundary: The exact commands Muse ran, any changed client registry entries, Nginx source-IP allowlist changes, model configuration, HTTP test responses, and deployed revisions were NOT supplied in this chat. Do not reconstruct or invent them. Previous failure analysis and terminal transcripts remain preserved above. If a reproducible runbook is desired, collect Muse's change summary or version-controlled diff plus a credential-safe success test and append a verified technical closure.
-Residual security action: the previously shared admin credential remains exposed; rotation and dependent-service updates have not been documented as completed.
-No further production changes were made by ChatGPT to close this record.
+Source: Muse (Sovereign Router chat), working from live state before this log arrived, then cross-checked against it line by line. The owner ordered the repair after the retrace.
+
+8.1 CROSS-CHECK VERDICT
+This log is accurate. Its status section said exactly the right thing: gateway health was recovered; CRM connectivity was NOT verified. Every independent live observation agrees with the log, and the log supplies the two facts live state could not: (a) the gateway spent part of the night in a restart loop from the mode-0600 clients.json write (R2) and from the raw client key placed inside the provider-key scan directory (R3); (b) the router admin key was pasted into the ChatGPT conversation (see 8.4).
+
+Key identity — resolved: the raw key preserved at /root/sovereign-router-v05/client-credentials/twenty-crm.key (mode 0600) hashes to exactly the key configured in Twenty's AI_PROVIDERS, and to the hash registered by the repair below (hash value withheld — this is the public-safe copy). The key was never wrong. Its registration (client id "twenty-crm", §3.6) was destroyed by the backup restore (§3.10), and the intermediate clients.json state containing it was overwritten by the repeated cp -a commands the log itself warns about (§2). The "failed-crm" file therefore holds the restored three-client state, not the failed one — as the log suspected.
+
+8.2 REPAIR ACTIONS (2026-11-09, ~03:52–03:57 MST)
+1. VM103 snapshot pre-twenty-fix-20261109 taken before any change.
+2. clients.json backed up (clients.json.bak-pretwentyfix-20261109), then client "crm" appended — checklist §5.3, with client id "crm" (the log's plan said "twenty-crm"; neither the surviving key nor Twenty's config depends on the id). key_sha256 = the existing key's hash; lanes private-free + paid; premium_allowed false; default_data_class internal; daily_target_usd 1.25 (alert/steering only, standing no-caps rule). File mode preserved gateway-readable (0644 root:root) — the R2 trap avoided.
+3. Gateway container restarted once: startup complete, internal /health 200.
+4. Nginx: the allow rule for the CRM container's address was already present in deploy/nginx.conf — the §3.9 nano edit HAD landed; it had simply never been loaded, and the reload attempts failed only because the gateway upstream was down at that moment. After gateway recovery: nginx -t clean, then nginx -s reload — the first successful reload of the night. The deploy/nginx.conf in this repo now mirrors production.
+
+8.3 VERIFICATION (end-to-end, from the CRM container host)
+- Authenticated POST /v1/chat/completions from CT107 using the CRM client's own key, model "auto" → HTTP 200, content "TWENTY-ROUTER-OK", served by groq/gpt-oss-120b (private-free lane).
+- routes.jsonl: first client=crm row, cost $0.00. The soak report now carries a crm section (100% free, 0 failures).
+- Production clients (hermes / n8n / openclaw) verified flowing after the restart.
+- This completes checklist §5 items 2–6 and 8 (Drive progress doc §15, and this section). Remaining from §5: item 7 (see 8.4). Item 9 (runbook hardening) is future work; the R2/R3 lessons are recorded in §2 and in 8.2 above.
+
+8.4 OUTSTANDING — ADMIN KEY ROTATION (owner decision)
+The router admin key was pasted into a ChatGPT conversation and must be treated as exposed (log STATUS section, §5.7). Rotation plan: generate a new admin key on VM103, replace admin_key_sha256 in clients.json, update the n8n credential the alert chain uses for /admin polling, restart/reload the gateway, verify the alert chain still polls and the old key no longer authenticates. NOT executed with this repair — it touches the alert chain and needs the owner's explicit go.
+
+8.5 NOT RESTORED, ON PURPOSE
+The hermes-voice router client remains absent from clients.json. It was removed earlier on Nov 8 by the owner's deliberate rollback of the voice-router change (Hermes chat), unrelated to this incident.

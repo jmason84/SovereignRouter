@@ -77,6 +77,13 @@ class Steering:
 class EmergencyConfig:
     enabled: bool = False                  # DEFAULT OFF — owner decision pending
     daily_limit_usd: float = 25.0          # proposed level in the spec
+    # Warn-only mode (v0.5.7, owner ruling 2026-11-09): at the limit the
+    # governor raises the emergency alert but NEVER switches the paid
+    # lanes off — the cascade keeps walking in cost order. The owner
+    # restated the router's point: "start cheap and move up… give me
+    # the warning, but keep switching." Set via
+    # SOVEREIGN_EMERGENCY_WARN_ONLY=1.
+    warn_only: bool = False
 
 
 class Governor:
@@ -136,6 +143,22 @@ class Governor:
             return False, ""
         spent = self.store.paid_spend(_day_start(now), now + 1)
         if spent >= self.emergency.daily_limit_usd:
+            if self.emergency.warn_only:
+                # v0.5.7 warn-only (owner ruling 2026-11-09): alert,
+                # never veto. The message says plainly that traffic is
+                # NOT stopped, mirroring the runaway alarms.
+                self.store.add_alert(
+                    "emergency_paid_lane_switch", "all",
+                    "emergency_switch_warn",
+                    f"Emergency spend WARNING (warn-only): ${spent:.2f} "
+                    f"paid spend today >= ${self.emergency.daily_limit_usd:.2f} "
+                    "alert level. Paid/premium lanes REMAIN ON — the "
+                    "cascade continues in cost order; traffic is NOT "
+                    "stopped. (Owner ruling 2026-11-09 replaced the "
+                    "2026-11-01 hard switch.)",
+                    now,
+                )
+                return False, ""
             self.store.add_alert(
                 "emergency_paid_lane_switch", "all",
                 "emergency_switch",

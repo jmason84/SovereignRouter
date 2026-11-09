@@ -140,6 +140,34 @@ def test_emergency_switch_trips_and_clears(store):
     assert off is False
 
 
+def test_emergency_warn_only_alerts_but_never_vetoes(store):
+    # v0.5.7 (owner ruling 2026-11-09): at the limit the governor
+    # warns and the paid lanes stay ON — no clear needed, no veto.
+    gov = Governor(store, emergency=EmergencyConfig(
+        enabled=True, daily_limit_usd=25.0, warn_only=True))
+    _spend(store, "hermes", 30.0, ago_s=60)
+    now = time.time()
+    off, reason = gov.paid_lanes_off(now)
+    assert off is False and reason == ""
+    alerts = [a for a in store.alerts_since(now - 3600)
+              if a["kind"] == "emergency_paid_lane_switch"]
+    assert len(alerts) == 1 and "REMAIN ON" in alerts[0]["message"]
+    # Repeat calls stay off and do not duplicate the alert.
+    off, _ = gov.paid_lanes_off(now)
+    assert off is False
+    alerts = [a for a in store.alerts_since(now - 3600)
+              if a["kind"] == "emergency_paid_lane_switch"]
+    assert len(alerts) == 1
+    # Below the level: no alert at all.
+    gov2 = Governor(store, emergency=EmergencyConfig(
+        enabled=True, daily_limit_usd=250.0, warn_only=True))
+    off, _ = gov2.paid_lanes_off(now)
+    assert off is False
+    alerts = [a for a in store.alerts_since(now - 3600)
+              if a["kind"] == "emergency_paid_lane_switch"]
+    assert len(alerts) == 1
+
+
 def test_spend_trend_alert(store):
     gov = Governor(store)
     now = time.time()

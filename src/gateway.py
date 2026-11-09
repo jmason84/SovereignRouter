@@ -48,6 +48,18 @@ SiliconFlow non-sensitive paid slot (v0.5.6, owner ruling 2026-11-07):
   keyless until the owner's key lands, and must be invisible until
   then, never an error source.
 
+Warn-only emergency + dead-lane alerts (v0.5.7, owner ruling
+2026-11-09): the $25/day emergency point is an ALERT, never a cutoff —
+the 2026-11-09 incident (DeepInfra out of credits at 04:48, cascade
+forced onto premium, hard switch tripped at 12:29 and removed every
+paid rung at once, agents 429-walled) proved the hard switch defeats
+the router's purpose. With SOVEREIGN_EMERGENCY_WARN_ONLY=1 the
+governor warns and the cascade keeps walking in cost order. The same
+build records a ``lane_dead`` alert the first time each day a model
+returns an account-class upstream failure (401/402/403) or exhausts
+its daily token cap, so a dead cheap rung surfaces within one
+alert-chain poll instead of burning silently for hours.
+
 No startup patches: this is the v0.5 source tree (the v0.3.3 canary's
 PATCH_V033 mechanism is gone). Provider keys are read once at startup
 from mode-600 files in the state dir (``keys/<provider>.key``); they are
@@ -78,7 +90,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.5.6"
+VERSION = "0.5.7"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -146,6 +158,9 @@ class GatewayConfig:
     sensitivity_log_only: bool = os.environ.get("SOVEREIGN_SENSITIVITY_LOG_ONLY") == "1"
     emergency_enabled: bool = os.environ.get("SOVEREIGN_EMERGENCY_SWITCH") == "1"
     emergency_daily_usd: float = float(os.environ.get("SOVEREIGN_EMERGENCY_DAILY_USD", "25"))
+    # v0.5.7 (owner ruling 2026-11-09): warn-only emergency — alert at
+    # the daily level, NEVER switch the paid lanes off.
+    emergency_warn_only: bool = os.environ.get("SOVEREIGN_EMERGENCY_WARN_ONLY") == "1"
     provider_keys: dict[str, str] = field(default_factory=dict)  # tests/dev injection
 
     def resolved_registry_path(self) -> Path:
@@ -239,6 +254,28 @@ def _usage_from_response(resp: dict[str, Any], est_input: int,
 # ======================================================================
 # app factory (tests build isolated apps through this)
 # ======================================================================
+# ----------------------------------------------------------------------
+# dead-lane alerts (v0.5.7, owner ruling 2026-11-09)
+# ----------------------------------------------------------------------
+# Account-class upstream failures (401/402/403) and daily token caps
+# mean a rung is DEAD, not rate-limited — the owner wants a warning
+# the moment it happens, while the cascade keeps serving from the
+# next rungs. One alert per model per day (the store dedups on the
+# key), delivered by the existing alert chain.
+DEAD_LANE_STATUSES = {401, 402, 403}
+
+
+def note_lane_dead(app: FastAPI, entry: ModelEntry, cause: str) -> None:
+    app.state.store.add_alert(
+        "lane_dead", entry.provider,
+        f"lane_dead:{entry.provider}:{entry.id}:{cause}",
+        f"Lane dead: {entry.id} (provider {entry.provider}) — "
+        f"{cause}. This is an account/credit/cap failure, not a "
+        "rate limit. The cascade is serving from the next rungs "
+        "in cost order; fix or top up this provider to restore "
+        "the cheap rung.")
+
+
 def create_app(config: Optional[GatewayConfig] = None,
                upstream_transport: Optional[httpx.BaseTransport] = None,
                sidecar_transport: Optional[httpx.BaseTransport] = None) -> FastAPI:
@@ -249,7 +286,8 @@ def create_app(config: Optional[GatewayConfig] = None,
     clients = load_clients(cfg.resolved_clients_path())
     store = QuotaStore(cfg.state_dir / "quota.db")
     governor = Governor(store, emergency=EmergencyConfig(
-        enabled=cfg.emergency_enabled, daily_limit_usd=cfg.emergency_daily_usd))
+        enabled=cfg.emergency_enabled, daily_limit_usd=cfg.emergency_daily_usd,
+        warn_only=cfg.emergency_warn_only))
     sticky = StickyStore()
     telemetry = Telemetry(cfg.state_dir / "routes.jsonl")
     provider_keys = cfg.load_provider_keys()
@@ -384,6 +422,9 @@ def create_app(config: Optional[GatewayConfig] = None,
             reason = app.state.store.check_provider_limits(
                 entry.provider, entry.limits, est_tokens, now)
             if reason:
+                if reason == "rate_limited_tpd":
+                    note_lane_dead(app, entry,
+                                   "daily token cap (TPD) exhausted")
                 skip(reason); continue
             candidates.append(entry)
 
@@ -548,6 +589,7 @@ def create_app(config: Optional[GatewayConfig] = None,
             "emergency_paid_lane_switch": {
                 "enabled": app.state.governor.emergency.enabled,
                 "daily_limit_usd": app.state.governor.emergency.daily_limit_usd,
+                "warn_only": app.state.governor.emergency.warn_only,
                 "tripped": paid_off,
             },
             "sensitivity_log_only": cfg.sensitivity_log_only,
@@ -640,6 +682,7 @@ def create_app(config: Optional[GatewayConfig] = None,
             "alerts": app.state.store.alerts_since(day0),
             "emergency_paid_lane_switch": {
                 "enabled": app.state.governor.emergency.enabled,
+                "warn_only": app.state.governor.emergency.warn_only,
                 "tripped": app.state.governor.paid_lanes_off(now)[0],
             },
         }
@@ -1184,6 +1227,8 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
         if resp.status_code in FAILOVER_STATUSES or resp.status_code >= 400:
             skipped.append({"model": entry.id,
                             "reason": f"upstream_{resp.status_code}"})
+            if resp.status_code in DEAD_LANE_STATUSES:
+                note_lane_dead(app, entry, f"upstream_{resp.status_code}")
             if record.sticky:
                 app.state.sticky.invalidate(conv_key)
             idx += 1
@@ -1360,6 +1405,9 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         await resp.aread()
                         skipped.append({"model": entry.id,
                                         "reason": f"upstream_{resp.status_code}"})
+                        if resp.status_code in DEAD_LANE_STATUSES:
+                            note_lane_dead(app, entry,
+                                           f"upstream_{resp.status_code}")
                         idx += 1
                         continue
                     assembler = ToolCallAssembler()

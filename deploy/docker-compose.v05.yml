@@ -47,6 +47,9 @@ services:
       # Emergency paid-lane switch: OFF until owner decision #1 (DECISIONS.md).
       SOVEREIGN_EMERGENCY_SWITCH: "${SOVEREIGN_EMERGENCY_SWITCH:-1}"
       SOVEREIGN_EMERGENCY_DAILY_USD: "${SOVEREIGN_EMERGENCY_DAILY_USD:-25}"
+      # v0.5.7 warn-only (owner ruling 2026-11-09): 1 = alert at the
+      # daily level, never switch paid lanes off.
+      SOVEREIGN_EMERGENCY_WARN_ONLY: "${SOVEREIGN_EMERGENCY_WARN_ONLY:-0}"
       TZ: "America/Denver"
     volumes:
       # Runtime state: route logs (no prompt/response text), usage ledger,

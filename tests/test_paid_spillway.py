@@ -475,7 +475,7 @@ def test_registry_and_version_shape_v056():
     sys.path.insert(0, str(SRC))
     import gateway
     from registry import load_registry
-    assert gateway.VERSION == "0.5.6"
+    assert gateway.VERSION == "0.5.7"  # v0.5.7: warn-only + dead-lane
     entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
     assert len(entries) == 13
     # the rescue pin is gone from code and data alike

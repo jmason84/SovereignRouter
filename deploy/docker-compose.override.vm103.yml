@@ -29,9 +29,14 @@ services:
     # SiliconFlow slot 2026-11-07: v0.5.6 (per-model sensitive
     # exclusion + provider_key_missing skip; registry gains the two
     # siliconflow entries — state registry.json synced to match).
-    # Rollback: point this image line back to v0.5.5 and re-run
+    # Warn-only emergency 2026-11-09: v0.5.7 (owner ruling: the $25
+    # point alerts but NEVER switches paid lanes off — the hard trip
+    # that morning removed every paid rung and 429-walled the fleets;
+    # + lane_dead alerts on 401/402/403 and TPD exhaustion).
+    # SOVEREIGN_EMERGENCY_WARN_ONLY=1 in .env activates warn-only.
+    # Rollback: point this image line back to v0.5.6 and re-run
     # compose up -d gateway.
-    image: 192.168.0.28:5000/sovereign-router:v0.5.6
+    image: 192.168.0.28:5000/sovereign-router:v0.5.7
   classifier:
     pull_policy: never
     environment:

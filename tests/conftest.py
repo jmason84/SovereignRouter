@@ -172,6 +172,24 @@ def build_app(tmp_path: Path, **cfg_kwargs):
     return create_app(cfg, upstream_transport=transport)
 
 
+def registry_variant(tmp_path, *, groq_tpm=None, disable=()):
+    """Production registry with stated knobs turned, for tests whose
+    premise is a configuration fact that changed. 2026-11-09: Groq
+    moved to the Developer plan (8k -> 250k TPM, real prices), so
+    'free exhausted by Groq's TPM window' and 'Groq is the cheapest
+    server for small turns' stopped being true of the production
+    file; mechanism tests state their premise explicitly instead."""
+    data = json.loads((SRC / "registry.json").read_text())
+    for m in data["models"]:
+        if groq_tpm is not None and m["provider"] == "groq":
+            m.setdefault("limits", {})["tpm"] = groq_tpm
+        if m["id"] in disable:
+            m["enabled"] = False
+    p = tmp_path / "registry-variant.json"
+    p.write_text(json.dumps(data))
+    return p
+
+
 @pytest.fixture()
 def app(tmp_path):
     return build_app(tmp_path)

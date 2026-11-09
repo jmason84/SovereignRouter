@@ -164,8 +164,11 @@ def test_reasoning_length_failure_retries_same_model(tmp_path):
 
     app, calls = build_recording_app(tmp_path, handler)
     with TestClient(app) as client:
+        # pinned: groq must be the first server (since 2026-11-09
+        # it no longer wins small turns on cost — real prices now)
         r = client.post("/v1/chat/completions",
-                        json=chat_body("restart the nginx container"),
+                        json=chat_body("restart the nginx container",
+                                       model="groq/gpt-oss-120b"),
                         headers=auth("hermes"))
     assert r.status_code == 200
     assert r.headers["X-Sovereign-Model"] == "groq/gpt-oss-120b"
@@ -186,7 +189,8 @@ def test_reasoning_retry_only_once_then_escalates(tmp_path):
     app, calls = build_recording_app(tmp_path, handler)
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
-                        json=chat_body("restart the nginx container"),
+                        json=chat_body("restart the nginx container",
+                                       model="groq/gpt-oss-120b"),
                         headers=auth("hermes"))
     assert r.status_code == 200
     assert r.headers["X-Sovereign-Escalated"] == "true"

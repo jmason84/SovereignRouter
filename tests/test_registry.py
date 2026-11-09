@@ -16,8 +16,9 @@ from registry import load_registry, validate_entry
 def test_starting_registry_matches_spec_table():
     reg = load_registry(SRC / "registry.json")
     # 8 spec entries + 3 premium-lane additions (2026-11-05, v0.5.4)
-    # + 2 SiliconFlow entries (2026-11-07, v0.5.6).
-    assert len(reg.entries) == 13
+    # + 2 SiliconFlow entries (2026-11-07, v0.5.6)
+    # + 2 Hugging Face probe entries (2026-11-09, v0.5.7).
+    assert len(reg.entries) == 15
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
@@ -36,6 +37,29 @@ def test_starting_registry_matches_spec_table():
     ol = by_id["ollama/gpt-oss-120b"]
     assert (ol.input_usd_per_million, ol.output_usd_per_million) == (0.15, 0.60)
     assert ol.spend_alert_usd == 5.0
+    # 2026-11-09 correction: the 400k/day TPD was a router-side seed,
+    # not an Ollama limit (owner console: 50 requests / $0.07 Nov 1-9).
+    assert ol.limits["tpd"] == 10_000_000
+    # Groq Developer plan 2026-11-09 (owner top-up; figures from
+    # Groq's docs models page): 250K TPM / 1K RPM and real prices —
+    # the lane stays private-free (data posture), prices are carried
+    # for spend accounting.
+    g120 = by_id["groq/gpt-oss-120b"]
+    assert (g120.input_usd_per_million, g120.output_usd_per_million) == (0.15, 0.60)
+    assert g120.limits == {"rpm": 1000, "tpm": 250000}
+    g20 = by_id["groq/gpt-oss-20b"]
+    assert (g20.input_usd_per_million, g20.output_usd_per_million) == (0.075, 0.30)
+    assert g20.limits == {"rpm": 1000, "tpm": 250000}
+    qw = by_id["groq/qwen3.8-27b"]
+    assert (qw.input_usd_per_million, qw.output_usd_per_million) == (0.80, 4.00)
+    # Hugging Face probe entries (2026-11-09): present but DISABLED
+    # and flagged non-sensitive-only, pending the owner's HF token.
+    for hf_id in ("huggingface/gpt-oss-120b-cerebras",
+                  "huggingface/deepseek-v4-flash"):
+        hf = by_id[hf_id]
+        assert hf.enabled is False and hf.spillway_sensitive_excluded is True
+        assert hf.effective_base_url == "https://router.huggingface.co/v1"
+        assert hf.lane == "paid"
     assert by_id["premium/gpt-5.5"].lane == "premium"
     assert by_id["premium/gpt-5.5"].quality_for("reasoning") == 5
     # Premium-lane expansion 2026-11-05 (direct providers, peak-rate
@@ -69,9 +93,11 @@ def test_starting_registry_matches_spec_table():
     assert (sfp.input_usd_per_million, sfp.output_usd_per_million) == (1.00, 1.50)
     assert sfp.cached_input_usd_per_million == pytest.approx(0.135)
     assert sfp.spillway_sensitive_excluded is True
-    # the flag defaults off everywhere else
+    # the flag defaults off everywhere else (the 2026-11-09 HF probe
+    # entries are flagged as well — third-party-routed, posture varies)
     assert all(not e.spillway_sensitive_excluded
-               for e in reg.entries if e.provider != "siliconflow")
+               for e in reg.entries
+               if e.provider not in ("siliconflow", "huggingface"))
 
 
 def test_cached_pricing_math():

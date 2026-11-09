@@ -23,7 +23,7 @@ import time
 import httpx
 from fastapi.testclient import TestClient
 
-from conftest import auth, chat_body  # noqa: E402
+from conftest import auth, chat_body, registry_variant  # noqa: E402
 from test_fixpass import build_recording_app  # noqa: E402
 from test_paid_spillway import BIG_SENSITIVE_TEXT, _completion, _ok_handler  # noqa: E402
 
@@ -46,7 +46,8 @@ def test_flash_402_alerts_lane_dead_and_cascade_continues(tmp_path):
             return httpx.Response(402, json={"error": {"message": "no credits"}})
         return _ok_handler(model, body, n)
 
-    app, calls = build_recording_app(tmp_path, handler)
+    app, calls = build_recording_app(tmp_path, handler,
+                        registry_path=registry_variant(tmp_path, groq_tpm=8000))
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
                         json=chat_body(BIG_SENSITIVE_TEXT),
@@ -74,7 +75,8 @@ def test_upstream_429_is_not_a_dead_lane(tmp_path):
             return httpx.Response(429, json={"error": {"message": "slow down"}})
         return _ok_handler(model, body, n)
 
-    app, calls = build_recording_app(tmp_path, handler)
+    app, calls = build_recording_app(tmp_path, handler,
+                        registry_path=registry_variant(tmp_path, groq_tpm=8000))
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
                         json=chat_body(BIG_SENSITIVE_TEXT),
@@ -87,7 +89,8 @@ def test_upstream_429_is_not_a_dead_lane(tmp_path):
 # warn-only emergency: over the level, paid lanes stay ON
 # ----------------------------------------------------------------------
 def test_warn_only_gateway_keeps_serving_paid(tmp_path):
-    app, calls = build_recording_app(tmp_path, _ok_handler)
+    app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000))
     app.state.governor.emergency = EmergencyConfig(
         enabled=True, daily_limit_usd=0.0, warn_only=True)
     with TestClient(app) as client:
@@ -103,7 +106,8 @@ def test_warn_only_gateway_keeps_serving_paid(tmp_path):
 def test_hard_switch_still_vetoes_when_warn_only_off(tmp_path):
     # The Nov 1 behaviour remains available when warn-only is off —
     # v0.5.7 changes the deployed configuration, not the mechanism.
-    app, calls = build_recording_app(tmp_path, _ok_handler)
+    app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000))
     app.state.governor.emergency = EmergencyConfig(
         enabled=True, daily_limit_usd=0.0, warn_only=False)
     with TestClient(app) as client:

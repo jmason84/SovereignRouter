@@ -55,7 +55,10 @@ def test_route_headers_present(client):
                     json=chat_body("restart the nginx container"),
                     headers=auth("hermes"))
     assert r.status_code == 200
-    assert r.headers["X-Sovereign-Model"] == "groq/gpt-oss-120b"
+    # 2026-11-09: Groq carries real Developer-plan prices now, so the
+    # $0 OpenRouter free model wins a small infra turn on cost (Groq
+    # still takes turns whose quality floor or caps demand it).
+    assert r.headers["X-Sovereign-Model"] == "openrouter/north-mini-code-free"
     assert r.headers["X-Sovereign-Level"] == "3"
     assert r.headers["X-Sovereign-Task"] == "infra"
     assert r.headers["X-Sovereign-Lane"] == "private-free"
@@ -169,8 +172,12 @@ def test_killswitch_blocks_and_unblocks(client):
 # validation + escalation
 # ----------------------------------------------------------------------
 def test_empty_answer_escalates_to_stronger_model(client):
+    # Premise: groq/gpt-oss-120b serves first (PLEASE_EMPTY is keyed
+    # to it) — pinned explicitly since 2026-11-09, when Groq began
+    # carrying real prices and stopped winning small turns on cost.
     r = client.post("/v1/chat/completions",
-                    json=chat_body("write a function to parse csv PLEASE_EMPTY"),
+                    json=chat_body("write a function to parse csv PLEASE_EMPTY",
+                                   model="groq/gpt-oss-120b"),
                     headers=auth("hermes"))
     assert r.status_code == 200
     assert r.headers["X-Sovereign-Escalated"] == "true"
@@ -280,7 +287,7 @@ def test_admin_costs_shape(client):
 def test_admin_reload(client):
     r = client.post("/admin/reload", headers=auth("admin"))
     assert r.status_code == 200
-    assert r.json()["models"] == 13
+    assert r.json()["models"] == 15
 
 
 def test_routes_log_has_no_prompt_text(client, app, tmp_path):

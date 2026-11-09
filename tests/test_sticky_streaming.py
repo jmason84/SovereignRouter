@@ -3,7 +3,7 @@ and streaming behaviour (text commit + buffered tool-call validation)."""
 
 from __future__ import annotations
 
-from conftest import auth, chat_body
+from conftest import auth, build_app, chat_body, registry_variant
 
 TOOLS = [{"type": "function",
           "function": {"name": "run_command",
@@ -45,7 +45,16 @@ def test_sticky_ten_step_tool_loop(client):
     assert len(set(models)) == 1, f"model switched mid-loop: {models}"
 
 
-def test_sticky_switches_when_model_rate_limited(client):
+def test_sticky_switches_when_model_rate_limited(tmp_path):
+    # Premise: groq/gpt-oss-120b is the loop's first server. Since
+    # 2026-11-09 Groq carries real prices and the $0 OpenRouter
+    # models win small turns, so this test's registry disables them.
+    from fastapi.testclient import TestClient
+    app = build_app(tmp_path, registry_path=registry_variant(
+        tmp_path, disable=("openrouter/north-mini-code-free",
+                           "openrouter/dots-3-note-preview-free",
+                           "deepinfra/deepseek-v4-flash")))
+    client = TestClient(app)
     r = client.post("/v1/chat/completions",
                     json={"model": "auto", "messages": _loop_messages(0),
                           "tools": TOOLS},

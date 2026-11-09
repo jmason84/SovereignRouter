@@ -44,7 +44,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from conftest import RAW_KEYS, _sha, auth, chat_body  # noqa: E402
+from conftest import RAW_KEYS, _sha, auth, chat_body, registry_variant  # noqa: E402
 from test_fixpass import build_recording_app  # noqa: E402
 from test_paid_spillway import _ok_handler  # noqa: E402
 
@@ -75,7 +75,8 @@ def _last_record(app):
 
 
 def _registry_variant(tmp_path: Path, *, disable: tuple[str, ...] = (),
-                      flatten_all_but_sf: bool = False) -> Path:
+                      flatten_all_but_sf: bool = False,
+                      groq_tpm: int | None = None) -> Path:
     """Production registry with entries disabled and/or every model
     except siliconflow/glm-5.3 flattened to quality 3 (below the L4
     floor), which isolates SF as the only quality-eligible entry."""
@@ -85,6 +86,8 @@ def _registry_variant(tmp_path: Path, *, disable: tuple[str, ...] = (),
             m["enabled"] = False
         if flatten_all_but_sf and m["id"] != "siliconflow/glm-5.3":
             m["quality"] = {k: 3 for k in m["quality"]}
+        if groq_tpm is not None and m["provider"] == "groq":
+            m.setdefault("limits", {})["tpm"] = groq_tpm
     p = tmp_path / "registry.json"
     p.write_text(json.dumps(data))
     return p
@@ -99,6 +102,7 @@ def test_sensitive_spillway_excludes_siliconflow_even_with_key(tmp_path):
     # the spillway engages — and must serve DeepInfra Flash exactly
     # as it did in v0.5.5, with SF recorded as excluded, not attempted.
     app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000),
                                      provider_keys_extra=SF_KEY)
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
@@ -120,7 +124,8 @@ def test_sensitive_spillway_skips_flagged_to_next_paid(tmp_path):
     # (deepseek-v4-pro) — SF is never attempted upstream.
     reg = _registry_variant(
         tmp_path, disable=("deepinfra/deepseek-v4-flash",
-                           "ollama/gpt-oss-120b"))
+                           "ollama/gpt-oss-120b"),
+        groq_tpm=8000)  # free TPM-exhausted premise (2026-11-09)
     app, calls = build_recording_app(tmp_path, _ok_handler,
                                      registry_path=reg,
                                      provider_keys_extra=SF_KEY)
@@ -143,6 +148,7 @@ def test_sensitive_direct_pin_never_served_by_siliconflow(tmp_path):
     # entry falls back to normal selection (free serves) and SF is
     # never attempted.
     app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000),
                                      provider_keys_extra=SF_KEY)
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
@@ -216,6 +222,8 @@ def test_non_sensitive_spillway_reaches_siliconflow(tmp_path):
 
 
 def test_non_sensitive_cost_order_position(tmp_path):
+    # Premise 'free is TPM-out' uses the 8k Groq TPM variant
+    # (pre-Developer-plan configuration, 2026-11-09).
     # Shadow candidate order for a big non-sensitive L4 turn (free is
     # TPM/quality-out, premium is gated for hermes): the candidate
     # list is EXACTLY DeepInfra Flash, then Ollama, then SiliconFlow
@@ -224,6 +232,7 @@ def test_non_sensitive_cost_order_position(tmp_path):
     # proven by test_non_sensitive_failover_reaches_siliconflow_third:
     # with Flash and Ollama failing, SF — not V4 Pro — serves third.)
     app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000),
                                      provider_keys_extra=SF_KEY)
     with TestClient(app) as client:
         r = client.post("/v1/shadow", json=chat_body(BIG_PLAIN_TEXT),
@@ -245,6 +254,7 @@ def test_non_sensitive_failover_reaches_siliconflow_third(tmp_path):
         return _ok_handler(model, body, n)
 
     app, calls = build_recording_app(tmp_path, fail_two,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000),
                                      provider_keys_extra=SF_KEY)
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
@@ -305,7 +315,8 @@ def test_keyless_sensitive_skip_reason_is_the_exclusion(tmp_path):
     # Even while keyless, a sensitive turn records the EXCLUSION as
     # SF's skip reason — the safety semantics are checked before key
     # state, so the route log never disguises why SF was kept out.
-    app, calls = build_recording_app(tmp_path, _ok_handler)
+    app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000))
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
                         json=chat_body(BIG_SENSITIVE_TEXT),

@@ -39,7 +39,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from conftest import RAW_KEYS, _chunk, _sha, _sse, auth, chat_body  # noqa: E402
+from conftest import RAW_KEYS, _chunk, _sha, _sse, auth, chat_body, registry_variant  # noqa: E402
 from test_fixpass import build_recording_app  # noqa: E402
 
 SRC = Path(__file__).resolve().parent.parent / "src"
@@ -157,7 +157,10 @@ def test_ordinary_free_traffic_untouched(tmp_path):
 # the 2026-11-06 triage signature, fixed: sensitive + hermes + ~45k
 # ----------------------------------------------------------------------
 def test_triage_signature_spills_to_cheapest_paid(tmp_path):
-    app, calls = build_recording_app(tmp_path, _ok_handler)
+    # Premise: free is exhausted (Groq TPM window) — stated via the
+    # pre-Developer-plan 8k TPM variant (2026-11-09 config change).
+    app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000))
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
                         json=chat_body(BIG_SENSITIVE_TEXT),
@@ -185,7 +188,9 @@ def test_triage_signature_spills_to_cheapest_paid(tmp_path):
 
 def test_triage_signature_spills_streaming(tmp_path):
     # The organic triage failures were streaming turns (stream=true).
-    app, calls = build_recording_app(tmp_path, _ok_handler)
+    # Premise: free TPM-exhausted — 8k variant (2026-11-09).
+    app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000))
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
                         json=chat_body(BIG_SENSITIVE_TEXT, stream=True),
@@ -202,7 +207,10 @@ def test_triage_signature_spills_streaming(tmp_path):
 
 
 def test_spillway_applies_to_n8n_uniformly(tmp_path):
-    app, calls = build_recording_app(tmp_path, _ok_handler)
+    # Premise: free is exhausted (Groq TPM window) — stated via the
+    # pre-Developer-plan 8k TPM variant (2026-11-09 config change).
+    app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000))
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
                         json=chat_body(BIG_SENSITIVE_TEXT),
@@ -409,7 +417,7 @@ def test_emergency_switch_vetoes_spillway(tmp_path):
     cfg = GatewayConfig(
         state_dir=tmp_path / "state",
         clients_path=clients_file,
-        registry_path=SRC / "registry.json",
+        registry_path=registry_variant(tmp_path, groq_tpm=8000),
         provider_keys={"groq": "fake", "openrouter": "fake",
                        "deepinfra": "fake", "ollama": "fake",
                        "openai": "fake", "deepseek": "fake", "zai": "fake"},
@@ -458,7 +466,10 @@ def test_premium_alias_unchanged_by_spillway(tmp_path):
 # shadow mode predicts the spillway; registry/version shape
 # ----------------------------------------------------------------------
 def test_shadow_reflects_spillway(tmp_path):
-    app, calls = build_recording_app(tmp_path, _ok_handler)
+    # Premise: free is exhausted (Groq TPM window) — stated via the
+    # pre-Developer-plan 8k TPM variant (2026-11-09 config change).
+    app, calls = build_recording_app(tmp_path, _ok_handler,
+                                     registry_path=registry_variant(tmp_path, groq_tpm=8000))
     with TestClient(app) as client:
         r = client.post("/v1/shadow",
                         json=chat_body(BIG_SENSITIVE_TEXT),
@@ -477,7 +488,7 @@ def test_registry_and_version_shape_v056():
     from registry import load_registry
     assert gateway.VERSION == "0.5.7"  # v0.5.7: warn-only + dead-lane
     entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
-    assert len(entries) == 13
+    assert len(entries) == 15  # +2 HF probe entries, 2026-11-09
     # the rescue pin is gone from code and data alike
     assert not hasattr(entries["premium/gpt-5.5"], "rescue_eligible")
     assert entries["deepseek/deepseek-v4-pro"].enabled is True

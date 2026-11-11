@@ -77,6 +77,22 @@ mirrored to match.
 - Pre-fix comparison is the incident itself: same shapes
   returned empty/reasoning-only at 20:17–20:18 UTC.
 
+## Addendum — same afternoon: the HF/Cerebras gpt-oss-120b route
+
+Hours later the default Hermes bot's Veterans-sheet session
+(served 20/20 by `huggingface/gpt-oss-120b-cerebras`) leaked
+deliberation into its reply, drifted tool argument shapes
+mid-batch, and reported an "HTTP 500" that never occurred.
+Probes showed this route burns ~2.2k reasoning tokens per turn
+and honours neither `reasoning_effort=low` nor
+`reasoning.enabled=false` (finish=length both ways), so the
+registry entry was set `enabled: false` the same day (backup
+`registry.json.bak-20261111-cerebras-disable`, `/admin/reload`).
+The model remains available via `groq/gpt-oss-120b`, where
+`reasoning.enabled=false` IS honoured (probe: finish=stop,
+reasoning cut ~3.5×) — noted, not applied. Full record:
+Hermes-agent KNOWN-ISSUES E-10.
+
 ## Follow-ups (open)
 
 - Dots-3 remains a flat-3 tool user; sessions it carries will

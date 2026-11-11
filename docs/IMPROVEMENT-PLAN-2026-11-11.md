@@ -1,8 +1,38 @@
-# Sovereign Router — Improvement Plan (v2)
+# Sovereign Router — Improvement Plan (v2, implemented in part)
 
-**Date:** 2026-11-11 · **Baseline:** `origin/main` @ `ea00e25` (v0.5.7; unchanged on re-check) · **Status:** Proposal — nothing here is approved or built.
+**Date:** 2026-11-11 · **Baseline:** `origin/main` @ `ea00e25` (v0.5.7; unchanged on re-check) · **Status:** Implemented on branch `improvements-2026-11-11` — see "Implementation status". Not deployed.
 
 **Basis.** Full-repo read (68 files): `src/` (gateway, quota, telemetry, sticky, governor, sensitivity, validation, clients, classifier, registry), `classifier/` sidecar and benchmark, `deploy/` (compose, nginx, Dockerfile, env), `tools/`, `tests/`, the docs and the incident records. The test suite was run: **141 passed** (needs `pytest` and `pytest-asyncio`, neither listed anywhere in the repo). Findings marked **[verified]** were reproduced by running code against the repo; the rest come from reading and have not been profiled.
+
+## Implementation status (branch `improvements-2026-11-11`, gateway v0.5.8)
+
+206 tests pass (141 before). Nothing is deployed; deployment follows `deploy/deploy-runbook.md` (snapshot, backup, deploy, verify through the router).
+
+| Item | Status | Notes |
+|---|---|---|
+| 0.1 warn-only default | **Done** | Code, compose, `.env.example`; hard switch now needs explicit `SOVEREIGN_EMERGENCY_WARN_ONLY=0`. Test added. |
+| 0.2 credential scan | **Done** | JSON-quoted secrets, JWT, Stripe, SendGrid, Twilio, npm, HF, DigitalOcean, Azure keys, tool-call arguments. Enforced directly (not a log-only trial): the new formats are distinctive prefixes. A `SOVEREIGN_SENSITIVITY_LOG_ONLY=1` run remains available. |
+| 0.3 request validation | **Done** | 400 on bad `max_tokens`/`max_completion_tokens`/`messages`/`tools`/`stream`; also on `/v1/shadow`. |
+| 0.4 CI + pins | **Done, CI unrun** | `.github/workflows/ci.yml` (tests + image smoke), `requirements-dev.txt`, `pytest.ini`, `src/constraints.txt` used by the Dockerfile. The workflow has not executed on GitHub yet. |
+| 0.5 drift | **Done** | `tools/registry_sync.py`; `soak_report.py` reads targets from `clients.json`. |
+| 0.6 stale comments | **Done** | Compose classifier text, nginx header/allowlist label (`CT107`). |
+| 1.1 error labels | **Done** | `no_eligible_model` (no `Retry-After`) vs `rate_limited`. HTTP status stays 429 for client compatibility. |
+| 1.2 capacity_gap | **Done** | Alert at >= 20k tokens (`SOVEREIGN_CAPACITY_GAP_MIN_TOKENS`) when <= 1 non-premium provider can carry it. |
+| 1.3 estimate fallback | **Done** | `token_estimate_fallback` signal. Also fixed a bug: text containing tiktoken special tokens (e.g. `<|endoftext|>`) silently fell back to `len//4`. |
+| 1.4 dead lanes | **Done** | `/health.dead_lane_count`, `/admin/costs.dead_lanes`; cleared on the next successful serve. |
+| 2.1/2.2 scorecard | **Done** | `src/scorecard.py`, `GET /admin/scorecard`, `tools/scorecard.py`. Delivery through the n8n chain is a workflow change and was not made. |
+| 2.3 label seed set | Deferred | Route logs hold no prompt text by design; labels must come from a person. |
+| 2.4 log rotation | **Done** | Size-based (50 MB, keep 8), live file name unchanged; report tools stream and read rotated files. |
+| 3.1 registry demotions | Deferred | Owner-approved, one model at a time, from scorecard data. |
+| 3.2 step-up on failure | **Done, flag off** | `SOVEREIGN_FAILURE_STEPUP=1` to soak. Never forces premium; falls back to the normal floor. Tool-error detection tightened (`{"error": null}` no longer counts). |
+| 3.3/3.4 difficulty classifier, bigger eval set | Deferred | Needs a model and labeled data; not buildable from this repo alone. |
+| 4.1 cache measurement | **Done** | `cached_token_share` in the scorecard. |
+| 4.2/4.3 cache preference, payload trimming | Deferred | 4.2 waits on 4.1 data; 4.3 needs owner approval. |
+| 5.1/5.2 event-loop cost | **Done (partly)** | WAL + `synchronous=NORMAL`, persistent telemetry handle, alert evaluation throttled to 30 s on the request path. Writes were not moved to threads: with WAL a commit is cheap and the extra hop is not clearly a win. |
+| 5.3 refactor | **Partly done** | Shared `escalation_index` and `engage_spillway` replace the duplicated JSON/stream logic. Moving `build_candidates` out of `create_app` was not attempted. |
+| 5.4 estimate cache | **Done** | Bounded LRU for strings >= 2,000 chars. |
+| 5.5 tidy | **Partly done** | Redundant status set and unbounded tracker fixed. Registry `notes` left in place (moving them would change the byte-synced file). |
+| 5.6 image pin | **Partly done** | Constraints pin the Python packages and CI smoke-tests the hardened image; the base image is still pinned by tag, not digest. |
 
 ## Constraints every item must respect (ROUTING-PRINCIPLES.md)
 

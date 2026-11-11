@@ -68,9 +68,13 @@ never in the registry, compose files, logs or this source tree.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import os
+import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterator, Optional
@@ -104,6 +108,8 @@ FAILOVER_STATUSES = {401, 403, 408, 413, 429, 500, 502, 503, 504}
 # Escalation reason recorded on every turn the paid spillway serves
 # (v0.5.5 free-first / paid-spillway waterfall, owner ruling 2026-11-07).
 SPILLWAY_REASON = "free_exhausted_paid_fallthrough"
+# Payloads at/above this size trigger the capacity_gap early warning.
+CAPACITY_GAP_MIN_TOKENS = int(os.environ.get("SOVEREIGN_CAPACITY_GAP_MIN_TOKENS", "20000"))
 DEFAULT_MAX_TOKENS = 2048          # spec: max_tokens clamp, 2048 default
 MIN_OUTPUT_TOKENS = 64             # reserve used by the context-fit check
 TOKEN_ESTIMATE_FACTOR = 1.05       # carried from v0.3 (o200k_base x1.05)
@@ -112,17 +118,54 @@ TOKEN_ESTIMATE_FACTOR = 1.05       # carried from v0.3 (o200k_base x1.05)
 # token estimation (tiktoken o200k_base, as v0.3; heuristic fallback)
 # ----------------------------------------------------------------------
 _ENCODING = None
+_ENCODING_FAILED = False
+# Count of times the heuristic (len // 4) replaced the tokenizer. The
+# gateway notes a ``token_estimate_fallback`` signal on any request that
+# raced past an increment, so a silently degraded estimate is visible.
+ESTIMATE_FALLBACKS = 0
+_CACHE_MIN_CHARS = 2000        # only big, repeated prefixes are worth caching
+_CACHE_MAX_ENTRIES = 64
+_encode_cache: "OrderedDict[str, int]" = OrderedDict()
+_encode_cache_lock = threading.Lock()
+
+
+def _encode_len_raw(text: str) -> int:
+    global _ENCODING, _ENCODING_FAILED, ESTIMATE_FALLBACKS
+    if not _ENCODING_FAILED:
+        try:
+            import tiktoken
+            if _ENCODING is None:
+                _ENCODING = tiktoken.get_encoding("o200k_base")
+            return len(_ENCODING.encode(text, disallowed_special=()))
+        except Exception:
+            # tiktoken missing or its BPE file unavailable offline: stop
+            # retrying on every request and say so once.
+            _ENCODING_FAILED = True
+            logging.getLogger("sovereign.gateway").warning(
+                "tiktoken unavailable; token estimates use the len//4 heuristic")
+    ESTIMATE_FALLBACKS += 1
+    return max(1, len(text) // 4)
 
 
 def _encode_len(text: str) -> int:
-    global _ENCODING
-    try:
-        import tiktoken
-        if _ENCODING is None:
-            _ENCODING = tiktoken.get_encoding("o200k_base")
-        return len(_ENCODING.encode(text))
-    except Exception:
-        return max(1, len(text) // 4)
+    """Token count of ``text``. System prompts and tool schemas are
+    large and identical across a conversation's requests, so big strings
+    are memoised (keyed by digest, bounded LRU) instead of re-tokenised
+    on every request."""
+    if len(text) < _CACHE_MIN_CHARS:
+        return _encode_len_raw(text)
+    key = hashlib.sha1(text.encode("utf-8", "surrogatepass")).hexdigest()
+    with _encode_cache_lock:
+        hit = _encode_cache.get(key)
+        if hit is not None:
+            _encode_cache.move_to_end(key)
+            return hit
+    n = _encode_len_raw(text)
+    with _encode_cache_lock:
+        _encode_cache[key] = n
+        while len(_encode_cache) > _CACHE_MAX_ENTRIES:
+            _encode_cache.popitem(last=False)
+    return n
 
 
 def estimate_input_tokens(body: dict[str, Any]) -> int:
@@ -260,6 +303,37 @@ def validate_chat_body(body: dict[str, Any]) -> tuple[Optional[JSONResponse], in
     return None, int(max_tokens), raw_stream
 
 
+_TRANSIENT_SKIP_PREFIXES = ("rate_limited", "upstream_")
+
+
+def no_candidates_response(skipped: list[dict[str, str]], level: int,
+                           task_class: str) -> JSONResponse:
+    """The 'nothing to serve this request' error (2026-11-11).
+
+    Two different situations used to share one "rate-limited" label:
+    (a) providers genuinely limited/failing — retry later, and
+    (b) no model is eligible under current policy (lane, sensitivity,
+        quality floor, context, keys, emergency veto) — retrying in 60 s
+        changes nothing, and a wrong label sends debugging the wrong way
+        (lesson 4 of the 2026-11-08 pin incident).
+    HTTP status stays 429 either way (client-compat: the spec contract
+    and the fleet's retry handling); the error ``code`` and message
+    carry the truth, and only (a) advertises Retry-After.
+    """
+    reasons: dict[str, int] = {}
+    for item in skipped:
+        reason = item.get("reason", "?")
+        reasons[reason] = reasons.get(reason, 0) + 1
+    extra = {"skipped": skipped, "skip_summary": reasons,
+             "level": level, "task_class": task_class}
+    if any(r.startswith(_TRANSIENT_SKIP_PREFIXES) for r in reasons):
+        return _err(429, "all candidate models are rate-limited or unavailable",
+                    "rate_limited", extra, headers={"Retry-After": "60"})
+    return _err(429, "no eligible model under current policy "
+                     "(see detail.skip_summary for the reasons)",
+                "no_eligible_model", extra)
+
+
 def _message_text(msg: dict[str, Any]) -> str:
     content = msg.get("content")
     if isinstance(content, str):
@@ -324,6 +398,12 @@ DEAD_LANE_STATUSES = {401, 402, 403}
 
 
 def note_lane_dead(app: FastAPI, entry: ModelEntry, cause: str) -> None:
+    # In-memory "currently dead" view for /health and /admin/costs; a
+    # successful serve from the model clears it (see note_lane_alive).
+    dead = getattr(app.state, "dead_lanes", None)
+    if dead is not None and entry.id not in dead:
+        dead[entry.id] = {"provider": entry.provider, "cause": cause,
+                          "since": time.time()}
     app.state.store.add_alert(
         "lane_dead", entry.provider,
         f"lane_dead:{entry.provider}:{entry.id}:{cause}",
@@ -332,6 +412,12 @@ def note_lane_dead(app: FastAPI, entry: ModelEntry, cause: str) -> None:
         "rate limit. The cascade is serving from the next rungs "
         "in cost order; fix or top up this provider to restore "
         "the cheap rung.")
+
+
+def note_lane_alive(app: FastAPI, entry: ModelEntry) -> None:
+    dead = getattr(app.state, "dead_lanes", None)
+    if dead:
+        dead.pop(entry.id, None)
 
 
 def create_app(config: Optional[GatewayConfig] = None,
@@ -368,6 +454,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     app.state.store = store
     app.state.governor = governor
     app.state.sticky = sticky
+    app.state.dead_lanes = {}
     app.state.telemetry = telemetry
     app.state.classifier = classifier
     app.state.provider_keys = provider_keys
@@ -571,6 +658,30 @@ def create_app(config: Optional[GatewayConfig] = None,
             candidates = [c for c in candidates if c.id not in exclude_ids]
         return candidates, skipped
 
+    def note_capacity_gap(client_id: str, level: int, est_tokens: int,
+                          candidates: list[ModelEntry], *,
+                          premium_only: bool) -> None:
+        """Early warning (2026-11-11): a large payload that only one
+        non-premium provider can carry means the cheap rungs have thinned
+        to a single point of failure. On 2026-11-09 DeepInfra Flash died
+        and every remaining cheap rung was walled by context/TPM/TPD, but
+        nothing alerted until premium spend had piled up. Alert only —
+        nothing is blocked or re-routed."""
+        if premium_only or est_tokens < CAPACITY_GAP_MIN_TOKENS:
+            return
+        providers = sorted({c.provider for c in candidates if c.lane != "premium"})
+        if len(providers) > 1:
+            return
+        who = providers[0] if providers else "none"
+        app.state.store.add_alert(
+            "capacity_gap", client_id,
+            f"capacity_gap:{client_id}:{who}",
+            f"Capacity gap: a ~{est_tokens:,}-token level-{level} request from "
+            f"{client_id} has {len(providers)} non-premium provider(s) able to "
+            f"carry it ({who}). Cheap-rung redundancy is gone; the next failure "
+            "spills to premium. Check provider limits/credits. Alert only — "
+            "traffic is not blocked.")
+
     # ------------------------------------------------------------------
     # upstream call helpers
     # ------------------------------------------------------------------
@@ -651,6 +762,8 @@ def create_app(config: Optional[GatewayConfig] = None,
                 "tripped": paid_off,
             },
             "sensitivity_log_only": cfg.sensitivity_log_only,
+            # Count only; names/causes are on the admin endpoint.
+            "dead_lane_count": len(app.state.dead_lanes),
         }
 
     @app.get("/v1/models")
@@ -738,6 +851,7 @@ def create_app(config: Optional[GatewayConfig] = None,
             "today": app.state.store.costs_breakdown(day0, now + 1),
             "month": app.state.store.costs_breakdown(month0, now + 1),
             "alerts": app.state.store.alerts_since(day0),
+            "dead_lanes": dict(app.state.dead_lanes),
             "emergency_paid_lane_switch": {
                 "enabled": app.state.governor.emergency.enabled,
                 "warn_only": app.state.governor.emergency.warn_only,
@@ -986,7 +1100,9 @@ def create_app(config: Optional[GatewayConfig] = None,
                             "invalid_request")
 
         # ---- profile ----------------------------------------------------
+        fallbacks_before = ESTIMATE_FALLBACKS
         est_tokens = estimate_input_tokens(body)
+        est_fallback = ESTIMATE_FALLBACKS != fallbacks_before
         tools = body.get("tools") or []
         tool_names = [t.get("function", {}).get("name") for t in tools
                       if isinstance(t, dict)]
@@ -1081,6 +1197,8 @@ def create_app(config: Optional[GatewayConfig] = None,
                         skipped.append({"model": c.id,
                                         "reason": "governor_cheapest_quality4_only"})
                 candidates = exact
+        note_capacity_gap(client.id, level, est_tokens, candidates, premium_only=(
+            explicit_premium and premium_permitted))
         # Explicit real model name: pin it first when it is eligible.
         if explicit_entry is not None:
             if explicit_entry in candidates:
@@ -1147,6 +1265,8 @@ def create_app(config: Optional[GatewayConfig] = None,
             record.signals.append("repeat_within_60s")
         if has_tool_error:
             record.signals.append("tool_error_next_turn")
+        if est_fallback:
+            record.signals.append("token_estimate_fallback")
 
         # Free-first / paid spillway (v0.5.5, owner ruling 2026-11-07):
         # normal selection above is the free-first pass and is
@@ -1191,10 +1311,7 @@ def create_app(config: Optional[GatewayConfig] = None,
             record.status = 429
             record.upstream_failure = True
             telemetry.write(record)
-            return _err(429, "all candidate models are rate-limited or unavailable",
-                        "rate_limited",
-                        {"skipped": skipped, "level": level, "task_class": task_class},
-                        headers={"Retry-After": "60"})
+            return no_candidates_response(skipped, level, task_class)
 
         # Estimated cost recorded pre-call (governor), corrected post-call.
         first = candidates[0]
@@ -1370,6 +1487,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             task_class=task_class, input_tokens=in_tok, output_tokens=out_tok,
             cached_tokens=cached, cost_usd=cost, estimated=False))
         app.state.sticky.set(conv_key, entry.id, level)
+        note_lane_alive(app, entry)
         app.state.governor.evaluate_alerts(
             app.state.clients.clients,
             {e.provider: e.spend_alert_usd for e in app.state.registry.entries
@@ -1614,6 +1732,7 @@ def _finalize_stream(app: FastAPI, record: RouteRecord, entry: ModelEntry,
         input_tokens=in_tok, output_tokens=out_tok, cached_tokens=0,
         cost_usd=cost, estimated=False))
     app.state.sticky.set(conv_key, entry.id, level)
+    note_lane_alive(app, entry)
     app.state.telemetry.write(record)
 
 

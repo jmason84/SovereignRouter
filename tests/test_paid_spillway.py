@@ -422,6 +422,7 @@ def test_emergency_switch_vetoes_spillway(tmp_path):
                        "deepinfra": "fake", "ollama": "fake",
                        "openai": "fake", "deepseek": "fake", "zai": "fake"},
         emergency_enabled=True, emergency_daily_usd=0.0,  # tripped at $0
+        emergency_warn_only=False,  # hard switch is opt-in since 2026-11-11
     )
     calls: list[dict] = []
 

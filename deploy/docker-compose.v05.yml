@@ -44,12 +44,13 @@ services:
       # classifier.py (SIDECAR_TIMEOUT_S) — routing falls back to rules.
       SOVEREIGN_STATE_DIR: "/app/state"
       SOVEREIGN_SIDECAR_URL: "http://classifier:${CLASSIFIER_INTERNAL_PORT:-8080}"
-      # Emergency paid-lane switch: OFF until owner decision #1 (DECISIONS.md).
+      # Emergency level (owner decision #1, amended 2026-11-09: WARN-ONLY).
       SOVEREIGN_EMERGENCY_SWITCH: "${SOVEREIGN_EMERGENCY_SWITCH:-1}"
       SOVEREIGN_EMERGENCY_DAILY_USD: "${SOVEREIGN_EMERGENCY_DAILY_USD:-25}"
       # v0.5.7 warn-only (owner ruling 2026-11-09): 1 = alert at the
-      # daily level, never switch paid lanes off.
-      SOVEREIGN_EMERGENCY_WARN_ONLY: "${SOVEREIGN_EMERGENCY_WARN_ONLY:-0}"
+      # daily level, never switch paid lanes off. DEFAULT ON; only an explicit
+      # 0 arms the hard switch (it 429-walled both fleets on 2026-11-09).
+      SOVEREIGN_EMERGENCY_WARN_ONLY: "${SOVEREIGN_EMERGENCY_WARN_ONLY:-1}"
       TZ: "America/Denver"
     volumes:
       # Runtime state: route logs (no prompt/response text), usage ledger,
@@ -104,9 +105,10 @@ services:
     image: 192.168.0.28:5000/sovereign-router-classifier:v0.5.0
     container_name: sovereign-router-v05-classifier
     restart: unless-stopped
-    # No ports: published, internal network only. Serves Arch-Router-1.5B
-    # (llama.cpp, Q8 GGUF, ~1.7 GB) + the small embedding model
-    # (bge-small / all-MiniLM class) per spec: Difficulty classifier.
+    # No ports: published, internal network only. Serves the embedding
+    # nearest-match classifier (bge-small / TF-IDF fallback) and the optional
+    # local LLM layer (Qwen2.5-1.5B-Instruct). Arch-Router was rejected on
+    # licensing: see docs/LICENSE-REVIEW-arch-router.md.
     expose:
       - "${CLASSIFIER_INTERNAL_PORT:-8080}"
     environment:

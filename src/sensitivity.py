@@ -47,6 +47,15 @@ _PREFIX_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("anthropic_key", re.compile(r"\bsk-ant-[A-Za-z0-9_\-]{16,}")),
     ("pem_private_key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----")),
     ("bearer_token", re.compile(r"\bBearer\s+[A-Za-z0-9._\-]{16,}", re.IGNORECASE)),
+    # Added 2026-11-11: other distinctive, low-false-positive formats.
+    ("jwt", re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}")),
+    ("stripe_key", re.compile(r"\b[sr]k_(?:live|test)_[A-Za-z0-9]{16,}")),
+    ("sendgrid_key", re.compile(r"\bSG\.[A-Za-z0-9_\-]{16,}\.[A-Za-z0-9_\-]{16,}")),
+    ("twilio_key", re.compile(r"\bSK[0-9a-f]{32}\b")),
+    ("npm_token", re.compile(r"\bnpm_[A-Za-z0-9]{36}\b")),
+    ("huggingface_token", re.compile(r"\bhf_[A-Za-z0-9]{30,}")),
+    ("digitalocean_token", re.compile(r"\bdop_v1_[a-f0-9]{64}\b")),
+    ("azure_storage_key", re.compile(r"\bAccountKey=[A-Za-z0-9+/=]{40,}")),
     ("basic_auth_url", re.compile(r"\b[a-z][a-z0-9+.\-]*://[^\s:/@]+:[^\s/@]{4,}@")),
 ]
 
@@ -55,7 +64,9 @@ _PREFIX_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 _ASSIGNMENT_RE = re.compile(
     r"(?<![A-Za-z0-9])(password|passwd|pwd|secret|client_secret|api[_-]?key|"
     r"access[_-]?token|auth[_-]?token)"
-    r"\s*[:=]\s*[\"']?([^\s\"',;]{4,})",
+    # Optional closing quote: JSON-style `"password": "..."` (agents pass
+    # JSON constantly; the unquoted-only form missed it, 2026-11-11).
+    r"[\"']?\s*[:=]\s*[\"']?([^\s\"',;]{4,})",
     re.IGNORECASE,
 )
 
@@ -73,7 +84,8 @@ class ScanResult:
 
 
 def _is_excluded_value(value: str) -> bool:
-    v = value.strip().strip("\"'")
+    # Trailing JSON/call punctuation is not part of the value (`true}`).
+    v = value.strip().strip("\"'").rstrip("}])").strip("\"'")
     if _UUID_RE.match(v) or _HEX_RE.match(v):
         return True
     if v.lower() in _PLACEHOLDERS:
@@ -111,6 +123,14 @@ def scan_messages(messages: list[dict]) -> ScanResult:
             for part in content:
                 if isinstance(part, dict) and isinstance(part.get("text"), str):
                     texts.append(part["text"])
+        # Assistant tool-call arguments carry whatever the model was
+        # given or generated — scan them like any other text.
+        for call in (msg.get("tool_calls") or []):
+            args = ((call or {}).get("function") or {}).get("arguments")
+            if isinstance(args, str):
+                texts.append(args)
+            elif isinstance(args, dict):
+                texts.append(str(args))
         for t in texts:
             detectors.update(scan_text(t).detectors)
     return ScanResult(sensitive=bool(detectors), detectors=sorted(detectors))

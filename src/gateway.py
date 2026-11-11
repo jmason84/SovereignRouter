@@ -160,7 +160,9 @@ class GatewayConfig:
     emergency_daily_usd: float = float(os.environ.get("SOVEREIGN_EMERGENCY_DAILY_USD", "25"))
     # v0.5.7 (owner ruling 2026-11-09): warn-only emergency — alert at
     # the daily level, NEVER switch the paid lanes off.
-    emergency_warn_only: bool = os.environ.get("SOVEREIGN_EMERGENCY_WARN_ONLY") == "1"
+    # Default is warn-only (owner ruling 2026-11-09). The hard switch
+    # that 429-walled both fleets is opt-in: only an explicit "0" arms it.
+    emergency_warn_only: bool = os.environ.get("SOVEREIGN_EMERGENCY_WARN_ONLY", "1") != "0"
     provider_keys: dict[str, str] = field(default_factory=dict)  # tests/dev injection
 
     def resolved_registry_path(self) -> Path:
@@ -200,6 +202,62 @@ def _err(status: int, message: str, code: str,
     if extra:
         payload["detail"] = extra
     return JSONResponse(payload, status_code=status, headers=headers or {})
+
+
+def _positive_int(value: Any) -> Optional[int]:
+    """int(value) if it is a positive integer (bool/float-with-fraction
+    rejected), else None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value > 0 else None
+    if isinstance(value, float) and value.is_integer():
+        return int(value) if value > 0 else None
+    if isinstance(value, str) and value.strip().isdigit():
+        n = int(value.strip())
+        return n if n > 0 else None
+    return None
+
+
+def validate_chat_body(body: dict[str, Any]) -> tuple[Optional[JSONResponse], int, bool]:
+    """Validate/normalise a chat body once, up front (2026-11-11).
+
+    Returns (error_response, max_tokens, stream). Malformed input used
+    to raise unhandled ValueError/AttributeError (HTTP 500), and
+    ``stream: "false"`` was treated as streaming because ``bool("false")``
+    is True. On success the body is normalised in place so downstream
+    code can trust the types.
+    """
+    def bad(msg: str) -> tuple[JSONResponse, int, bool]:
+        return _err(400, msg, "invalid_request"), DEFAULT_MAX_TOKENS, False
+
+    if not all(isinstance(m, dict) for m in body["messages"]):
+        return bad("every entry of messages must be an object")
+    max_tokens = DEFAULT_MAX_TOKENS
+    for field_name in ("max_tokens", "max_completion_tokens"):
+        raw = body.get(field_name)
+        if raw is None:
+            body.pop(field_name, None)
+            continue
+        n = _positive_int(raw)
+        if n is None:
+            return bad(f"{field_name} must be a positive integer")
+        body[field_name] = n
+    max_tokens = body.get("max_tokens") or body.get("max_completion_tokens") \
+        or DEFAULT_MAX_TOKENS
+    raw_stream = body.get("stream", False)
+    if raw_stream is None:
+        raw_stream = False
+    if isinstance(raw_stream, str) and raw_stream.strip().lower() in ("true", "false"):
+        raw_stream = raw_stream.strip().lower() == "true"
+    if not isinstance(raw_stream, bool):
+        return bad("stream must be a boolean")
+    body["stream"] = raw_stream
+    tools = body.get("tools")
+    if tools is not None and (not isinstance(tools, list)
+                              or not all(isinstance(t, dict) for t in tools)):
+        return bad("tools must be a list of objects")
+    return None, int(max_tokens), raw_stream
 
 
 def _message_text(msg: dict[str, Any]) -> str:
@@ -742,9 +800,11 @@ def create_app(config: Optional[GatewayConfig] = None,
             return _err(403, f"client {client.id} is stopped by the admin killswitch",
                         "killswitch_active")
 
+        bad_body, max_tokens, _ = validate_chat_body(body)
+        if bad_body is not None:
+            return bad_body
         messages: list[dict[str, Any]] = body["messages"]
         requested_model = str(body.get("model") or "auto")
-        max_tokens = int(body.get("max_tokens") or DEFAULT_MAX_TOKENS)
         alias = requested_model if requested_model in ALIASES else None
         explicit_entry = app.state.registry.get(requested_model) \
             if alias is None else None
@@ -897,10 +957,11 @@ def create_app(config: Optional[GatewayConfig] = None,
             return _err(403, f"client {client.id} is stopped by the admin killswitch",
                         "killswitch_active")
 
+        bad_body, max_tokens, stream = validate_chat_body(body)
+        if bad_body is not None:
+            return bad_body
         messages: list[dict[str, Any]] = body["messages"]
         requested_model = str(body.get("model") or "auto")
-        stream = bool(body.get("stream"))
-        max_tokens = int(body.get("max_tokens") or DEFAULT_MAX_TOKENS)
 
         # ---- normalize: aliases + explicit models ----------------------
         alias = requested_model if requested_model in ALIASES else None

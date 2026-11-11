@@ -1,0 +1,1096 @@
+{
+ "id": "nkYJEHhqEQ95Arkb",
+ "name": "Sovereign Router — Alert Chain (Phase 0)",
+ "description": null,
+ "active": true,
+ "activeVersionId": "8ffdc9e6-620b-496b-adf4-93896e9e2758",
+ "createdAt": "2026-11-04T02:26:38.175Z",
+ "updatedAt": "2026-11-04T02:41:15.498Z",
+ "isArchived": false,
+ "versionId": "8ffdc9e6-620b-496b-adf4-93896e9e2758",
+ "versionCounter": 5,
+ "sourceWorkflowId": null,
+ "triggerCount": 2,
+ "nodes": [
+  {
+   "id": "poll-trigger",
+   "name": "Poll — every 15 min",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    300
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "*/15 * * * *"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "prepare-poll",
+   "name": "Prepare Poll",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    220,
+    300
+   ],
+   "parameters": {
+    "mode": "runOnceForAllItems",
+    "jsCode": "const s = $getWorkflowStaticData('global');\nif (s.last_alert_id === undefined) s.last_alert_id = 0;\nif (s.consecutive_poll_failures === undefined) s.consecutive_poll_failures = 0;\nif (s.chain_broken === undefined) s.chain_broken = false;\nreturn [{ json: { after_id: s.last_alert_id } }];"
+   }
+  },
+  {
+   "id": "get-/admin/costs",
+   "name": "GET /admin/costs",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "onError": "continueErrorOutput",
+   "position": [
+    440,
+    300
+   ],
+   "parameters": {
+    "method": "GET",
+    "url": "http://192.168.0.166:6075/admin/costs",
+    "authentication": "genericCredentialType",
+    "options": {
+     "timeout": 10000
+    },
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "z1t8UXgBbrr6Vnwa",
+     "name": "Sovereign Router v0.5 — Admin Key"
+    }
+   }
+  },
+  {
+   "id": "get-/admin/alerts",
+   "name": "GET /admin/alerts",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "onError": "continueErrorOutput",
+   "position": [
+    660,
+    300
+   ],
+   "parameters": {
+    "method": "GET",
+    "url": "={{ 'http://192.168.0.166:6075/admin/alerts?after=' + $('Prepare Poll').first().json.after_id }}",
+    "authentication": "genericCredentialType",
+    "options": {
+     "timeout": 10000
+    },
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "z1t8UXgBbrr6Vnwa",
+     "name": "Sovereign Router v0.5 — Admin Key"
+    }
+   }
+  },
+  {
+   "id": "extract-new-alerts",
+   "name": "Extract New Alerts",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    880,
+    300
+   ],
+   "parameters": {
+    "mode": "runOnceForAllItems",
+    "jsCode": "const s = $getWorkflowStaticData('global');\nconst resp = $input.first().json;\nconst alerts = resp.alerts || [];\nconst lastId = (resp.last_id !== undefined) ? resp.last_id : s.last_alert_id;\nconst now = Date.now();\nif (s.last_poll_ok_ts) {\n  const gapMin = Math.round((now - s.last_poll_ok_ts) / 60000);\n  if (!s.worst_gap_minutes || gapMin > s.worst_gap_minutes) s.worst_gap_minutes = gapMin;\n}\ns.last_poll_ok_ts = now;\ns.consecutive_poll_failures = 0;\nconst fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Denver', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });\nconst lines = [];\nlet headline = '';\nif (alerts.length > 0) {\n  headline = alerts.length + ' new alert' + (alerts.length > 1 ? 's' : '');\n  lines.push('\\u26a0\\ufe0f Sovereign Router \\u2014 ' + headline);\n  for (const a of alerts) lines.push('\\u2022 [' + a.kind + '] ' + a.message + (a.scope ? ' (' + a.scope + ')' : ''));\n}\nif (s.chain_broken && s.degraded_since_ts) {\n  const gapMin = Math.max(1, Math.round((now - s.degraded_since_ts) / 60000));\n  lines.push('Alert chain recovered \\u2014 gap of ' + gapMin + ' minutes (router flagged degraded in /health)');\n  if (!headline) headline = 'alert chain recovered';\n}\nif (lines.length === 0) { s.last_alert_id = lastId; return []; }\nlines.push('Since: ' + fmt.format(new Date()) + ' MT \\u00b7 /admin/costs poll OK');\ns.pending_last_id = lastId;\nreturn [{ json: { message: lines.join('\\n'), headline: headline, count: alerts.length } }];"
+   }
+  },
+  {
+   "id": "send-via-signal",
+   "name": "Send via Signal",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "onError": "continueErrorOutput",
+   "position": [
+    1100,
+    220
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "http://192.168.0.188:8080/v2/send",
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ number: '+1XXXXXXXXXX', recipients: ['+1XXXXXXXXXX'], message: $json.message }) }}",
+    "options": {
+     "timeout": 15000
+    }
+   }
+  },
+  {
+   "id": "email-fallback-—-alerts",
+   "name": "Email Fallback — alerts",
+   "webhookId": "5667fe03-f17b-47e1-a87a-7c7cef3e5d43",
+   "type": "n8n-nodes-base.gmail",
+   "typeVersion": 2.1,
+   "position": [
+    1320,
+    380
+   ],
+   "parameters": {
+    "resource": "message",
+    "operation": "send",
+    "sendTo": "jordan.mason@launchcollective.org",
+    "subject": "={{ '[Sovereign Router alert chain — Signal failed] ' + $json.headline }}",
+    "emailType": "text",
+    "message": "={{ $json.message }}",
+    "options": {}
+   },
+   "credentials": {
+    "gmailOAuth2": {
+     "id": "J0zj3pKTNnozf6Bu",
+     "name": "Gmail account"
+    }
+   }
+  },
+  {
+   "id": "mark-delivered",
+   "name": "Mark Delivered",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1540,
+    220
+   ],
+   "parameters": {
+    "mode": "runOnceForAllItems",
+    "jsCode": "const s = $getWorkflowStaticData('global');\nif (s.pending_last_id !== undefined) { s.last_alert_id = s.pending_last_id; delete s.pending_last_id; }\ns.chain_broken = false; s.degraded_since_ts = null;\nreturn $input.all();"
+   }
+  },
+  {
+   "id": "chain-gap-handler",
+   "name": "Chain-Gap Handler",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    880,
+    560
+   ],
+   "parameters": {
+    "mode": "runOnceForAllItems",
+    "jsCode": "const s = $getWorkflowStaticData('global');\ns.consecutive_poll_failures = (s.consecutive_poll_failures || 0) + 1;\nif (s.consecutive_poll_failures === 1) s.first_failure_ts = Date.now();\nif (s.consecutive_poll_failures === 2) {\n  s.chain_broken = true;\n  s.degraded_since_ts = s.first_failure_ts || Date.now();\n  return [{ json: { message: '\\ud83d\\udd34 Sovereign Router \\u2014 alert chain cannot reach /admin/costs (2 polls failed)', headline: 'alert chain cannot reach router' } }];\n}\nreturn [];"
+   }
+  },
+  {
+   "id": "send-via-signal-(gap)",
+   "name": "Send via Signal (gap)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "onError": "continueErrorOutput",
+   "position": [
+    1100,
+    560
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "http://192.168.0.188:8080/v2/send",
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ number: '+1XXXXXXXXXX', recipients: ['+1XXXXXXXXXX'], message: $json.message }) }}",
+    "options": {
+     "timeout": 15000
+    }
+   }
+  },
+  {
+   "id": "email-fallback-—-gap",
+   "name": "Email Fallback — gap",
+   "webhookId": "f7393011-f34c-448f-91a7-cb718ee84f54",
+   "type": "n8n-nodes-base.gmail",
+   "typeVersion": 2.1,
+   "position": [
+    1320,
+    700
+   ],
+   "parameters": {
+    "resource": "message",
+    "operation": "send",
+    "sendTo": "jordan.mason@launchcollective.org",
+    "subject": "={{ '[Sovereign Router alert chain — Signal failed] ' + $json.headline }}",
+    "emailType": "text",
+    "message": "={{ $json.message }}",
+    "options": {}
+   },
+   "credentials": {
+    "gmailOAuth2": {
+     "id": "J0zj3pKTNnozf6Bu",
+     "name": "Gmail account"
+    }
+   }
+  },
+  {
+   "id": "allclear-trigger",
+   "name": "Daily All-Clear — 08:10 MT",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    900
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "10 8 * * *"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "get-/admin/costs-(all-clear)",
+   "name": "GET /admin/costs (all-clear)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    220,
+    900
+   ],
+   "parameters": {
+    "method": "GET",
+    "url": "http://192.168.0.166:6075/admin/costs",
+    "authentication": "genericCredentialType",
+    "options": {
+     "timeout": 10000
+    },
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "z1t8UXgBbrr6Vnwa",
+     "name": "Sovereign Router v0.5 — Admin Key"
+    }
+   }
+  },
+  {
+   "id": "format-all-clear",
+   "name": "Format All-Clear",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    440,
+    900
+   ],
+   "parameters": {
+    "mode": "runOnceForAllItems",
+    "jsCode": "const s = $getWorkflowStaticData('global');\nconst r = $input.first().json;\nconst t = r.today || {}, m = r.month || {};\nconst f = (n) => '$' + (Math.round((n || 0) * 100) / 100).toFixed(2);\nconst grp = (arr) => (arr && arr.length) ? arr.map(x => x.key + ' ' + f(x.cost_usd)).join(' \\u00b7 ') : '\\u2014';\nconst lv = (t.by_level && t.by_level.length) ? t.by_level.map(x => 'L' + x.key + ' ' + x.requests).join(' \\u00b7 ') : '\\u2014';\nconst alerts = r.alerts || [];\nconst kinds = alerts.map(a => a.kind).join(', ');\nconst dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Denver' }).format(new Date());\nconst lines = [];\nlines.push('\\u2705 Sovereign Router \\u2014 daily all-clear (' + dateStr + ')');\nlines.push('Spend today so far: ' + grp(t.by_client) + ' (total ' + f(t.total_cost_usd) + ')');\nlines.push('Spend month to date: ' + f(m.total_cost_usd));\nlines.push('By provider (today): ' + grp(t.by_provider));\nlines.push('Free share (today): ' + Math.round((t.free_share || 0) * 100) + '%');\nlines.push('Levels (today, requests): ' + lv);\nlines.push('Alerts raised today: ' + alerts.length + (kinds ? ' (' + kinds + ')' : ''));\nlines.push('Alert chain: ' + (s.chain_broken ? 'BROKEN' : 'polls OK') + ', worst gap ' + (s.worst_gap_minutes || 15) + ' min');\nreturn [{ json: { message: lines.join('\\n'), headline: 'daily all-clear' } }];"
+   }
+  },
+  {
+   "id": "send-via-signal-(all-clear)",
+   "name": "Send via Signal (all-clear)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "onError": "continueErrorOutput",
+   "position": [
+    660,
+    820
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "http://192.168.0.188:8080/v2/send",
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ number: '+1XXXXXXXXXX', recipients: ['+1XXXXXXXXXX'], message: $json.message }) }}",
+    "options": {
+     "timeout": 15000
+    }
+   }
+  },
+  {
+   "id": "email-fallback-—-all-clear",
+   "name": "Email Fallback — all-clear",
+   "webhookId": "63d5f55e-1830-43f2-9c02-d29e818389bd",
+   "type": "n8n-nodes-base.gmail",
+   "typeVersion": 2.1,
+   "position": [
+    880,
+    980
+   ],
+   "parameters": {
+    "resource": "message",
+    "operation": "send",
+    "sendTo": "jordan.mason@launchcollective.org",
+    "subject": "={{ '[Sovereign Router alert chain — Signal failed] ' + $json.headline }}",
+    "emailType": "text",
+    "message": "={{ $json.message }}",
+    "options": {}
+   },
+   "credentials": {
+    "gmailOAuth2": {
+     "id": "J0zj3pKTNnozf6Bu",
+     "name": "Gmail account"
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Poll — every 15 min": {
+   "main": [
+    [
+     {
+      "node": "Prepare Poll",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Prepare Poll": {
+   "main": [
+    [
+     {
+      "node": "GET /admin/costs",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "GET /admin/costs": {
+   "main": [
+    [
+     {
+      "node": "GET /admin/alerts",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Chain-Gap Handler",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "GET /admin/alerts": {
+   "main": [
+    [
+     {
+      "node": "Extract New Alerts",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Chain-Gap Handler",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Extract New Alerts": {
+   "main": [
+    [
+     {
+      "node": "Send via Signal",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Send via Signal": {
+   "main": [
+    [
+     {
+      "node": "Mark Delivered",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Email Fallback — alerts",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Email Fallback — alerts": {
+   "main": [
+    [
+     {
+      "node": "Mark Delivered",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Chain-Gap Handler": {
+   "main": [
+    [
+     {
+      "node": "Send via Signal (gap)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Send via Signal (gap)": {
+   "main": [
+    [],
+    [
+     {
+      "node": "Email Fallback — gap",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Daily All-Clear — 08:10 MT": {
+   "main": [
+    [
+     {
+      "node": "GET /admin/costs (all-clear)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "GET /admin/costs (all-clear)": {
+   "main": [
+    [
+     {
+      "node": "Format All-Clear",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Format All-Clear": {
+   "main": [
+    [
+     {
+      "node": "Send via Signal (all-clear)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Send via Signal (all-clear)": {
+   "main": [
+    [],
+    [
+     {
+      "node": "Email Fallback — all-clear",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "nodeGroups": [],
+ "settings": {
+  "saveDataErrorExecution": "all",
+  "saveDataSuccessExecution": "all",
+  "timezone": "America/Denver",
+  "executionOrder": "v1",
+  "availableInMCP": true
+ },
+ "staticData": {
+  "node:Poll — every 15 min": {
+   "recurrenceRules": [
+    null
+   ],
+   "recurrenceRuleSignatures": [
+    null
+   ]
+  },
+  "node:Daily All-Clear — 08:10 MT": {
+   "recurrenceRules": [
+    null
+   ],
+   "recurrenceRuleSignatures": [
+    null
+   ]
+  },
+  "global": {
+   "last_alert_id": 64,
+   "consecutive_poll_failures": 0,
+   "chain_broken": false,
+   "first_failure_ts": 1794220210081,
+   "degraded_since_ts": null,
+   "last_poll_ok_ts": 1794362400922,
+   "worst_gap_minutes": 30
+  }
+ },
+ "pinData": null,
+ "meta": null,
+ "tags": [],
+ "shared": [
+  {
+   "role": "workflow:owner",
+   "workflowId": "nkYJEHhqEQ95Arkb",
+   "projectId": "Ga1yt2H0TPod3b9p",
+   "project": {
+    "id": "Ga1yt2H0TPod3b9p",
+    "name": "JORDAN MASON <jordan.mason@launchcollective.org>",
+    "type": "personal",
+    "icon": null,
+    "description": null,
+    "customTelemetryTags": [],
+    "creatorId": "0879a007-9cbd-42fe-b0c2-ff7a41bbee7e",
+    "createdAt": "2026-05-09T09:46:22.564Z",
+    "updatedAt": "2026-05-09T09:52:32.355Z"
+   },
+   "createdAt": "2026-11-04T02:26:38.191Z",
+   "updatedAt": "2026-11-04T02:26:38.191Z"
+  }
+ ],
+ "activeVersion": {
+  "versionId": "8ffdc9e6-620b-496b-adf4-93896e9e2758",
+  "workflowId": "nkYJEHhqEQ95Arkb",
+  "nodes": [
+   {
+    "id": "poll-trigger",
+    "name": "Poll — every 15 min",
+    "type": "n8n-nodes-base.scheduleTrigger",
+    "typeVersion": 1.2,
+    "position": [
+     0,
+     300
+    ],
+    "parameters": {
+     "rule": {
+      "interval": [
+       {
+        "field": "cronExpression",
+        "expression": "*/15 * * * *"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "prepare-poll",
+    "name": "Prepare Poll",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     220,
+     300
+    ],
+    "parameters": {
+     "mode": "runOnceForAllItems",
+     "jsCode": "const s = $getWorkflowStaticData('global');\nif (s.last_alert_id === undefined) s.last_alert_id = 0;\nif (s.consecutive_poll_failures === undefined) s.consecutive_poll_failures = 0;\nif (s.chain_broken === undefined) s.chain_broken = false;\nreturn [{ json: { after_id: s.last_alert_id } }];"
+    }
+   },
+   {
+    "id": "get-/admin/costs",
+    "name": "GET /admin/costs",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "onError": "continueErrorOutput",
+    "position": [
+     440,
+     300
+    ],
+    "parameters": {
+     "method": "GET",
+     "url": "http://192.168.0.166:6075/admin/costs",
+     "authentication": "genericCredentialType",
+     "options": {
+      "timeout": 10000
+     },
+     "genericAuthType": "httpHeaderAuth"
+    },
+    "credentials": {
+     "httpHeaderAuth": {
+      "id": "z1t8UXgBbrr6Vnwa",
+      "name": "Sovereign Router v0.5 — Admin Key"
+     }
+    }
+   },
+   {
+    "id": "get-/admin/alerts",
+    "name": "GET /admin/alerts",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "onError": "continueErrorOutput",
+    "position": [
+     660,
+     300
+    ],
+    "parameters": {
+     "method": "GET",
+     "url": "={{ 'http://192.168.0.166:6075/admin/alerts?after=' + $('Prepare Poll').first().json.after_id }}",
+     "authentication": "genericCredentialType",
+     "options": {
+      "timeout": 10000
+     },
+     "genericAuthType": "httpHeaderAuth"
+    },
+    "credentials": {
+     "httpHeaderAuth": {
+      "id": "z1t8UXgBbrr6Vnwa",
+      "name": "Sovereign Router v0.5 — Admin Key"
+     }
+    }
+   },
+   {
+    "id": "extract-new-alerts",
+    "name": "Extract New Alerts",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     880,
+     300
+    ],
+    "parameters": {
+     "mode": "runOnceForAllItems",
+     "jsCode": "const s = $getWorkflowStaticData('global');\nconst resp = $input.first().json;\nconst alerts = resp.alerts || [];\nconst lastId = (resp.last_id !== undefined) ? resp.last_id : s.last_alert_id;\nconst now = Date.now();\nif (s.last_poll_ok_ts) {\n  const gapMin = Math.round((now - s.last_poll_ok_ts) / 60000);\n  if (!s.worst_gap_minutes || gapMin > s.worst_gap_minutes) s.worst_gap_minutes = gapMin;\n}\ns.last_poll_ok_ts = now;\ns.consecutive_poll_failures = 0;\nconst fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Denver', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });\nconst lines = [];\nlet headline = '';\nif (alerts.length > 0) {\n  headline = alerts.length + ' new alert' + (alerts.length > 1 ? 's' : '');\n  lines.push('\\u26a0\\ufe0f Sovereign Router \\u2014 ' + headline);\n  for (const a of alerts) lines.push('\\u2022 [' + a.kind + '] ' + a.message + (a.scope ? ' (' + a.scope + ')' : ''));\n}\nif (s.chain_broken && s.degraded_since_ts) {\n  const gapMin = Math.max(1, Math.round((now - s.degraded_since_ts) / 60000));\n  lines.push('Alert chain recovered \\u2014 gap of ' + gapMin + ' minutes (router flagged degraded in /health)');\n  if (!headline) headline = 'alert chain recovered';\n}\nif (lines.length === 0) { s.last_alert_id = lastId; return []; }\nlines.push('Since: ' + fmt.format(new Date()) + ' MT \\u00b7 /admin/costs poll OK');\ns.pending_last_id = lastId;\nreturn [{ json: { message: lines.join('\\n'), headline: headline, count: alerts.length } }];"
+    }
+   },
+   {
+    "id": "send-via-signal",
+    "name": "Send via Signal",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "onError": "continueErrorOutput",
+    "position": [
+     1100,
+     220
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "http://192.168.0.188:8080/v2/send",
+     "sendBody": true,
+     "contentType": "json",
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify({ number: '+1XXXXXXXXXX', recipients: ['+1XXXXXXXXXX'], message: $json.message }) }}",
+     "options": {
+      "timeout": 15000
+     }
+    }
+   },
+   {
+    "id": "email-fallback-—-alerts",
+    "name": "Email Fallback — alerts",
+    "webhookId": "5667fe03-f17b-47e1-a87a-7c7cef3e5d43",
+    "type": "n8n-nodes-base.gmail",
+    "typeVersion": 2.1,
+    "position": [
+     1320,
+     380
+    ],
+    "parameters": {
+     "resource": "message",
+     "operation": "send",
+     "sendTo": "jordan.mason@launchcollective.org",
+     "subject": "={{ '[Sovereign Router alert chain — Signal failed] ' + $json.headline }}",
+     "emailType": "text",
+     "message": "={{ $json.message }}",
+     "options": {}
+    },
+    "credentials": {
+     "gmailOAuth2": {
+      "id": "J0zj3pKTNnozf6Bu",
+      "name": "Gmail account"
+     }
+    }
+   },
+   {
+    "id": "mark-delivered",
+    "name": "Mark Delivered",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1540,
+     220
+    ],
+    "parameters": {
+     "mode": "runOnceForAllItems",
+     "jsCode": "const s = $getWorkflowStaticData('global');\nif (s.pending_last_id !== undefined) { s.last_alert_id = s.pending_last_id; delete s.pending_last_id; }\ns.chain_broken = false; s.degraded_since_ts = null;\nreturn $input.all();"
+    }
+   },
+   {
+    "id": "chain-gap-handler",
+    "name": "Chain-Gap Handler",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     880,
+     560
+    ],
+    "parameters": {
+     "mode": "runOnceForAllItems",
+     "jsCode": "const s = $getWorkflowStaticData('global');\ns.consecutive_poll_failures = (s.consecutive_poll_failures || 0) + 1;\nif (s.consecutive_poll_failures === 1) s.first_failure_ts = Date.now();\nif (s.consecutive_poll_failures === 2) {\n  s.chain_broken = true;\n  s.degraded_since_ts = s.first_failure_ts || Date.now();\n  return [{ json: { message: '\\ud83d\\udd34 Sovereign Router \\u2014 alert chain cannot reach /admin/costs (2 polls failed)', headline: 'alert chain cannot reach router' } }];\n}\nreturn [];"
+    }
+   },
+   {
+    "id": "send-via-signal-(gap)",
+    "name": "Send via Signal (gap)",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "onError": "continueErrorOutput",
+    "position": [
+     1100,
+     560
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "http://192.168.0.188:8080/v2/send",
+     "sendBody": true,
+     "contentType": "json",
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify({ number: '+1XXXXXXXXXX', recipients: ['+1XXXXXXXXXX'], message: $json.message }) }}",
+     "options": {
+      "timeout": 15000
+     }
+    }
+   },
+   {
+    "id": "email-fallback-—-gap",
+    "name": "Email Fallback — gap",
+    "webhookId": "f7393011-f34c-448f-91a7-cb718ee84f54",
+    "type": "n8n-nodes-base.gmail",
+    "typeVersion": 2.1,
+    "position": [
+     1320,
+     700
+    ],
+    "parameters": {
+     "resource": "message",
+     "operation": "send",
+     "sendTo": "jordan.mason@launchcollective.org",
+     "subject": "={{ '[Sovereign Router alert chain — Signal failed] ' + $json.headline }}",
+     "emailType": "text",
+     "message": "={{ $json.message }}",
+     "options": {}
+    },
+    "credentials": {
+     "gmailOAuth2": {
+      "id": "J0zj3pKTNnozf6Bu",
+      "name": "Gmail account"
+     }
+    }
+   },
+   {
+    "id": "allclear-trigger",
+    "name": "Daily All-Clear — 08:10 MT",
+    "type": "n8n-nodes-base.scheduleTrigger",
+    "typeVersion": 1.2,
+    "position": [
+     0,
+     900
+    ],
+    "parameters": {
+     "rule": {
+      "interval": [
+       {
+        "field": "cronExpression",
+        "expression": "10 8 * * *"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "get-/admin/costs-(all-clear)",
+    "name": "GET /admin/costs (all-clear)",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     220,
+     900
+    ],
+    "parameters": {
+     "method": "GET",
+     "url": "http://192.168.0.166:6075/admin/costs",
+     "authentication": "genericCredentialType",
+     "options": {
+      "timeout": 10000
+     },
+     "genericAuthType": "httpHeaderAuth"
+    },
+    "credentials": {
+     "httpHeaderAuth": {
+      "id": "z1t8UXgBbrr6Vnwa",
+      "name": "Sovereign Router v0.5 — Admin Key"
+     }
+    }
+   },
+   {
+    "id": "format-all-clear",
+    "name": "Format All-Clear",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     440,
+     900
+    ],
+    "parameters": {
+     "mode": "runOnceForAllItems",
+     "jsCode": "const s = $getWorkflowStaticData('global');\nconst r = $input.first().json;\nconst t = r.today || {}, m = r.month || {};\nconst f = (n) => '$' + (Math.round((n || 0) * 100) / 100).toFixed(2);\nconst grp = (arr) => (arr && arr.length) ? arr.map(x => x.key + ' ' + f(x.cost_usd)).join(' \\u00b7 ') : '\\u2014';\nconst lv = (t.by_level && t.by_level.length) ? t.by_level.map(x => 'L' + x.key + ' ' + x.requests).join(' \\u00b7 ') : '\\u2014';\nconst alerts = r.alerts || [];\nconst kinds = alerts.map(a => a.kind).join(', ');\nconst dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Denver' }).format(new Date());\nconst lines = [];\nlines.push('\\u2705 Sovereign Router \\u2014 daily all-clear (' + dateStr + ')');\nlines.push('Spend today so far: ' + grp(t.by_client) + ' (total ' + f(t.total_cost_usd) + ')');\nlines.push('Spend month to date: ' + f(m.total_cost_usd));\nlines.push('By provider (today): ' + grp(t.by_provider));\nlines.push('Free share (today): ' + Math.round((t.free_share || 0) * 100) + '%');\nlines.push('Levels (today, requests): ' + lv);\nlines.push('Alerts raised today: ' + alerts.length + (kinds ? ' (' + kinds + ')' : ''));\nlines.push('Alert chain: ' + (s.chain_broken ? 'BROKEN' : 'polls OK') + ', worst gap ' + (s.worst_gap_minutes || 15) + ' min');\nreturn [{ json: { message: lines.join('\\n'), headline: 'daily all-clear' } }];"
+    }
+   },
+   {
+    "id": "send-via-signal-(all-clear)",
+    "name": "Send via Signal (all-clear)",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "onError": "continueErrorOutput",
+    "position": [
+     660,
+     820
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "http://192.168.0.188:8080/v2/send",
+     "sendBody": true,
+     "contentType": "json",
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify({ number: '+1XXXXXXXXXX', recipients: ['+1XXXXXXXXXX'], message: $json.message }) }}",
+     "options": {
+      "timeout": 15000
+     }
+    }
+   },
+   {
+    "id": "email-fallback-—-all-clear",
+    "name": "Email Fallback — all-clear",
+    "webhookId": "63d5f55e-1830-43f2-9c02-d29e818389bd",
+    "type": "n8n-nodes-base.gmail",
+    "typeVersion": 2.1,
+    "position": [
+     880,
+     980
+    ],
+    "parameters": {
+     "resource": "message",
+     "operation": "send",
+     "sendTo": "jordan.mason@launchcollective.org",
+     "subject": "={{ '[Sovereign Router alert chain — Signal failed] ' + $json.headline }}",
+     "emailType": "text",
+     "message": "={{ $json.message }}",
+     "options": {}
+    },
+    "credentials": {
+     "gmailOAuth2": {
+      "id": "J0zj3pKTNnozf6Bu",
+      "name": "Gmail account"
+     }
+    }
+   }
+  ],
+  "connections": {
+   "Poll — every 15 min": {
+    "main": [
+     [
+      {
+       "node": "Prepare Poll",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Prepare Poll": {
+    "main": [
+     [
+      {
+       "node": "GET /admin/costs",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "GET /admin/costs": {
+    "main": [
+     [
+      {
+       "node": "GET /admin/alerts",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Chain-Gap Handler",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "GET /admin/alerts": {
+    "main": [
+     [
+      {
+       "node": "Extract New Alerts",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Chain-Gap Handler",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Extract New Alerts": {
+    "main": [
+     [
+      {
+       "node": "Send via Signal",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Send via Signal": {
+    "main": [
+     [
+      {
+       "node": "Mark Delivered",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Email Fallback — alerts",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Email Fallback — alerts": {
+    "main": [
+     [
+      {
+       "node": "Mark Delivered",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Chain-Gap Handler": {
+    "main": [
+     [
+      {
+       "node": "Send via Signal (gap)",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Send via Signal (gap)": {
+    "main": [
+     [],
+     [
+      {
+       "node": "Email Fallback — gap",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Daily All-Clear — 08:10 MT": {
+    "main": [
+     [
+      {
+       "node": "GET /admin/costs (all-clear)",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "GET /admin/costs (all-clear)": {
+    "main": [
+     [
+      {
+       "node": "Format All-Clear",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Format All-Clear": {
+    "main": [
+     [
+      {
+       "node": "Send via Signal (all-clear)",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Send via Signal (all-clear)": {
+    "main": [
+     [],
+     [
+      {
+       "node": "Email Fallback — all-clear",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  },
+  "nodeGroups": [],
+  "authors": "JORDAN MASON",
+  "name": null,
+  "description": null,
+  "autosaved": false,
+  "createdAt": "2026-11-04T02:41:15.499Z",
+  "updatedAt": "2026-11-04T02:41:15.499Z",
+  "workflowPublishHistory": [
+   {
+    "id": 5648,
+    "workflowId": "nkYJEHhqEQ95Arkb",
+    "versionId": "8ffdc9e6-620b-496b-adf4-93896e9e2758",
+    "event": "activated",
+    "userId": "0879a007-9cbd-42fe-b0c2-ff7a41bbee7e",
+    "createdAt": "2026-11-04T02:41:16.389Z"
+   }
+  ]
+ },
+ "parentFolder": null
+}

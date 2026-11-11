@@ -60,6 +60,16 @@ returns an account-class upstream failure (401/402/403) or exhausts
 its daily token cap, so a dead cheap rung surfaces within one
 alert-chain poll instead of burning silently for hours.
 
+v0.5.8 (2026-11-11, improvement plan): emergency level defaults to
+warn-only; wider credential scan (JSON-quoted secrets, JWT/Stripe/etc.,
+tool-call arguments); malformed requests 400 instead of 500; empty
+candidate set says ``no_eligible_model`` (policy) vs ``rate_limited``
+(availability); ``capacity_gap`` early-warning alert; dead lanes on
+/health and /admin/costs; /admin/scorecard; route-log rotation; WAL +
+throttled alert evaluation; optional failure-triggered step-up
+(SOVEREIGN_FAILURE_STEPUP=1, default off). See
+docs/IMPROVEMENT-PLAN-2026-11-11.md.
+
 No startup patches: this is the v0.5 source tree (the v0.3.3 canary's
 PATCH_V033 mechanism is gone). Provider keys are read once at startup
 from mode-600 files in the state dir (``keys/<provider>.key``); they are
@@ -95,7 +105,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.5.7"
+VERSION = "0.5.8"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -105,7 +115,6 @@ ALLOWED_FIELDS = {
     "tool_choice", "response_format", "stop", "presence_penalty",
     "frequency_penalty", "seed", "user", "n",
 }
-FAILOVER_STATUSES = {401, 403, 408, 413, 429, 500, 502, 503, 504}
 # Escalation reason recorded on every turn the paid spillway serves
 # (v0.5.5 free-first / paid-spillway waterfall, owner ruling 2026-11-07).
 SPILLWAY_REASON = "free_exhausted_paid_fallthrough"
@@ -1416,6 +1425,39 @@ def create_app(config: Optional[GatewayConfig] = None,
 # ======================================================================
 # non-streaming execution with failover + validation escalation
 # ======================================================================
+def escalation_index(candidates: list[ModelEntry], idx: int, entry: ModelEntry,
+                     task_class: str) -> Optional[int]:
+    """Index of the candidate to retry after ``entry`` served an unusable
+    answer: the next one at quality+1 (spec); failing that, the next at
+    >= the current quality — a different model rarely fails the same way,
+    and that beats serving a known-invalid answer (live E2E, 2026-11-02).
+    Shared by the JSON and streaming paths (was duplicated in both)."""
+    q = entry.quality_for(task_class)
+    for floor in (q + 1, q):
+        found = next((j for j in range(idx + 1, len(candidates))
+                      if candidates[j].quality_for(task_class) >= floor), None)
+        if found is not None:
+            return found
+    return None
+
+
+def engage_spillway(spillway_builder: Any, attempted: set[str],
+                    skipped: list[dict[str, str]],
+                    record: RouteRecord) -> Optional[list[ModelEntry]]:
+    """Loop guard shared by both paths: every first-pass candidate failed
+    upstream, so build the paid spillway list once (v0.5.5). Records the
+    pass on the route row and returns the new candidates, or None."""
+    if spillway_builder is None:
+        return None
+    extra, extra_skipped = spillway_builder(frozenset(attempted))
+    if not extra:
+        return None
+    skipped.append({"model": "-", "reason": "paid_spillway_pass"})
+    skipped.extend(extra_skipped)
+    record.signals.append(f"paid_spillway:{extra[0].id}")
+    return extra
+
+
 async def _json_response(*, app: FastAPI, body: dict[str, Any],
                          candidates: list[ModelEntry], record: RouteRecord,
                          client: ClientPolicy, conv_key: str, level: int,
@@ -1440,19 +1482,16 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
     idx = 0
     while True:
         if idx >= len(candidates):
-            if spillway_builder is not None and not spillway_engaged:
-                extra, extra_skipped = spillway_builder(frozenset(attempted))
-                if extra:
-                    spillway_engaged = True
-                    spillway_reason = SPILLWAY_REASON
-                    skipped.append({"model": "-", "reason": "paid_spillway_pass"})
-                    skipped.extend(extra_skipped)
-                    record.signals.append(f"paid_spillway:{extra[0].id}")
-                    candidates = extra
-                    idx = 0
-                    retried_same = set()
-                    budget_override = None
-                    continue
+            extra = None if spillway_engaged else engage_spillway(
+                spillway_builder, attempted, skipped, record)
+            if extra:
+                spillway_engaged = True
+                spillway_reason = SPILLWAY_REASON
+                candidates = extra
+                idx = 0
+                retried_same = set()
+                budget_override = None
+                continue
             break
         entry = candidates[idx]
         attempted.add(entry.id)
@@ -1470,7 +1509,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             idx += 1
             continue
         record.latency_upstream_ms += (time.perf_counter() - t_u0) * 1000
-        if resp.status_code in FAILOVER_STATUSES or resp.status_code >= 400:
+        if resp.status_code >= 400:  # every 4xx/5xx fails over to the next rung
             skipped.append({"model": entry.id,
                             "reason": f"upstream_{resp.status_code}"})
             if resp.status_code in DEAD_LANE_STATUSES:
@@ -1512,17 +1551,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             # model is already quality 4 — retry the next candidate at
             # >= current quality instead of serving a known-invalid
             # answer; a different model rarely fails the same way.
-            target_q = entry.quality_for(task_class) + 1
-            esc_idx = next(
-                (j for j in range(idx + 1, len(candidates))
-                 if candidates[j].quality_for(task_class) >= target_q),
-                None)
-            if esc_idx is None:
-                esc_idx = next(
-                    (j for j in range(idx + 1, len(candidates))
-                     if candidates[j].quality_for(task_class)
-                     >= entry.quality_for(task_class)),
-                    None)
+            esc_idx = escalation_index(candidates, idx, entry, task_class)
             if esc_idx is not None:
                 escalated = True
                 last_failures = failures
@@ -1619,23 +1648,17 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                 # Every candidate failed upstream: engage the paid
                 # spillway once rather than ending the stream in a
                 # 429 (v0.5.5; mirrors the JSON path's loop guard).
-                if spillway_builder is not None and not spillway_engaged:
-                    extra, extra_skipped = spillway_builder(
-                        frozenset(attempted))
-                    if extra:
-                        spillway_engaged = True
-                        spillway_reason = SPILLWAY_REASON
-                        if SPILLWAY_REASON not in record.escalation_reasons:
-                            record.escalation_reasons = [
-                                *record.escalation_reasons, SPILLWAY_REASON]
-                        record.signals.append(
-                            f"paid_spillway:{extra[0].id}")
-                        skipped.append({"model": "-",
-                                        "reason": "paid_spillway_pass"})
-                        skipped.extend(extra_skipped)
-                        candidates = extra
-                        idx = 0
-                        continue
+                extra = None if spillway_engaged else engage_spillway(
+                    spillway_builder, attempted, skipped, record)
+                if extra:
+                    spillway_engaged = True
+                    spillway_reason = SPILLWAY_REASON
+                    if SPILLWAY_REASON not in record.escalation_reasons:
+                        record.escalation_reasons = [
+                            *record.escalation_reasons, SPILLWAY_REASON]
+                    candidates = extra
+                    idx = 0
+                    continue
                 break
             entry = candidates[idx]
             attempted.add(entry.id)
@@ -1705,20 +1728,8 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         failures = validate_response(
                             assembled, tools=tools or None, json_mode=False)
                         if failures and not escalated:
-                            target_q = entry.quality_for(task_class) + 1
-                            esc_idx = next(
-                                (j for j in range(idx + 1, len(candidates))
-                                 if candidates[j].quality_for(task_class) >= target_q),
-                                None)
-                            if esc_idx is None:
-                                # Same fallback as the JSON path: next
-                                # candidate at >= current quality beats
-                                # serving a known-invalid tool call.
-                                esc_idx = next(
-                                    (j for j in range(idx + 1, len(candidates))
-                                     if candidates[j].quality_for(task_class)
-                                     >= entry.quality_for(task_class)),
-                                    None)
+                            esc_idx = escalation_index(
+                                candidates, idx, entry, task_class)
                             if esc_idx is None and failures:
                                 record.signals.append(
                                     "validation_failed_no_escalation:"

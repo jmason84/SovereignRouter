@@ -126,3 +126,27 @@ def test_quota_store_uses_wal(tmp_path):
     s = QuotaStore(tmp_path / "q.db")
     mode = s._conn.execute("PRAGMA journal_mode").fetchone()[0]
     assert mode.lower() == "wal"
+
+
+# ---- shared helpers extracted from the two response paths ------------------
+def test_escalation_index_prefers_higher_quality_then_equal():
+    import gateway
+
+    class E:
+        def __init__(self, q): self.q = q
+        def quality_for(self, tc): return self.q
+
+    cands = [E(2), E(2), E(3), E(4)]
+    assert gateway.escalation_index(cands, 0, cands[0], "chat") == 2      # quality+1
+    assert gateway.escalation_index(cands, 2, cands[2], "chat") == 3
+    assert gateway.escalation_index(cands, 3, cands[3], "chat") is None
+    same = [E(4), E(4)]
+    assert gateway.escalation_index(same, 0, same[0], "chat") == 1        # >= fallback
+
+
+def test_outcome_tracker_purges_by_time():
+    from telemetry import OutcomeTracker
+    t = OutcomeTracker()
+    t.check_and_record("a", now=1000.0)
+    t.check_and_record("b", now=1100.0)       # > 60 s later: "a" is purged
+    assert "a" not in t._seen

@@ -17,3 +17,15 @@ jobs:
       - run: pip install -r requirements-dev.txt -c src/constraints.txt
       - run: python tools/registry_sync.py /nonexistent   # repo registry is valid JSON
       - run: python -m pytest -q
+  image:
+    # Build the gateway image and import it under the hardening the
+    # compose file applies (read-only rootfs, no caps, non-root).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t sovereign-router-ci src
+      - run: >
+          docker run --rm --read-only --cap-drop ALL
+          --security-opt no-new-privileges:true
+          --tmpfs /tmp --tmpfs /state:rw,uid=10001
+          sovereign-router-ci python -c "import gateway; print(gateway.VERSION)"

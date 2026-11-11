@@ -80,6 +80,7 @@ class OutcomeTracker:
 
     def __init__(self) -> None:
         self._seen: dict[str, float] = {}
+        self._last_purge = 0.0
         self._lock = threading.Lock()
 
     @staticmethod
@@ -97,10 +98,13 @@ class OutcomeTracker:
         with self._lock:
             prev = self._seen.get(fingerprint)
             self._seen[fingerprint] = now
-            # opportunistic cleanup
-            if len(self._seen) > 4096:
+            # Opportunistic cleanup: by size, and at least once per window
+            # so the table is bounded by traffic in the last 60 s, not by
+            # whatever happened to accumulate under the size trigger.
+            if len(self._seen) > 4096 or now - self._last_purge > self.WINDOW_S:
                 cutoff = now - self.WINDOW_S
                 self._seen = {k: v for k, v in self._seen.items() if v >= cutoff}
+                self._last_purge = now
             return prev is not None and (now - prev) <= self.WINDOW_S
 
 

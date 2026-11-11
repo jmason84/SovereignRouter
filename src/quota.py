@@ -118,6 +118,16 @@ class QuotaStore:
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         with self._lock:
+            # WAL + synchronous=NORMAL: a commit no longer waits on an
+            # fsync per request (usage rows are written inside async
+            # request handlers). Durability trade-off is the standard
+            # one: a power loss can drop the last few commits, never
+            # corrupt the DB. In-memory/:memory: DBs ignore WAL.
+            try:
+                self._conn.execute("PRAGMA journal_mode=WAL")
+                self._conn.execute("PRAGMA synchronous=NORMAL")
+            except sqlite3.DatabaseError:
+                pass
             self._conn.executescript(_SCHEMA)
             self._conn.commit()
             # First-seen timestamp drives the governor's "first 14 days"

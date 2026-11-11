@@ -106,23 +106,79 @@ class OutcomeTracker:
 
 class Telemetry:
     """Writes route lines to a JSONL file (if configured) and keeps a
-    bounded in-memory ring for /admin/routes."""
+    bounded in-memory ring for /admin/routes.
 
-    def __init__(self, log_path: Optional[str | Path] = None, ring_size: int = 10_000):
+    The file handle is opened once and kept (a per-request open/close sat
+    inside async request handlers), flushed after every line so a crash
+    loses nothing the OS already has. The log rotates by size
+    (``routes.jsonl`` -> ``routes.jsonl.1`` -> ...; oldest dropped past
+    ``keep``) so it cannot grow without bound and readers need not slurp
+    an ever-larger file. Rotation preserves the live file name, so
+    existing tools that tail/read ``routes.jsonl`` keep working."""
+
+    DEFAULT_ROTATE_BYTES = 50 * 1024 * 1024
+    DEFAULT_KEEP = 8
+
+    def __init__(self, log_path: Optional[str | Path] = None,
+                 ring_size: int = 10_000,
+                 rotate_bytes: Optional[int] = None,
+                 keep: Optional[int] = None):
         self.log_path = Path(log_path) if log_path else None
+        self.rotate_bytes = self.DEFAULT_ROTATE_BYTES if rotate_bytes is None \
+            else rotate_bytes
+        self.keep = self.DEFAULT_KEEP if keep is None else keep
+        self._fh = None
+        self._size = 0
         if self.log_path:
             self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self._ring: deque[RouteRecord] = deque(maxlen=ring_size)
         self._lock = threading.Lock()
         self.outcomes = OutcomeTracker()
 
+    # -- file handling (caller holds the lock) -------------------------
+    def _open(self) -> None:
+        self._fh = self.log_path.open("a", encoding="utf-8")
+        try:
+            self._size = self.log_path.stat().st_size
+        except OSError:
+            self._size = 0
+
+    def _rotate(self) -> None:
+        if self._fh is not None:
+            self._fh.close()
+            self._fh = None
+        if self.keep > 0:
+            oldest = self.log_path.with_name(f"{self.log_path.name}.{self.keep}")
+            if oldest.exists():
+                oldest.unlink()
+            for i in range(self.keep - 1, 0, -1):
+                src = self.log_path.with_name(f"{self.log_path.name}.{i}")
+                if src.exists():
+                    src.rename(self.log_path.with_name(f"{self.log_path.name}.{i + 1}"))
+            self.log_path.rename(self.log_path.with_name(f"{self.log_path.name}.1"))
+        else:
+            self.log_path.unlink(missing_ok=True)
+
     def write(self, record: RouteRecord) -> None:
-        line = record.to_json()
+        line = record.to_json() + "\n"
         with self._lock:
             self._ring.append(record)
             if self.log_path:
-                with self.log_path.open("a", encoding="utf-8") as fh:
-                    fh.write(line + "\n")
+                if self._fh is None:
+                    self._open()
+                if self.rotate_bytes and self._size + len(line) > self.rotate_bytes \
+                        and self._size > 0:
+                    self._rotate()
+                    self._open()
+                self._fh.write(line)
+                self._fh.flush()
+                self._size += len(line.encode("utf-8"))
+
+    def close(self) -> None:
+        with self._lock:
+            if self._fh is not None:
+                self._fh.close()
+                self._fh = None
 
     def recent(self, since: float) -> list[RouteRecord]:
         with self._lock:

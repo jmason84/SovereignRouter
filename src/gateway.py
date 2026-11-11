@@ -88,6 +88,7 @@ from clients import ALIASES, ClientPolicy, ClientStore, extract_bearer_key, load
 from governor import EmergencyConfig, Governor
 from quota import QuotaStore, UsageEvent
 from registry import FREE_LANES, ModelEntry, Registry, load_registry
+from scorecard import build_scorecard
 from sensitivity import scan_messages
 from sticky import StickyStore, conversation_key
 from telemetry import RouteRecord, Telemetry
@@ -833,6 +834,18 @@ def create_app(config: Optional[GatewayConfig] = None,
             return _err(401, "admin key required", "authentication_error")
         return app.state.telemetry.stats(time.time() - 86_400)
 
+    @app.get("/admin/scorecard")
+    async def admin_scorecard(request: Request, hours: float = 24.0) -> Any:
+        """Per-model scorecard over the in-memory telemetry ring (last
+        ``hours``, default 24). Proposals need owner approval; nothing
+        is applied. For a full-day report use tools/scorecard.py."""
+        if not auth_admin(request):
+            return _err(401, "admin key required", "authentication_error")
+        from dataclasses import asdict
+        rows = [asdict(r) for r in app.state.telemetry.recent(
+            time.time() - max(0.1, min(hours, 24 * 14)) * 3600)]
+        return build_scorecard(rows)
+
     @app.get("/admin/costs")
     async def admin_costs(request: Request) -> Any:
         if not auth_admin(request):
@@ -1488,7 +1501,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             cached_tokens=cached, cost_usd=cost, estimated=False))
         app.state.sticky.set(conv_key, entry.id, level)
         note_lane_alive(app, entry)
-        app.state.governor.evaluate_alerts(
+        app.state.governor.evaluate_alerts_throttled(
             app.state.clients.clients,
             {e.provider: e.spend_alert_usd for e in app.state.registry.entries
              if e.spend_alert_usd is not None})

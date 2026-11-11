@@ -184,6 +184,23 @@ class Governor:
     # /admin/costs is polled, so alerts exist even if traffic pauses.
     # Every alert is de-duplicated to once per day per key by the store.
     # ------------------------------------------------------------------
+    ALERT_EVAL_MIN_INTERVAL_S = 30.0
+
+    def evaluate_alerts_throttled(self, clients: dict[str, Any],
+                                  provider_alerts: dict[str, float],
+                                  now: Optional[float] = None) -> bool:
+        """Per-request entry point: run the (aggregate-query-heavy)
+        alert evaluation at most once per ALERT_EVAL_MIN_INTERVAL_S.
+        The admin poll endpoints still call evaluate_alerts directly, so
+        the alert chain always sees fresh state. Returns True if it ran."""
+        now = now or time.time()
+        last = getattr(self, "_last_alert_eval", 0.0)
+        if now - last < self.ALERT_EVAL_MIN_INTERVAL_S:
+            return False
+        self._last_alert_eval = now
+        self.evaluate_alerts(clients, provider_alerts, now)
+        return True
+
     def evaluate_alerts(self, clients: dict[str, Any],
                         provider_alerts: dict[str, float],
                         now: Optional[float] = None) -> None:

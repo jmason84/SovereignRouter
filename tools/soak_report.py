@@ -46,15 +46,22 @@ def pct(sorted_vals, q):
 def main() -> int:
     day = sys.argv[1] if len(sys.argv) > 1 else datetime.now(TZ).strftime("%Y-%m-%d")
     rows = []
-    log = STATE / "routes.jsonl"
-    if log.exists():
-        for line in log.read_text(errors="replace").splitlines():
-            try:
-                rec = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if datetime.fromtimestamp(rec.get("ts", 0), TZ).strftime("%Y-%m-%d") == day:
-                rows.append(rec)
+    # Stream the live log and its rotated siblings (routes.jsonl.N) line by
+    # line instead of slurping an ever-growing file.
+    logs = sorted((p for p in STATE.glob("routes.jsonl.*") if p.suffix[1:].isdigit()),
+                  key=lambda p: int(p.suffix[1:]), reverse=True)
+    logs.append(STATE / "routes.jsonl")
+    for log in logs:
+        if not log.exists():
+            continue
+        with log.open(encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if datetime.fromtimestamp(rec.get("ts", 0), TZ).strftime("%Y-%m-%d") == day:
+                    rows.append(rec)
 
     print(f"# v0.5 soak — {day} (America/Denver)")
     print()

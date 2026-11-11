@@ -8,8 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     SOVEREIGN_STATE_DIR=/state
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt constraints.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 # --chmod: the container runs as uid 10001; build-context files with
 # restrictive modes (e.g. 660) are unreadable to it (deploy fix, 2026-11-02).

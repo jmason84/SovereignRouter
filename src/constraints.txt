@@ -1,0 +1,10 @@
+# Exact versions the image is built and tested with (2026-11-11).
+# Used by src/Dockerfile (`pip install -c constraints.txt`) so rebuilds
+# are reproducible; bump deliberately, with the test suite green.
+fastapi==0.162.4
+uvicorn==0.54.0
+httpx==0.28.1
+tiktoken==0.14.0
+pydantic==2.13.5
+starlette==1.7.0
+anyio==4.15.1

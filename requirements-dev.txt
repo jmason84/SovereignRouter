@@ -1,0 +1,4 @@
+# Test/CI dependencies (the gateway's runtime deps are in src/requirements.txt).
+-r src/requirements.txt
+pytest>=8.0
+pytest-asyncio>=0.23

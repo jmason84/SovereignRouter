@@ -8,15 +8,32 @@ Prints a markdown summary of the runbook section 7 success measures for
 one day of v0.5 route-log data, per client and in total.
 """
 import json
+import os
 import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-STATE = Path("/root/sovereign-router-v05/state")
+STATE = Path(os.environ.get("SOVEREIGN_STATE_DIR", "/root/sovereign-router-v05/state"))
 TZ = ZoneInfo("America/Denver")
-TARGETS = {"hermes": 1.25, "openclaw": 5.0, "n8n": 2.5}  # Week 2 gate values, 2026-11-03 (derived reset x Jordan's 5x bump)
+
+
+def load_targets() -> dict:
+    """Daily targets come from clients.json (the source of truth), not a
+    copy that drifts. Falls back to the example file shipped in the repo."""
+    for path in (STATE / "clients.json",
+                 Path(__file__).resolve().parent.parent / "src" / "clients.example.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return {c["id"]: float(c["daily_target_usd"])
+                    for c in data.get("clients", []) if "daily_target_usd" in c}
+        except (OSError, ValueError, KeyError):
+            continue
+    return {}
+
+
+TARGETS = load_targets()
 
 
 def pct(sorted_vals, q):

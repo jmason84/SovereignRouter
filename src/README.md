@@ -1,7 +1,9 @@
 # Sovereign Router v0.5 — Gateway
 
-One OpenAI-compatible endpoint for OpenClaw, Hermes and n8n that sends
-every request to the cheapest model able to do it well. Implements spec
+One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM
+that sends every request to the cheapest model able to do it well. The
+current intent and routing rules live in `docs/ROUTING-PRINCIPLES.md`.
+Implements spec
 **Sovereign Router v0.5.3** (Launch Collective, owner Jordan Mason):
 request pipeline, difficulty levels 1–5, client policies, cost governor
 (steering + alerts, *never* a budget refusal), sticky routing, output
@@ -47,8 +49,9 @@ shown to the client once and never stored anywhere.
 | `SOVEREIGN_STATE_DIR` | `./state` | State dir (see layout below) |
 | `SOVEREIGN_SIDECAR_URL` | unset | Classifier sidecar base URL; unset = rules only |
 | `SOVEREIGN_SENSITIVITY_LOG_ONLY` | `0` | `1` = Phase-0 trial: scan logs matches but does not change routing |
-| `SOVEREIGN_EMERGENCY_SWITCH` | `0` | `1` enables the emergency paid-lane switch (owner decision; spec proposes on) |
-| `SOVEREIGN_EMERGENCY_DAILY_USD` | `25` | Daily paid-spend level that trips the switch when enabled |
+| `SOVEREIGN_EMERGENCY_SWITCH` | `0` | `1` enables the emergency paid-lane switch (stays **off** — owner ruling 2026-11-09) |
+| `SOVEREIGN_EMERGENCY_DAILY_USD` | `25` | Daily paid-spend level for the emergency alert/switch |
+| `SOVEREIGN_EMERGENCY_WARN_ONLY` | `0` | `1` = warn-only (PRODUCTION setting): at the level, alert but never switch the paid lanes off |
 | `<PROVIDER>_API_KEY` | unset | Local-dev convenience only; production uses key files |
 
 ## State dir layout
@@ -57,15 +60,18 @@ shown to the client once and never stored anywhere.
 state/
   clients.json        # client policies + key sha256 hashes (+ admin hash)
   registry.json       # optional override; the bundled registry.json is the default
-  keys/               # mode-600 files, read once at startup, never logged
+  keys/               # mode-600 files owned by the gateway uid (10001), read once at startup, never logged
     groq.key  openrouter.key  deepinfra.key  ollama.key  openai.key
+    siliconflow.key  huggingface.key  deepseek.key  zai.key  meta.key
   quota.db            # sqlite: usage ledger, provider windows, alerts, killswitch
   routes.jsonl        # one JSON route line per request (no prompt/response text)
 ```
 
 Secrets rule (spec): provider keys live **only** in `keys/*.key`
 (mode 600) — never in compose files, the registry, Drive, or logs.
-Separate keys per environment; rotation = overwrite the file + restart.
+Separate keys per environment; changing a key = overwrite the file + restart
+(the mechanism only — there is no standing rotation program; the planned
+rotation was cancelled by the owner 2026-11-03, see `deploy/DECISIONS.md`).
 
 ## Interfaces
 

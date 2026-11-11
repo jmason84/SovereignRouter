@@ -1,5 +1,7 @@
 # Sovereign Router — Dealing With Lane Variance: Smarter Routing Discussion
 
+> **Discussion record (2026-11-08).** Options thinking, not settled policy — nothing here is a rule until it lands in `docs/ROUTING-PRINCIPLES.md` or `deploy/DECISIONS.md`.
+
 **Date:** 2026-11-08 · **Status:** Discussion — no changes approved or built yet · **Origin:** the Nov 8, 2026 DeepSeek pin incident and rollback
 
 ---

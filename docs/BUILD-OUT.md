@@ -1,5 +1,7 @@
 # Sovereign Router v0.5 — Build-Out Report
 
+> **Historical record (2026-11-01).** This document describes its moment and is kept unedited as evidence. The current intent and routing rules live in `docs/ROUTING-PRINCIPLES.md`.
+
 **Date:** 2026-11-01 · **Spec:** v0.5.3 (drafted 2026-10-31, owner Jordan Mason) · **Status: AT THE DEPLOY GATE — packaged, NOT deployed.**
 Nothing in this report describes a running v0.5. Production is unchanged: v0.2.1 on :6070 is the live router and the rollback path.
 

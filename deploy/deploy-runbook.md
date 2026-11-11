@@ -1,5 +1,7 @@
 # Sovereign Router v0.5 — Deploy Runbook
 
+> **Status update (2026-11-10): EXECUTED.** This runbook was carried out from 2026-11-02 onward and the stack it describes is live (v0.5.7, :6075). It remains the rollback/redeploy reference. The current intent and routing rules live in `docs/ROUTING-PRINCIPLES.md`.
+
 **Status: DEPLOY GATE — this runbook has NOT been executed.** Prepared 2026-11-01 from spec v0.5.3. Execute only after (a) the Phase 1 source build and test suite pass, (b) the classifier build exists, and (c) Jordan has answered the decisions in `DECISIONS.md` that gate the phase being deployed. Production **v0.2.1 on :6070 stays running and untouched through every step below** — it is the rollback path.
 
 **Target host:** VM103 `routellm`, 192.168.0.166 — verified 2026-11-01: 16 GB RAM / ~13 GB available, 4 cores, 37 GB disk free.

@@ -1,5 +1,7 @@
 # Double-check: GitHub `jmason84/SovereignRouter` vs the local verified build
 
+> **Historical record (2026-11-02).** This document describes its moment and is kept unedited as evidence. The current intent and routing rules live in `docs/ROUTING-PRINCIPLES.md`.
+
 **Date:** 2026-11-02 · **Requested by:** Jordan ("Check our github.com account. I think we have some stuff on this in there. Please double check")
 
 ## What the GitHub repo is
@@ -54,3 +56,7 @@ Then push the converged tree to `jmason84/SovereignRouter`, preserving the other
 ## Outcome (2026-11-02, Jordan approved convergence)
 
 Executed as recommended: `/v1/shadow` endpoint, `/admin/alerts` pulled outbox (id-checkpointed), and the resilience scenarios (concurrency burst, ~150 KB tool-heavy request, failover+recovery, all-fail 429) were ported into this tree and adapted to its semantics. Verification after the port: **100 unit tests pass** (88 + 12 new) and the live E2E harness passes **31/31** (27 + 4 new shadow/alerts checks, run over real HTTP). This tree was then pushed to `main` as canonical; the parallel build's history is preserved on branch `alt-build-2026-11-01`. Files unique to the old tree that were superseded (the `src/sovereign_router` package, its pyproject/Dockerfile/examples, `tests/test_units.py`, `tests/test_v053.py`) were removed from `main`; its `docs/REVIEW.md` is kept — the design review is still valuable.
+
+## Push record (2026-11-02 ~01:13–02:41 MST)
+
+Jordan installed/selected the Meta Muse AI app and the push completed the same night. Discoveries along the way: the repo never had a `main` branch — the parallel build lived on `ccr-302db870-066n3h` (tip `3e41a3de`, the tree compared above) and a `v0.5.3` branch that carries a fourth commit (`84776fae`, "review response") implementing that build's own review items; both branches are untouched. Preservation branch `alt-build-2026-11-01` was created at `3e41a3de`, a new `main` branch was created from the same tip, the converged tree was pushed in 6 batch commits (root/docs, src ×2, classifier, deploy+phase0, tests), and the 20 superseded files (the `src/sovereign_router` package, root `pyproject.toml`/`Dockerfile`, `examples/*`, `tests/test_units.py`, `tests/test_v053.py`) were deleted from `main` in individual commits. **Verified byte-identical**: blob SHAs of README.md, src/gateway.py, tests/test_shadow_alerts.py and classifier/sidecar.py on `main` match the local repo's `git hash-object` exactly; `src/sovereign_router` no longer exists on `main`; branch tips confirmed by listing. One manual step remains for Jordan if wanted: the repo's *default* branch still points at `ccr-302db870-066n3h` — switch it to `main` under repo Settings → Branches so the canonical tree is what visitors land on.

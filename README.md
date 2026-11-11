@@ -11,9 +11,10 @@ One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that send
 | `src/` | The gateway (FastAPI): pipeline auth → scan → classify → sticky → select → governor → execute/failover → validate/escalate. Includes `/v1/chat/completions`, `/v1/shadow` (decision-only), `/admin/alerts` (pulled outbox), `/admin/costs`, killswitch. See `src/README.md`. |
 | `classifier/` | Difficulty-classifier sidecar: rules → embedding nearest-match (150-example bank, 90% exact / 0% hard-task under-classification on the held-out set) → optional local LLM layer (Qwen2.5-1.5B-Instruct, Apache-2.0 — see `docs/LICENSE-REVIEW-arch-router.md` for why not Arch-Router). |
 | `phase0/` | Phase 0 measurement tools for the v0.3.3 canary: usage analyzer, report, the one allowed flagged patch, alert-chain design. |
-| `deploy/` | docker-compose stack (:6075 behind nginx, LAN allowlist), env templates, runbook, decisions record, acceptance checklist. |
-| `tests/` | `pytest` suite (100 tests) + `e2e_live.py`, a live harness that boots gateway + sidecar + a fake upstream over real HTTP (31 checks). |
-| `docs/` | Build-out report, verification report, license review, GitHub convergence record. |
+| `deploy/` | docker-compose stack (:6075 behind nginx, LAN allowlist), env templates, runbook, decisions record (with dated amendments), acceptance checklist. |
+| `tests/` | `pytest` suite (141 tests) + `e2e_live.py`, a live harness that boots gateway + sidecar + a fake upstream over real HTTP. |
+| `docs/` | **`ROUTING-PRINCIPLES.md` — the current intent and routing rules (start here).** `incidents/` — post-mortems. The build-out report, verification report, license review, convergence record and routing discussion are dated historical records, banner-marked as such. |
+| `workflows/` | Export of the n8n Alert Chain workflow (the router's alert delivery), phone number redacted. |
 
 ## Key owner decisions (full record: `deploy/DECISIONS.md`; current rules: `docs/ROUTING-PRINCIPLES.md`)
 

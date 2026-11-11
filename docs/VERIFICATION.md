@@ -1,5 +1,7 @@
 # Sovereign Router v0.5 — End-to-End Verification Report
 
+> **Historical record (2026-11-01/02).** This document describes its moment and is kept unedited as evidence. The current intent and routing rules live in `docs/ROUTING-PRINCIPLES.md`.
+
 **Date:** 2026-11-01/02 (America/Denver) · **Directive:** Jordan — "test, verify, and correct any errors and then do it again until we have end to end verification."
 **Result: VERIFIED.** Two consecutive clean full runs at the end: **88/88 unit tests + 27/27 live E2E checks, exit 0.**
 

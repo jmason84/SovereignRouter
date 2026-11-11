@@ -5,6 +5,7 @@
 > **STATUS: ANSWERED — Jordan accepted the proposed defaults on all 7 decisions, 2026-11-01 23:58 MST.**
 > 1. Emergency switch **ON at $25/day** · 2. Premium tier **kept as-is**, alerts **$20/mo** and **>20/day** · 3. Sensitive-data providers cleared: **none** · 4. Targets **Hermes $1 / OpenClaw $3 / n8n $0.50**, runaway defaults as proposed · 5. Judged sample **OFF** · 6. **Review Katanemo license first** (review commissioned 2026-11-01) · 7. n8n joins **Phase 3, last**.
 > Configs updated to match (compose emergency default ON, clients/registry already at defaults). Deploy still requires a separate explicit go.
+> **AMENDED SINCE — see the Amendments section at the end of this file.** Current rules: `docs/ROUTING-PRINCIPLES.md`.
 
 **Already decided (not on this sheet):** spending is *not* capped — no request is ever refused for budget reasons (Jordan, 2026-10-31). Costs are steered, targets are alerts, not caps.
 
@@ -64,3 +65,14 @@
 ---
 
 *Answers return to the deploy runbook as configuration. Until then the stack stays at the deploy gate: packaged, not deployed — production v0.2.1 on :6070 remains the live router and the rollback path.*
+
+---
+
+## Amendments (the sheet above is the 2026-11-01 record, kept unedited)
+
+- **2026-11-02 — Decision #6 closed.** License review complete: Arch-Router NOT suitable (Katanemo Community License); Qwen2.5-1.5B-Instruct fallback in force (see the outcome note under #6).
+- **2026-11-03 — Decision #4 targets amended.** From Phase 0 data the reset targets were bumped 5x by the owner: **Hermes $1.25 / OpenClaw $5.00 / n8n $2.50 per day** (steer + alert, still never caps).
+- **2026-11-03 — Key rotation CANCELLED.** Provider/client key rotation, a precondition in the early deploy documents, was skipped by the owner's direct order and is closed permanently. Do not resurrect it.
+- **2026-11-07 — Spillway supersedes the rescue design (v0.5.5/v0.5.6).** Paid lanes are reached by the free-exhaustion spillway in strict cost order, not by the earlier sensitive-rescue pin. SiliconFlow joins as a non-sensitive-only provider.
+- **2026-11-09 — Decision #1 SUPERSEDED: the emergency switch is WARN-ONLY.** After the hard switch tripped that morning and 429-walled the fleets, the owner ruled the $25/day level alerts but never cuts the paid lanes (`SOVEREIGN_EMERGENCY_WARN_ONLY=1`; v0.5.7). The hard switch stays off unless the owner reorders it.
+- **2026-11-09 — Decision #4 extended: a fourth client.** TwentyCRM (`crm`) joined at $1.25/day, lanes private-free + paid, premium off. The same day, Hugging Face joined as a second billing pool for DeepSeek V4 Flash plus a Cerebras route to gpt-oss-120b, non-sensitive-only like SiliconFlow.

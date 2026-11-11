@@ -207,6 +207,12 @@ class GatewayConfig:
     # Default is warn-only (owner ruling 2026-11-09). The hard switch
     # that 429-walled both fleets is opt-in: only an explicit "0" arms it.
     emergency_warn_only: bool = os.environ.get("SOVEREIGN_EMERGENCY_WARN_ONLY", "1") != "0"
+    # Failure-triggered step-up (plan 3.2, Direction D): when the request
+    # carries a fresh tool error, require one quality notch more for THIS
+    # turn (capped at 4 — never forces premium; falls back to the base
+    # floor if nothing qualifies). Ships OFF; enable for a soak with
+    # SOVEREIGN_FAILURE_STEPUP=1.
+    failure_stepup: bool = os.environ.get("SOVEREIGN_FAILURE_STEPUP") == "1"
     provider_keys: dict[str, str] = field(default_factory=dict)  # tests/dev injection
 
     def resolved_registry_path(self) -> Path:
@@ -333,6 +339,33 @@ def no_candidates_response(skipped: list[dict[str, str]], level: int,
     return _err(429, "no eligible model under current policy "
                      "(see detail.skip_summary for the reasons)",
                 "no_eligible_model", extra)
+
+
+def tool_result_is_error(text: str) -> bool:
+    """Does a tool-result message report a failure?
+
+    The old check was a substring test for ``"error"``, which also fired
+    on healthy JSON such as ``{"error": null}`` and inflated the
+    tool_error_next_turn signal the scorecard and step-up rely on. JSON
+    results are judged by their fields; plain text by a leading
+    ``error`` or a Python traceback."""
+    t = (text or "").strip()
+    if not t:
+        return False
+    if t[0] in "{[":
+        try:
+            data = json.loads(t)
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            if data.get("error") or data.get("is_error") is True \
+                    or data.get("success") is False or data.get("ok") is False:
+                return True
+            return str(data.get("status", "")).lower() in ("error", "failed", "failure")
+        if data is not None:
+            return False
+    low = t.lower()
+    return low.startswith("error") or "traceback (most recent call last)" in low
 
 
 def _message_text(msg: dict[str, Any]) -> str:
@@ -984,6 +1017,11 @@ def create_app(config: Optional[GatewayConfig] = None,
             client.id, client.daily_target_usd, level)
         required_quality = max(
             1, REQUIRED_QUALITY[level] + steering.required_quality_delta)
+        base_required_quality = required_quality
+        stepped_up = bool(cfg.failure_stepup and has_tool_error
+                          and required_quality < 4)
+        if stepped_up:
+            required_quality += 1
         premium_permitted = bool(
             client.premium_allowed
             and (level == 5 or explicit_premium)
@@ -1130,9 +1168,7 @@ def create_app(config: Optional[GatewayConfig] = None,
                                if m.get("role") == "user"), "")
         in_tool_loop = bool(messages) and messages[-1].get("role") == "tool"
         has_tool_error = any(
-            m.get("role") == "tool" and (
-                '"error"' in _message_text(m).lower()
-                or _message_text(m).strip().lower().startswith("error"))
+            m.get("role") == "tool" and tool_result_is_error(_message_text(m))
             for m in messages[-3:])
 
         # 413 pre-check: no lane-allowed model can EVER fit -> 413.
@@ -1176,6 +1212,11 @@ def create_app(config: Optional[GatewayConfig] = None,
             client.id, client.daily_target_usd, level)
         required_quality = max(
             1, REQUIRED_QUALITY[level] + steering.required_quality_delta)
+        base_required_quality = required_quality
+        stepped_up = bool(cfg.failure_stepup and has_tool_error
+                          and required_quality < 4)
+        if stepped_up:
+            required_quality += 1
         premium_permitted = bool(
             client.premium_allowed
             and (level == 5 or explicit_premium)
@@ -1190,6 +1231,18 @@ def create_app(config: Optional[GatewayConfig] = None,
             data_class=data_class, premium_permitted=premium_permitted,
             paid_off_reason=paid_off_reason,
             premium_only=explicit_premium and premium_permitted)
+        if stepped_up and not candidates:
+            # Step-up must never turn a servable request into a failure:
+            # nothing met the raised floor, so use the normal one.
+            required_quality = base_required_quality
+            stepped_up = False
+            candidates, skipped = build_candidates(
+                client=client, level=level, task_class=task_class,
+                required_quality=required_quality, est_tokens=est_tokens,
+                max_tokens=max_tokens, has_tools=bool(tools),
+                data_class=data_class, premium_permitted=premium_permitted,
+                paid_off_reason=paid_off_reason,
+                premium_only=explicit_premium and premium_permitted)
         # Level 5 without premium permission falls back to the best
         # quality-4 model (spec routing table) instead of failing.
         if not candidates and level == 5 and required_quality >= 5:
@@ -1280,6 +1333,8 @@ def create_app(config: Optional[GatewayConfig] = None,
             record.signals.append("tool_error_next_turn")
         if est_fallback:
             record.signals.append("token_estimate_fallback")
+        if stepped_up:
+            record.signals.append("failure_stepup")
 
         # Free-first / paid spillway (v0.5.5, owner ruling 2026-11-07):
         # normal selection above is the free-first pass and is

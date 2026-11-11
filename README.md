@@ -1,8 +1,8 @@
 # Sovereign Router v0.5
 
-One OpenAI-compatible endpoint for OpenClaw, Hermes and n8n that sends each request to the cheapest model able to do it well — spec v0.5.3 (Drive: "Sovereign Router v0.5.3: Architecture, Specification and Implementation Plan").
+One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that sends each request to the cheapest model able to do it well — spec v0.5.3 (Drive: "Sovereign Router v0.5.3: Architecture, Specification and Implementation Plan").
 
-**Status: built and end-to-end verified 2026-11-02 (100 unit tests + 31 live-HTTP E2E checks, two consecutive clean runs). NOT deployed.** Production v0.2.1 (:6070) and the v0.3.3 canary remain untouched as rollback. Deployment follows `deploy/deploy-runbook.md` and requires the owner's separate explicit go plus provider key rotation (Groq/Ollama).
+**Status: LIVE — v0.5.7 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; older documents in this repo describe earlier states.
 
 ## Layout
 
@@ -15,9 +15,9 @@ One OpenAI-compatible endpoint for OpenClaw, Hermes and n8n that sends each requ
 | `tests/` | `pytest` suite (100 tests) + `e2e_live.py`, a live harness that boots gateway + sidecar + a fake upstream over real HTTP (31 checks). |
 | `docs/` | Build-out report, verification report, license review, GitHub convergence record. |
 
-## Key owner decisions (2026-11-01, `deploy/DECISIONS.md`)
+## Key owner decisions (full record: `deploy/DECISIONS.md`; current rules: `docs/ROUTING-PRINCIPLES.md`)
 
-No spending caps, ever. Emergency paid-lane switch ON at $25/day. Premium tier kept with $20/mo and >20/day alerts. No providers cleared for sensitive data (private lane only). Daily steer targets: Hermes $1 / OpenClaw $3 / n8n $0.50. Judged quality sample OFF.
+No spending caps, ever. Daily steer targets (alert-only): Hermes $1.25 / OpenClaw $5.00 / n8n $2.50 / TwentyCRM $1.25. Premium tier kept with $20/mo and >20/day alerts. The $25/day emergency level is **warn-only** (2026-11-09 ruling, replacing the 2026-11-01 hard switch): it alerts and never cuts the paid lanes. SiliconFlow and Hugging Face are non-sensitive-only. Judged quality sample OFF.
 
 ## History
 

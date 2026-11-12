@@ -38,11 +38,17 @@ def _alerts(app, kind):
 
 
 # ----------------------------------------------------------------------
-# dead lane: Flash 402s, cascade serves the next rung, alert recorded
+# dead lane: cheapest paid 402s, cascade serves next rung, alert kept
 # ----------------------------------------------------------------------
-def test_flash_402_alerts_lane_dead_and_cascade_continues(tmp_path):
+def test_cheapest_paid_402_alerts_lane_dead_and_cascade_continues(tmp_path):
+    # Written 2026-11-09 against DeepInfra Flash, then the cheapest
+    # paid rung. Expansion phase 2 (2026-11-12) put DeepInfra's
+    # gpt-oss-120b route ($0.037 in) at the front of the paid order,
+    # so the 402 target moved with the cost order — the mechanic
+    # (account-class failure on the first paid rung -> lane_dead
+    # alert + cascade to the next rung) is unchanged.
     def handler(model, body, n):
-        if model == "deepseek-ai/DeepSeek-V4-Flash":
+        if model == "openai/gpt-oss-120b":
             return httpx.Response(402, json={"error": {"message": "no credits"}})
         return _ok_handler(model, body, n)
 
@@ -53,10 +59,10 @@ def test_flash_402_alerts_lane_dead_and_cascade_continues(tmp_path):
                         json=chat_body(BIG_SENSITIVE_TEXT),
                         headers={**auth("hermes"), **L4})
         assert r.status_code == 200
-        # Flash attempted first (cheapest paid), then the next rung up.
+        # Cheapest paid attempted first, then the next rung up.
         assert [c["model"] for c in calls][:2] == [
-            "deepseek-ai/DeepSeek-V4-Flash", "gpt-oss:120b"]
-        assert r.headers["X-Sovereign-Model"] == "ollama/gpt-oss-120b"
+            "openai/gpt-oss-120b", "deepseek-ai/DeepSeek-V4-Flash-0731"]
+        assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash-0731"
         dead = _alerts(app, "lane_dead")
         assert len(dead) == 1 and "deepinfra" in dead[0]["message"]
         # A second identical turn does not duplicate the day's alert.
@@ -71,7 +77,7 @@ def test_upstream_429_is_not_a_dead_lane(tmp_path):
     # Ordinary rate limits must NOT raise lane_dead — only
     # account-class failures (401/402/403) do.
     def handler(model, body, n):
-        if model == "deepseek-ai/DeepSeek-V4-Flash":
+        if model == "openai/gpt-oss-120b":
             return httpx.Response(429, json={"error": {"message": "slow down"}})
         return _ok_handler(model, body, n)
 
@@ -98,7 +104,7 @@ def test_warn_only_gateway_keeps_serving_paid(tmp_path):
                         json=chat_body(BIG_SENSITIVE_TEXT),
                         headers={**auth("hermes"), **L4})
     assert r.status_code == 200
-    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash"
+    assert r.headers["X-Sovereign-Model"] == "deepinfra/gpt-oss-120b"
     warns = _alerts(app, "emergency_paid_lane_switch")
     assert len(warns) == 1 and "REMAIN ON" in warns[0]["message"]
 

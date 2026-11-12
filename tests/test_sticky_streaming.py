@@ -46,11 +46,16 @@ def test_sticky_ten_step_tool_loop(client):
 
 
 def test_sticky_switches_when_model_rate_limited(tmp_path):
-    # Premise: groq/gpt-oss-120b is the loop's first server. Since
-    # 2026-11-09 Groq carries real prices and the $0 OpenRouter
-    # models win small turns, so this test's registry disables them
-    # (openrouter/free-router joined that set in the 2026-11-12
-    # free-catalog expansion — same $0 private-free posture).
+    # Premise: the loop's first server is the cheapest route to the
+    # gpt-oss-120b weights. Since 2026-11-09 Groq carries real prices
+    # and the $0 OpenRouter models win small turns, so this test's
+    # registry disables them (openrouter/free-router joined that set
+    # in the 2026-11-12 free-catalog expansion — same $0 private-free
+    # posture). Expansion phase 2 (2026-11-12) then put DeepInfra's
+    # $0.037 route to the same weights ahead of Groq's metered one —
+    # it is the first server now. The FAIL marker below keys on the
+    # shared upstream string "openai/gpt-oss-120b", so the failure
+    # injection is unchanged.
     from fastapi.testclient import TestClient
     app = build_app(tmp_path, registry_path=registry_variant(
         tmp_path, disable=("openrouter/north-mini-code-free",
@@ -63,7 +68,7 @@ def test_sticky_switches_when_model_rate_limited(tmp_path):
                           "tools": TOOLS},
                     headers=auth("hermes"))
     first = r.headers["X-Sovereign-Model"]
-    assert first == "groq/gpt-oss-120b"
+    assert first == "deepinfra/gpt-oss-120b"
     # next turn: the sticky model starts returning 429 (marker rides in
     # the tool result, as a real provider failure would surface mid-loop)
     msgs = _loop_messages(1, extra_tool_text="FAIL::openai/gpt-oss-120b")
@@ -135,4 +140,6 @@ def test_streaming_bad_tool_call_escalates(client, app):
     assert '"command"' in body.replace('\\"', '"')
     rec = app.state.telemetry.recent(0)[-1]
     assert rec.escalated is True
-    assert rec.model == "deepinfra/deepseek-v4-flash"
+    # cheapest stronger paid route; the 0731 checkpoint since
+    # expansion phase 2 (2026-11-12)
+    assert rec.model == "deepinfra/deepseek-v4-flash-0731"

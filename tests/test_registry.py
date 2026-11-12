@@ -26,7 +26,12 @@ def test_starting_registry_matches_spec_table():
     # 15 enabled at deploy, 5 shipped disabled with dated probe-failure
     # notes (google-direct 500s, CF glm-5.3-flash not on the Free plan,
     # inkling harness-gated, OR gemma x2 upstream-throttled).
-    assert len(reg.entries) == 42
+    # + 39 expansion phase-2 entries (2026-11-12, owner's order):
+    # 36 enabled, 3 disabled (OR kimi-k2.6 reasoning-burn, meta
+    # muse-spark-1.3 no-content probes, google gemma-4-26b-it
+    # inconsistency); every paid price verified from the provider's
+    # own published source.
+    assert len(reg.entries) == 81
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
@@ -91,30 +96,52 @@ def test_starting_registry_matches_spec_table():
     spark = by_id["meta/muse-spark-1.1"]
     assert spark.lane == "premium" and spark.enabled is True
     assert (spark.input_usd_per_million, spark.output_usd_per_million) == (1.25, 4.25)
-    # SiliconFlow slot 2026-11-07 (v0.5.6): GLM-5.3 in the paid lane
-    # at half of Z.ai direct; V4 Pro present but disabled. Both are
-    # flagged spillway_sensitive_excluded (posture UNCLEAR — probe).
+    # SiliconFlow slot 2026-11-07 (v0.5.6): GLM-5.3 in the paid lane;
+    # V4 Pro present but disabled. Both are flagged
+    # spillway_sensitive_excluded (posture UNCLEAR — probe).
+    # PRICE CORRECTION 2026-11-12 (expansion phase 2): the original
+    # seeds were read from OpenRouter's SF endpoint listing and are
+    # exactly half of SiliconFlow's OWN published prices; the entries
+    # now carry SF's own figures ($1.40/$0.26/$4.40 for GLM-5.3 —
+    # identical to Z.ai direct, so the "half of Z.ai direct" claim is
+    # dead — and $1.50/$0.135/$3.135 for V4 Pro).
     sf = by_id["siliconflow/glm-5.3"]
     assert sf.lane == "paid" and sf.enabled is True
     assert sf.model == "zai-org/GLM-5.3"
-    assert (sf.input_usd_per_million, sf.output_usd_per_million) == (0.70, 2.20)
-    assert sf.cached_input_usd_per_million == pytest.approx(0.13)
+    assert (sf.input_usd_per_million, sf.output_usd_per_million) == (1.40, 4.40)
+    assert sf.cached_input_usd_per_million == pytest.approx(0.26)
     assert sf.effective_base_url == "https://api.siliconflow.com/v1"
     assert sf.spillway_sensitive_excluded is True
     assert sf.quality == glm.quality  # same model as zai/glm-5.3
     sfp = by_id["siliconflow/deepseek-v4-pro"]
     assert sfp.lane == "premium" and sfp.enabled is False
     assert sfp.model == "deepseek-ai/DeepSeek-V4-Pro"
-    assert (sfp.input_usd_per_million, sfp.output_usd_per_million) == (1.00, 1.50)
+    assert (sfp.input_usd_per_million, sfp.output_usd_per_million) == (1.50, 3.135)
     assert sfp.cached_input_usd_per_million == pytest.approx(0.135)
     assert sfp.spillway_sensitive_excluded is True
-    # the flag defaults off everywhere else (the 2026-11-09 HF probe
-    # entries are flagged as well — third-party-routed, posture varies;
-    # 2026-11-12: cerebras + novita flagged on the same grounds)
+    # the flag is provider-wide for the five third-party-host
+    # providers (the 2026-11-09 HF probe entries are flagged as well;
+    # 2026-11-12: cerebras + novita flagged on the same grounds).
+    assert all(e.spillway_sensitive_excluded
+               for e in reg.entries
+               if e.provider in ("siliconflow", "huggingface",
+                                  "cerebras", "novita", "mistral"))
+    # expansion phase 2 (2026-11-12) extended the flag per-entry to
+    # the new aggregator/direct-paid routes on the brief's explicit
+    # conservative direction — exactly these ids, nothing else.
+    phase2_flagged = {
+        "openrouter/deepseek-v4-flash", "openrouter/glm-5.3-flash",
+        "openrouter/qwen3.8-flash", "openrouter/gemini-3.1-flash-lite",
+        "openrouter/llama-4-maverick", "openrouter/claude-haiku-5.5",
+        "openrouter/kimi-k2.6", "zai/glm-4.6", "zai/glm-5.3-flash",
+    }
     assert all(not e.spillway_sensitive_excluded
                for e in reg.entries
                if e.provider not in ("siliconflow", "huggingface",
-                                      "cerebras", "novita", "mistral"))
+                                      "cerebras", "novita", "mistral")
+               and e.id not in phase2_flagged)
+    assert all(by_id[i].spillway_sensitive_excluded
+               for i in phase2_flagged)
 
     # every 2026-11-12 addition is live; nothing remains staged
     assert all(by_id[i].enabled for i in

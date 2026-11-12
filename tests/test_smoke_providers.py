@@ -44,6 +44,25 @@ routes ship enabled although their deploy probes were blocked by the
 shared neuron pool being exhausted for the day — an explained,
 pool-level failure that hit the pre-existing Cloudflare entries
 identically; their notes say so.
+
+Expansion phase 2 (later 2026-11-12, owner's order — more options
+with verified prices) added 39 more routes (registry 81 entries, 72
+enabled): paid breadth across OpenRouter, SiliconFlow, DeepInfra,
+Novita, Hugging Face (:deepinfra backends only), Mistral, Z.ai and
+Meta, plus Cerebras' second model on the trial pool, Aion's two
+free-allowance routes, two NVIDIA routes (each carrying the
+trial-terms caveat verbatim in its notes) and Google's gemini-3.1
+flash-lite. Every paid price traces to the provider's own published
+source. Three phase-2 routes shipped DISABLED with dated notes:
+openrouter/kimi-k2.6 (plain probe returned empty content — reasoning
+burn), meta/muse-spark-1.3 (no content even at 2048 tokens) and
+google/gemma-4-26b-it (intermittent Google 500s). The same change
+corrected SiliconFlow's two existing price seeds to SF's own
+published list (the OpenRouter-endpoint seeds were half of SF's own
+GLM-5.3 price) and lowered openrouter/north-mini-code-free's chat /
+long-context quality on Article Engine failure evidence (16
+malformed-JSON drafts reconciled 1:1 to it) — drafting-class shadow
+selection must now exclude it while L1 simple chat still reaches it.
 """
 
 from __future__ import annotations
@@ -85,13 +104,23 @@ PUBLIC_FREE_IDS = ("zai/glm-4.7-flash", "google/gemini-3.5-flash-lite",
                    "openrouter/lfm-3-1.7b-free",
                    "openrouter/lfm-2.5-2.6b-free",
                    "openrouter/nemotron-3-ultra-free",
-                   "openrouter/nemotron-3.5-super-vl-free")
+                   "openrouter/nemotron-3.5-super-vl-free",
+                   # expansion phase 2 (2026-11-12, enabled subset)
+                   "google/gemini-3.1-flash-lite",
+                   "aion/aion-3.5-mini", "aion/aion-2.0",
+                   "nvidia/nemotron-3.5-lightning",
+                   "nvidia/nemotron-3-nano-omni")
 # The five expansion routes that shipped DISABLED, each with a dated
 # probe-failure note in the registry (see module docstring).
 FREE20_DISABLED_IDS = ("google/gemma-4-31b-it", "cloudflare/glm-5.3-flash",
                        "openrouter/inkling-2-small-free",
                        "openrouter/gemma-4-31b-free",
                        "openrouter/gemma-4-26b-free")
+# The three phase-2 routes that shipped DISABLED, each with a dated
+# probe-failure note (reasoning-burn empty content, no-content probes,
+# intermittent Google 500s — see PHASE2_ENTRIES).
+EXPAND2_DISABLED_IDS = ("openrouter/kimi-k2.6", "meta/muse-spark-1.3",
+                        "google/gemma-4-26b-it")
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -99,6 +128,24 @@ SENSITIVE_EXCLUDED_IDS = (
     "siliconflow/glm-5.3", "siliconflow/deepseek-v4-pro",
     "huggingface/deepseek-v4-flash", "cerebras/gpt-oss-120b",
     "novita/gpt-oss-120b", "mistral/mistral-large", "mistral/codestral",
+    # expansion phase 2 (2026-11-12): the five third-party-host
+    # providers are flagged provider-wide; the OpenRouter paid batch
+    # and the new Z.ai paid entries are flagged per-entry on the
+    # brief's conservative direction (deny probes passed, but no
+    # auditable data-policy metadata exists for the aggregator).
+    "cerebras/qwen-3.8-27b",
+    "novita/llama-3.1-8b", "novita/glm-4.7-flash", "novita/qwen3.8-flash",
+    "novita/deepseek-v4-flash-0731", "novita/qwen3.8-27b",
+    "novita/kimi-k2.5", "novita/glm-4.6",
+    "siliconflow/qwen3-32b", "siliconflow/deepseek-v3.2",
+    "siliconflow/deepseek-v4-flash",
+    "huggingface/glm-5.3-flash", "huggingface/qwen3.8-27b",
+    "mistral/mistral-small", "mistral/ministral-8b", "mistral/mistral-medium",
+    "openrouter/deepseek-v4-flash", "openrouter/glm-5.3-flash",
+    "openrouter/qwen3.8-flash", "openrouter/gemini-3.1-flash-lite",
+    "openrouter/llama-4-maverick", "openrouter/claude-haiku-5.5",
+    "openrouter/kimi-k2.6",
+    "zai/glm-4.6", "zai/glm-5.3-flash",
 )
 ALL_PROVIDER_KEYS = {p: "fake" for p in {e.provider for e in REG.entries}}
 
@@ -146,24 +193,38 @@ def test_entry_raw_json_required_keys(entry):
 
 
 def test_registry_counts_and_unique_ids():
-    assert len(REG.entries) == 42
-    assert len(BY_ID) == 42  # ids unique (loader also enforces)
-    assert sum(1 for e in REG.entries if e.enabled) == 36
+    assert len(REG.entries) == 81
+    assert len(BY_ID) == 81  # ids unique (loader also enforces)
+    assert sum(1 for e in REG.entries if e.enabled) == 72
+
+
+def test_registry_get_by_id_is_exact_for_every_entry():
+    # Registry.get() matches id OR upstream model string, first hit
+    # wins — so an entry whose id equals another entry's model string
+    # must sit EARLIER in the file. Phase 2 created exactly one such
+    # pair (google/gemini-3.1-flash-lite vs the OpenRouter entry whose
+    # upstream model string is "google/gemini-3.1-flash-lite"); if a
+    # future edit reorders them, pins for the Google entry silently
+    # serve the OpenRouter one. Guard the whole registry, not the
+    # pair.
+    for e in REG.entries:
+        assert REG.get(e.id) is not None and REG.get(e.id).id == e.id
 
 
 def test_disabled_entries_are_exactly_the_known_set():
     disabled = {e.id for e in REG.entries if not e.enabled}
     # the deliberate siliconflow duplicate + the five free-expansion
-    # routes whose deploy probes failed (each registry note is dated
-    # 2026-11-12 and states the failure; none may silently re-enable)
+    # routes whose deploy probes failed + the three phase-2 routes
+    # whose probes failed (each registry note is dated 2026-11-12 and
+    # states the failure; none may silently re-enable)
     assert disabled == {"siliconflow/deepseek-v4-pro"} | \
-        set(FREE20_DISABLED_IDS)
+        set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS)
     # the siliconflow entry is a duplicate ROUTE, not a distinct
     # model: DeepSeek V4 Pro is still reachable via the direct entry
     assert BY_ID["siliconflow/deepseek-v4-pro"].model == \
         "deepseek-ai/DeepSeek-V4-Pro"
     assert BY_ID["deepseek/deepseek-v4-pro"].enabled is True
-    for entry_id in FREE20_DISABLED_IDS:
+    for entry_id in FREE20_DISABLED_IDS + EXPAND2_DISABLED_IDS:
         assert "DISABLED AT DEPLOY" in BY_ID[entry_id].notes
 
 
@@ -379,6 +440,169 @@ def test_free20_tiny_models_are_seeded_at_the_floor():
     assert BY_ID["openrouter/lfm-3-1.7b-free"].quality_for("chat") == 1
     assert BY_ID["openrouter/lfm-3-1.7b-free"].quality_for("reasoning") == 1
     assert BY_ID["openrouter/lfm-2.5-2.6b-free"].quality_for("chat") <= 2
+
+
+# ----------------------------------------------------------------------
+# expansion phase 2 (2026-11-12, +39 routes; prices provider-verified)
+# ----------------------------------------------------------------------
+
+# id -> (lane, enabled, context_tokens, (in, out) $/1M)
+PHASE2_ENTRIES = {
+    "openrouter/deepseek-v4-flash": ("paid", True, 1048576, (0.09, 0.18)),
+    "openrouter/glm-5.3-flash": ("paid", True, 1048576, (0.15, 0.50)),
+    "openrouter/qwen3.8-flash": ("paid", True, 1000000, (0.15, 0.47)),
+    "openrouter/gemini-3.1-flash-lite": ("paid", True, 1048576, (0.25, 1.50)),
+    "openrouter/llama-4-maverick": ("paid", True, 524288, (0.35, 1.00)),
+    "openrouter/claude-haiku-5.5": ("paid", True, 1000000, (0.10, 0.50)),
+    "openrouter/kimi-k2.6": ("paid", False, 262144, (0.65, 3.41)),
+    "siliconflow/qwen3-32b": ("paid", True, 131072, (0.14, 0.57)),
+    "siliconflow/deepseek-v3.2": ("paid", True, 163840, (0.259, 0.80)),
+    "siliconflow/deepseek-v4-flash": ("paid", True, 1048576, (0.13, 0.28)),
+    "deepinfra/gpt-oss-120b": ("paid", True, 131072, (0.037, 0.17)),
+    "deepinfra/deepseek-v4-flash-0731": ("paid", True, 1048576, (0.06, 0.18)),
+    "deepinfra/llama-3.1-8b-turbo": ("paid", True, 131072, (0.02, 0.04)),
+    "deepinfra/mistral-small-24b": ("paid", True, 32768, (0.05, 0.08)),
+    "deepinfra/qwen3.8-27b": ("paid", True, 262144, (0.20, 2.50)),
+    "novita/llama-3.1-8b": ("paid", True, 16384, (0.02, 0.05)),
+    "novita/glm-4.7-flash": ("paid", True, 200000, (0.07, 0.40)),
+    "novita/qwen3.8-flash": ("paid", True, 1000000, (0.15, 0.47)),
+    "novita/deepseek-v4-flash-0731": ("paid", True, 1048576, (0.44, 1.32)),
+    "novita/qwen3.8-27b": ("paid", True, 1000000, (0.42, 3.00)),
+    "novita/kimi-k2.5": ("paid", True, 262144, (0.60, 3.00)),
+    "novita/glm-4.6": ("paid", True, 204800, (0.55, 2.20)),
+    "huggingface/glm-5.3-flash": ("paid", True, 1048576, (0.15, 0.50)),
+    "huggingface/qwen3.8-27b": ("paid", True, 262144, (0.20, 2.50)),
+    "mistral/mistral-small": ("paid", True, 262144, (0.15, 0.60)),
+    "mistral/ministral-8b": ("paid", True, 262144, (0.15, 0.15)),
+    "mistral/mistral-medium": ("paid", True, 262144, (1.50, 7.50)),
+    "groq/qwen3.6-27b": ("private-free", True, 131072, (0.60, 3.00)),
+    "zai/glm-4.6": ("paid", True, 204800, (0.60, 2.20)),
+    "zai/glm-5.3-flash": ("paid", True, 1048576, (0.15, 0.50)),
+    "meta/muse-spark-1.2": ("premium", True, 1048576, (1.25, 4.25)),
+    "meta/muse-spark-1.3": ("premium", False, 1048576, (1.25, 4.25)),
+    "cerebras/qwen-3.8-27b": ("paid", True, 65536, (0.99, 1.49)),
+    "aion/aion-3.5-mini": ("public-only-free", True, 262144, (0.0, 0.0)),
+    "aion/aion-2.0": ("public-only-free", True, 131072, (0.0, 0.0)),
+    "nvidia/nemotron-3.5-lightning": ("public-only-free", True, 262144,
+                                      (0.0, 0.0)),
+    "nvidia/nemotron-3-nano-omni": ("public-only-free", True, 256000,
+                                     (0.0, 0.0)),
+    "google/gemini-3.1-flash-lite": ("public-only-free", True, 1048576,
+                                     (0.0, 0.0)),
+    "google/gemma-4-26b-it": ("public-only-free", False, 262144, (0.0, 0.0)),
+}
+
+
+@pytest.mark.parametrize("entry_id", sorted(PHASE2_ENTRIES))
+def test_phase2_entry_lane_enabled_context_prices(entry_id):
+    lane, enabled, context, prices = PHASE2_ENTRIES[entry_id]
+    e = BY_ID[entry_id]
+    assert e.lane == lane
+    assert e.enabled is enabled
+    assert e.context_tokens == context
+    assert (e.input_usd_per_million, e.output_usd_per_million) == prices
+    assert "expansion phase 2" in e.notes
+
+
+def test_phase2_siliconflow_price_corrections():
+    # The 2026-11-07 SF seeds came from OpenRouter's endpoint listing
+    # and understated SF's OWN published prices (GLM-5.3 by exactly
+    # half). Phase 2 corrected both entries to SF's own list; if the
+    # old numbers ever come back, spend accounting lies again.
+    sf = BY_ID["siliconflow/glm-5.3"]
+    assert (sf.input_usd_per_million, sf.output_usd_per_million) == \
+        (1.40, 4.40)
+    assert sf.cached_input_usd_per_million == pytest.approx(0.26)
+    assert "PRICE CORRECTION" in sf.notes
+    sfp = BY_ID["siliconflow/deepseek-v4-pro"]
+    assert (sfp.input_usd_per_million, sfp.output_usd_per_million) == \
+        (1.50, 3.135)
+    assert "PRICE CORRECTION" in sfp.notes
+    assert sfp.enabled is False  # correction only — still disabled
+
+
+def test_phase2_cerebras_qwen_trial_shape():
+    e = BY_ID["cerebras/qwen-3.8-27b"]
+    # second model on the same dying trial pool as the gpt-oss entry:
+    # same limits, same reasoning pin, direct URL only
+    assert e.effective_base_url == "https://api.cerebras.ai/v1"
+    assert e.extra_body == {"reasoning_effort": "low"}
+    assert e.limits == {"rpm": 5, "tpm": 90000, "tpd": 1000000}
+    assert e.spillway_sensitive_excluded is True
+
+
+def test_phase2_aion_free_allowance_shape():
+    for entry_id in ("aion/aion-3.5-mini", "aion/aion-2.0"):
+        e = BY_ID[entry_id]
+        assert e.lane == "public-only-free"
+        assert e.effective_base_url == "https://api.aionlabs.ai/v1"
+        # the free tier is ONE account-wide allowance (15 RPM /
+        # 20k tokens/day), not per-model buckets
+        assert e.limits == {"rpm": 15, "tpd": 20000}
+    # reasoning shapes are probe-verified per model line: the 3.5
+    # line cannot disable reasoning (low only), 2.0 accepts "none"
+    assert BY_ID["aion/aion-3.5-mini"].extra_body == \
+        {"reasoning_effort": "low"}
+    assert BY_ID["aion/aion-2.0"].extra_body == \
+        {"reasoning_effort": "none"}
+
+
+def test_phase2_nvidia_entries_carry_trial_terms_caveat():
+    # Hard requirement of the expansion order: every NVIDIA entry's
+    # notes carry the trial-terms caveat substance verbatim — the
+    # endpoint is evaluation-only per NVIDIA's own terms and was
+    # added under the owner's order with that recorded.
+    for entry_id in ("nvidia/nemotron-3.5-lightning",
+                     "nvidia/nemotron-3-nano-omni"):
+        e = BY_ID[entry_id]
+        assert e.lane == "public-only-free"
+        assert e.limits == {"rpm": 15}
+        assert e.effective_base_url == \
+            "https://integrate.api.nvidia.com/v1"
+        assert "evaluation/testing use only per provider terms" in e.notes
+        assert "~40 RPM account-wide cap" in e.notes
+        assert "Jordan's expansion order with this caveat recorded" \
+            in e.notes
+
+
+def test_phase2_hf_backends_are_deepinfra_only():
+    # standing rule: HF routes pin :deepinfra; a :cerebras HF route
+    # must never reappear (see also the deletion guard above)
+    for entry_id in ("huggingface/glm-5.3-flash",
+                     "huggingface/qwen3.8-27b"):
+        assert BY_ID[entry_id].model.endswith(":deepinfra")
+
+
+def test_north_mini_code_quality_correction():
+    # 2026-11-12 (owner's order, Article Engine evidence): drafting
+    # classes lowered; code — its genuine strength — and infra /
+    # reasoning untouched. The deny + reasoning-off extra_body that
+    # keeps it private-free must NOT change.
+    e = BY_ID["openrouter/north-mini-code-free"]
+    assert e.quality_for("chat") == 2
+    assert e.quality_for("long-context") == 2
+    assert e.quality_for("code") == 4
+    assert e.quality_for("infra") == 3
+    assert e.quality_for("reasoning") == 3
+    assert e.extra_body["provider"]["data_collection"] == "deny"
+    assert e.extra_body["reasoning"]["enabled"] is False
+    assert "QUALITY CORRECTION" in e.notes
+
+
+def test_nemotron_ultra_free_leads_free_classes():
+    # owner's routing philosophy (2026-11-12): among $0 routes, cost
+    # ties, so quality decides — the free bench's strongest model
+    # (550B, 1M ctx) carries the top free scores for chat/reasoning
+    e = BY_ID["openrouter/nemotron-3-ultra-free"]
+    assert e.quality_for("chat") == 5
+    assert e.quality_for("reasoning") == 5
+    assert e.quality_for("long-context") == 5
+    free = [x for x in REG.entries
+            if x.enabled and x.input_usd_per_million == 0
+            and x.output_usd_per_million == 0]
+    assert e.quality_for("chat") == max(x.quality_for("chat") for x in free)
+    assert e.quality_for("reasoning") == \
+        max(x.quality_for("reasoning") for x in free)
 
 
 # ----------------------------------------------------------------------
@@ -612,6 +836,43 @@ PIN_CASES = {
     "openrouter/nemotron-3-ultra-free": "hermes",
     "openrouter/nemotron-3.5-super-vl-free": "hermes",
     "openrouter/free-router": "hermes",
+    # expansion phase 2 (2026-11-12) — enabled routes only
+    "openrouter/deepseek-v4-flash": "hermes",
+    "openrouter/glm-5.3-flash": "hermes",
+    "openrouter/qwen3.8-flash": "hermes",
+    "openrouter/gemini-3.1-flash-lite": "hermes",
+    "openrouter/llama-4-maverick": "hermes",
+    "openrouter/claude-haiku-5.5": "hermes",
+    "siliconflow/qwen3-32b": "hermes",
+    "siliconflow/deepseek-v3.2": "hermes",
+    "siliconflow/deepseek-v4-flash": "hermes",
+    "deepinfra/gpt-oss-120b": "hermes",
+    "deepinfra/deepseek-v4-flash-0731": "hermes",
+    "deepinfra/llama-3.1-8b-turbo": "hermes",
+    "deepinfra/mistral-small-24b": "hermes",
+    "deepinfra/qwen3.8-27b": "hermes",
+    "novita/llama-3.1-8b": "hermes",
+    "novita/glm-4.7-flash": "hermes",
+    "novita/qwen3.8-flash": "hermes",
+    "novita/deepseek-v4-flash-0731": "hermes",
+    "novita/qwen3.8-27b": "hermes",
+    "novita/kimi-k2.5": "hermes",
+    "novita/glm-4.6": "hermes",
+    "huggingface/glm-5.3-flash": "hermes",
+    "huggingface/qwen3.8-27b": "hermes",
+    "mistral/mistral-small": "hermes",
+    "mistral/ministral-8b": "hermes",
+    "mistral/mistral-medium": "hermes",
+    "groq/qwen3.6-27b": "hermes",
+    "zai/glm-4.6": "hermes",
+    "zai/glm-5.3-flash": "hermes",
+    "meta/muse-spark-1.2": "openclaw",
+    "cerebras/qwen-3.8-27b": "hermes",
+    "aion/aion-3.5-mini": "hermes",
+    "aion/aion-2.0": "hermes",
+    "nvidia/nemotron-3.5-lightning": "hermes",
+    "nvidia/nemotron-3-nano-omni": "hermes",
+    "google/gemini-3.1-flash-lite": "hermes",
 }
 
 
@@ -648,10 +909,71 @@ def test_pin_public_entry_is_403_for_crm(tmp_path):
     assert calls == []
 
 
+def test_pin_phase2_public_entry_is_403_for_crm(tmp_path):
+    # phase 2 added new public-only-free providers (aion, nvidia);
+    # crm's lane list did not change, so the refusal must cover them
+    app, calls = build_smoke_app(tmp_path)
+    with TestClient(app) as tc:
+        r = tc.post("/v1/chat/completions",
+                    json=chat_body("say hi", model="aion/aion-2.0"),
+                    headers=_auth("crm"))
+    assert r.status_code == 403
+    assert calls == []
+
+
+# A long-form drafting request, phrased to classify as plain chat
+# (no infra/code/reasoning trigger terms): the Article Engine's work
+# shape. Rules classify it chat at L2, whose required quality floor
+# is 3 — one above north-mini-code-free's corrected chat score.
+DRAFTING_TEXT = (
+    "Draft a complete article about autumn marketing trends for "
+    "small retailers. Return structured JSON with a headline, a "
+    "short summary, and five sections of body copy, each section "
+    "at least three paragraphs long, written for a general audience."
+)
+
+
+def test_shadow_drafting_class_excludes_north_mini_code(tmp_path):
+    app, _calls = build_smoke_app(tmp_path)
+    with TestClient(app) as tc:
+        r = tc.post("/v1/shadow", json=chat_body(DRAFTING_TEXT),
+                    headers=_auth("hermes"))
+    assert r.status_code == 200
+    d = r.json()
+    assert d["task_class"] == "chat"
+    assert d["level"] >= 2  # drafting floor (3) exceeds its chat 2
+    candidate_ids = [c["model"] for c in d["candidates"]]
+    assert "openrouter/north-mini-code-free" not in candidate_ids
+    skipped = {(s["model"], s["reason"]) for s in d["skipped"]}
+    assert ("openrouter/north-mini-code-free",
+            "quality_below_required") in skipped
+
+
+def test_shadow_simple_chat_can_include_north_mini_code(tmp_path):
+    # L1 simple chat has required floor 2 — exactly its corrected
+    # chat score — so the model stays reachable for the trivial
+    # turns it is genuinely fine at (and its code class is intact).
+    app, _calls = build_smoke_app(tmp_path)
+    with TestClient(app) as tc:
+        r = tc.post("/v1/shadow",
+                    json=chat_body("hello, how are you today?"),
+                    headers=_auth("hermes"))
+    assert r.status_code == 200
+    d = r.json()
+    assert d["task_class"] == "chat" and d["level"] == 1
+    candidate_ids = [c["model"] for c in d["candidates"]]
+    assert "openrouter/north-mini-code-free" in candidate_ids
+
+
 @pytest.mark.parametrize("entry_id", ["cerebras/gpt-oss-120b",
                                       "novita/gpt-oss-120b",
                                       "mistral/mistral-large",
-                                      "mistral/codestral"])
+                                      "mistral/codestral",
+                                      # phase 2 flagged entries
+                                      "openrouter/claude-haiku-5.5",
+                                      "novita/kimi-k2.5",
+                                      "zai/glm-4.6",
+                                      "cerebras/qwen-3.8-27b"])
 def test_sensitive_pin_of_excluded_new_entry_never_serves_it(tmp_path,
                                                              entry_id):
     app, calls = build_smoke_app(tmp_path)

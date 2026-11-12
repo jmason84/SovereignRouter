@@ -4,7 +4,7 @@
 
 One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that sends each request to the cheapest model able to do it well — spec v0.5.3 (Drive: "Sovereign Router v0.5.3: Architecture, Specification and Implementation Plan").
 
-**Status: LIVE — v0.6.0 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **Registry: 42 models** (36 enabled; six disabled — one deliberate duplicate route and five free-expansion routes whose deploy probes failed, each carrying a dated note in the registry). Version history: [`CHANGELOG.md`](CHANGELOG.md). **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; where any older document disagrees with it, it wins. This README is the map; that document is the law.
+**Status: LIVE — v0.6.0 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **Registry: 81 models** (72 enabled; nine disabled — one deliberate duplicate route and eight routes whose deploy probes failed or were inconsistent, each carrying a dated note in the registry). Version history: [`CHANGELOG.md`](CHANGELOG.md). **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; where any older document disagrees with it, it wins. This README is the map; that document is the law.
 
 The router exists so that no single provider's failure — a dead API key, an exhausted credit balance, a rate-limit wall, an outage — can stall the fleet. When something dies, the router moves to the next rung in cost order and *says so* (a `lane_dead` alert, §Operations).
 
@@ -80,7 +80,7 @@ Full rules: `docs/ROUTING-PRINCIPLES.md`. The load-bearing ones:
 
 Decision #5 (`deploy/DECISIONS.md`, accepted 2026-11-01, still off). The spec proposed letting a strong model judge a 2% sample of internal-class requests for answer quality, feeding the Phase 4 learning loop. It stays off because the judge would see prompt text — the one place in the design where prompt text leaves for evaluation. The learning loop therefore relies on outcome signals only (escalations, retries, tool errors — all already in `routes.jsonl`). It can be approved later without a rebuild; nobody has.
 
-## Registry — the 42 models
+## Registry — the 81 models
 
 `src/registry.json` is the source of truth (models, prices, contexts, per-provider rate limits seeded from each provider's *actual plan*). Prices are USD per 1M tokens, in / out.
 
@@ -89,21 +89,21 @@ Decision #5 (`deploy/DECISIONS.md`, accepted 2026-11-01, still off). The spec pr
 | `groq/gpt-oss-20b` | groq | private-free | 131,072 | $0.075 / $0.30 | yes | |
 | `groq/gpt-oss-120b` | groq | private-free | 131,072 | $0.15 / $0.60 | yes | |
 | `groq/qwen3.8-27b` | groq | private-free | 131,072 | $0.80 / $4.00 | yes | Preview model on Groq |
-| `openrouter/north-mini-code-free` | openrouter | private-free | 262,144 | $0 / $0 | yes | `data_collection=deny` enforced on every call |
+| `openrouter/north-mini-code-free` | openrouter | private-free | 262,144 | $0 / $0 | yes | `data_collection=deny` enforced on every call; quality-corrected 2026-11-12 — chat/long-context lowered to 2 on LAIW Article Engine evidence (16/16 malformed-JSON drafts traced to this model), so auto-selection no longer picks it for drafting-class work; simple chat and code unchanged |
 | `openrouter/dots-3-note-preview-free` | openrouter | private-free | 524,288 | $0 / $0 | yes | The free lane's long-context option |
 | `deepinfra/deepseek-v4-flash` | deepinfra | paid | 262,144 | $0.09 / $0.18 | yes | The spillway workhorse (direct pool) |
 | `huggingface/deepseek-v4-flash` | huggingface | paid | 262,144 | $0.09 / $0.18 | yes | Same model, second (prepaid HF) billing pool; non-sensitive-only |
 | `ollama/gpt-oss-120b` | ollama | paid | 131,072 | $0.15 / $0.60 | yes | |
 | `novita/gpt-oss-120b` | novita | paid | 131,072 | $0.05 / $0.25 | yes | Cheapest gpt-oss-120b route; non-sensitive-only |
 | `cerebras/gpt-oss-120b` | cerebras | paid | 65,536 | $0.35 / $0.75 | yes | Fastest route (~2,500 tok/s); trial-tier limits; non-sensitive-only |
-| `siliconflow/glm-5.3` | siliconflow | paid | 1,049,000 | $0.70 / $2.20 | yes | Non-sensitive-only (data posture graded unclear) |
+| `siliconflow/glm-5.3` | siliconflow | paid | 1,049,000 | $1.40 / $4.40 | yes | Non-sensitive-only (data posture graded unclear); price corrected 2026-11-12 to SiliconFlow's own published list — identical to Z.ai direct (the original "half of Z.ai" seed was a misreading) |
 | `mistral/codestral` | mistral | paid | 262,144 | $0.30 / $0.90 | yes | Code specialist; non-sensitive-only |
 | `mistral/mistral-large` | mistral | paid | 262,144 | $2.00 / $6.00 | yes | Non-sensitive-only |
 | `meta/muse-spark-1.1` | meta | premium | 262,144 | $1.25 / $4.25 | yes | Standard tier only (see provider notes) |
 | `deepseek/deepseek-v4-pro` | deepseek | premium | 1,000,000 | $1.32 / $3.96 | yes | Registry carries peak rates; off-peak is half |
 | `zai/glm-5.3` | zai | premium | 1,000,000 | $1.40 / $4.40 | yes | |
 | `premium/gpt-5.5` | openai | premium | 262,144 | $5.00 / $30.00 | yes | Carried from v0.2.1; registry price is a placeholder (see notes) |
-| `siliconflow/deepseek-v4-pro` | siliconflow | premium | 1,049,000 | $1.00 / $1.50 | **no** | Duplicate route, deployed disabled; non-sensitive-only |
+| `siliconflow/deepseek-v4-pro` | siliconflow | premium | 1,049,000 | $1.50 / $3.135 | **no** | Duplicate route, deployed disabled; non-sensitive-only; price corrected 2026-11-12 (SiliconFlow's published list) |
 | `zai/glm-4.7-flash` | zai | public-only-free | 200,000 | $0 / $0 | yes | Free tier throttles hard under load |
 | `google/gemini-3.5-flash-lite` | google | public-only-free | 1,048,576 | $0 / $0 | yes | Free tier trains on data → public-only permanently |
 | `cloudflare/gpt-oss-120b` | cloudflare | public-only-free | 131,072 | $0 / $0 | yes | Draws on the shared Neuron pool (see notes) |
@@ -128,10 +128,49 @@ Decision #5 (`deploy/DECISIONS.md`, accepted 2026-11-01, still off). The spec pr
 | `openrouter/inkling-2-small-free` | openrouter | public-only-free | 1,048,576 | $0 / $0 | **no** | Gated to "agentic harnesses" (deploy probe 403) |
 | `openrouter/gemma-4-31b-free` | openrouter | public-only-free | 262,144 | $0 / $0 | **no** | Upstream rate-limit wall at deploy; re-probe to enable |
 | `openrouter/gemma-4-26b-free` | openrouter | public-only-free | 262,144 | $0 / $0 | **no** | Upstream rate-limit wall at deploy; re-probe to enable |
+| `openrouter/deepseek-v4-flash` | openrouter | paid | 1,048,576 | $0.09 / $0.18 | yes | Non-sensitive-only (aggregator posture); deny-set probe passed — billed rate floats with the landed provider |
+| `openrouter/glm-5.3-flash` | openrouter | paid | 1,048,576 | $0.15 / $0.50 | yes | Non-sensitive-only; seeded at the observed billing ceiling |
+| `openrouter/qwen3.8-flash` | openrouter | paid | 1,000,000 | $0.15 / $0.47 | yes | Non-sensitive-only |
+| `openrouter/gemini-3.1-flash-lite` | openrouter | paid | 1,048,576 | $0.25 / $1.50 | yes | Paid non-training Gemini path; non-sensitive-only |
+| `openrouter/llama-4-maverick` | openrouter | paid | 524,288 | $0.35 / $1.00 | yes | Vision; thin endpoint pool; non-sensitive-only |
+| `openrouter/claude-haiku-5.5` | openrouter | paid | 1,000,000 | $0.10 / $0.50 | yes | First Anthropic route; non-sensitive-only |
+| `openrouter/kimi-k2.6` | openrouter | paid | 262,144 | $0.65 / $3.41 | **no** | Disabled at deploy: reasoning ate the plain probe's whole budget (empty content); deny probe passed — revisit with a damped config |
+| `siliconflow/qwen3-32b` | siliconflow | paid | 131,072 | $0.14 / $0.57 | yes | Non-sensitive-only; heavy reasoner |
+| `siliconflow/deepseek-v3.2` | siliconflow | paid | 163,840 | $0.259 / $0.80 | yes | Non-sensitive-only; cleanest SF probe (zero reasoning tokens) |
+| `siliconflow/deepseek-v4-flash` | siliconflow | paid | 1,048,576 | $0.13 / $0.28 | yes | Non-sensitive-only; pool diversity (DeepInfra is cheaper for the same weights) |
+| `deepinfra/gpt-oss-120b` | deepinfra | paid | 131,072 | $0.037 / $0.17 | yes | Cheapest gpt-oss-120b route in the registry |
+| `deepinfra/deepseek-v4-flash-0731` | deepinfra | paid | 1,048,576 | $0.06 / $0.18 | yes | Cheapest 1M-context route in the registry |
+| `deepinfra/llama-3.1-8b-turbo` | deepinfra | paid | 131,072 | $0.02 / $0.04 | yes | Cheapest chat route in the registry |
+| `deepinfra/mistral-small-24b` | deepinfra | paid | 32,768 | $0.05 / $0.08 | yes | Small context — cheap short work |
+| `deepinfra/qwen3.8-27b` | deepinfra | paid | 262,144 | $0.20 / $2.50 | yes | Registered at list price; a catalog discount was observed live in probe billing |
+| `novita/llama-3.1-8b` | novita | paid | 16,384 | $0.02 / $0.05 | yes | Tiny context; non-sensitive-only |
+| `novita/glm-4.7-flash` | novita | paid | 200,000 | $0.07 / $0.40 | yes | Non-sensitive-only |
+| `novita/qwen3.8-flash` | novita | paid | 1,000,000 | $0.15 / $0.47 | yes | Non-sensitive-only |
+| `novita/deepseek-v4-flash-0731` | novita | paid | 1,048,576 | $0.44 / $1.32 | yes | Same checkpoint as DeepInfra's — failover value only at ~7× the price; non-sensitive-only |
+| `novita/qwen3.8-27b` | novita | paid | 1,000,000 | $0.42 / $3.00 | yes | Slow heavy reasoner; non-sensitive-only |
+| `novita/kimi-k2.5` | novita | paid | 262,144 | $0.60 / $3.00 | yes | Cleanest Novita mid-tier probe (zero reasoning tokens); non-sensitive-only |
+| `novita/glm-4.6` | novita | paid | 204,800 | $0.55 / $2.20 | yes | Non-sensitive-only |
+| `huggingface/glm-5.3-flash` | huggingface | paid | 1,048,576 | $0.15 / $0.50 | yes | `:deepinfra` backend ONLY (standing rule); non-sensitive-only |
+| `huggingface/qwen3.8-27b` | huggingface | paid | 262,144 | $0.20 / $2.50 | yes | `:deepinfra` backend; probe cost did not reconcile — verify on first HF invoice; non-sensitive-only |
+| `mistral/mistral-small` | mistral | paid | 262,144 | $0.15 / $0.60 | yes | Non-sensitive-only |
+| `mistral/ministral-8b` | mistral | paid | 262,144 | $0.15 / $0.15 | yes | Cheapest Mistral output in the registry; non-sensitive-only |
+| `mistral/mistral-medium` | mistral | paid | 262,144 | $1.50 / $7.50 | yes | Price from Mistral's Medium 3.5 announcement (absent from the docs pricing table); non-sensitive-only |
+| `groq/qwen3.6-27b` | groq | private-free | 131,072 | $0.60 / $3.00 | yes | Metered Developer-plan route (lane = data posture, price is real); leaks `<think>` blocks into content |
+| `zai/glm-4.6` | zai | paid | 204,800 | $0.60 / $2.20 | yes | Tool-calling probe-proven on Z.ai direct; non-sensitive-only |
+| `zai/glm-5.3-flash` | zai | paid | 1,048,576 | $0.15 / $0.50 | yes | Tool-calling probe-proven; non-sensitive-only |
+| `meta/muse-spark-1.2` | meta | premium | 1,048,576 | $1.25 / $4.25 | yes | Standard tier only; same published price group as 1.1 |
+| `meta/muse-spark-1.3` | meta | premium | 1,048,576 | $1.25 / $4.25 | **no** | Disabled at deploy: reasoning ate the whole budget even at 2,048 tokens (no content) |
+| `cerebras/qwen-3.8-27b` | cerebras | paid | 65,536 | $0.99 / $1.49 | yes | Trial-tier limits like the 120b route; non-sensitive-only |
+| `aion/aion-3.5-mini` | aion | public-only-free | 262,144 | $0 / $0 | yes | Free tier is one account-wide allowance (15 RPM / 20k tokens/day); reasoning damped to low — cannot be disabled |
+| `aion/aion-2.0` | aion | public-only-free | 131,072 | $0 / $0 | yes | Free tier (shared 20k tokens/day); reasoning off |
+| `nvidia/nemotron-3.5-lightning` | nvidia | public-only-free | 262,144 | $0 / $0 | yes | NVIDIA trial terms: evaluation/testing only, not production (see provider notes); reasoning-heavy — needs realistic token budgets |
+| `nvidia/nemotron-3-nano-omni` | nvidia | public-only-free | 256,000 | $0 / $0 | yes | NVIDIA trial terms (see provider notes); multimodal |
+| `google/gemini-3.1-flash-lite` | google | public-only-free | 1,048,576 | $0 / $0 | yes | Per-model free bucket = real capacity; free tier trains on data → public-only permanently |
+| `google/gemma-4-26b-it` | google | public-only-free | 262,144 | $0 / $0 | **no** | Disabled at deploy: inconsistent probes (one slow 200 with thought leakage, one 500 INTERNAL) |
 
-Price caveats carried in the registry entries themselves: `novita` prices are seeded from Hugging Face's catalog listing, not yet verified against Novita's own price list; `premium/gpt-5.5` pricing is a placeholder carried from the v0.2.1 audit; `meta/muse-spark-1.1`'s context figure is a seed not yet confirmed against Meta's docs; DeepSeek direct is accounted at peak rates (off-peak is exactly half). Registry prices are seeds to correct on first console/invoice check — per-entry `notes` in `registry.json` carry the provenance.
+Price caveats carried in the registry entries themselves: Novita's original route was seeded from Hugging Face's catalog listing; expansion phase 2 (2026-11-12) verified every Novita price against Novita's own API pricing fields and pricing pages, and corrected both SiliconFlow seeds to SiliconFlow's own published list (GLM-5.3 is $1.40/$4.40 — identical to Z.ai direct, not half). `premium/gpt-5.5` pricing is a placeholder carried from the v0.2.1 audit; `meta/muse-spark-1.1`'s context figure is a seed not yet confirmed against Meta's docs; DeepSeek direct is accounted at peak rates (off-peak is exactly half). Registry prices are seeds to correct on first console/invoice check — per-entry `notes` in `registry.json` carry the provenance.
 
-Pool truth (free-catalog expansion, 2026-11-12): routes do not equal quotas. All OpenRouter `:free` routes share **one** account pool (20 RPM / 1,000 requests/day) and all Cloudflare routes share **10,000 Neurons/day** — table rows marked "shared pool" add choice and failover, not capacity. Google's free quotas are per-model buckets and do add capacity; Z.ai's free-Flash throttle scope is unverified. The 2026-11-12 expansion took the registry 22 → 42 models (36 enabled); the five disabled newcomers carry their probe failures in their registry notes.
+Pool truth (free-catalog expansion, 2026-11-12): routes do not equal quotas. All OpenRouter `:free` routes share **one** account pool (20 RPM / 1,000 requests/day) and all Cloudflare routes share **10,000 Neurons/day** — table rows marked "shared pool" add choice and failover, not capacity. Google's free quotas are per-model buckets and do add capacity; Z.ai's free-Flash throttle scope is unverified. The 2026-11-12 expansion took the registry 22 → 42 models (36 enabled); the five disabled newcomers carry their probe failures in their registry notes. **Expansion phase 2 (later 2026-11-12)** took the registry 42 → 81 models (72 enabled): a verified-price paid bench across Novita, DeepInfra, OpenRouter paid, SiliconFlow, Hugging Face (`:deepinfra` only), Mistral, Z.ai and the Cerebras trial, plus Aion and NVIDIA free routes and a second Meta premium route. Aion's free tier is one account-wide allowance (15 RPM / 20k tokens/day) and NVIDIA's a ~40 RPM account-wide trial cap — again, routes there buy choice, not volume. Every phase-2 price was verified against the provider's own published source before inclusion; the per-entry registry notes carry the source.
 
 ### Provider notes (standing gotchas)
 
@@ -143,7 +182,8 @@ Pool truth (free-catalog expansion, 2026-11-12): routes do not equal quotas. All
 - **Z.ai GLM-4.7-Flash throttles** (HTTP 429 code 1305, "temporarily overloaded") on most probe attempts under load; the cascade skips past it. Its tool-calling is unverified (every probe attempt hit the throttle; the same model via Cloudflare has proven tool calls).
 - **Reasoning models can eat the whole output budget.** Two OpenRouter free entries (`north-mini-code-free`, `dots-3-note-preview-free`) and the deleted HF Cerebras route all returned empty/reasoning-only answers until reasoning was disabled or damped via registry `extra_body`. Any new reasoning entry gets probed for this before it is enabled.
 - **DeepSeek V4 Flash exists twice on purpose** — DeepInfra direct and via Hugging Face (backend pinned `:deepinfra`, billed to the prepaid HF account). Either pool can die without taking the model down; that redundancy is what carried the fleet through the 2026-11-09 DeepInfra credit outage.
-- **NVIDIA NIM was probed 2026-11-12 and NOT added** — the free endpoint did not answer a trivial request within 90 s. Its key is installed on VM103 with the other provider keys if that ever changes.
+- **NVIDIA NIM (added 2026-11-12, expansion phase 2):** two routes probe clean (Nemotron 3.5 Lightning, Nemotron 3 Nano Omni), but NVIDIA's API Trial Terms allow **evaluation/testing use only — not production** — under a ~40 RPM account-wide cap. The entries are in the registry under the owner's expansion order with that caveat carried verbatim in each entry's notes; treat them as evaluation capacity, not production rungs. The catalog overstates what an account can serve: several listed models return 404 for this account ("function not provisioned"), and one hung 181 s into a 500 — probe before ever adding from it. An earlier same-day probe round had concluded "not added" after a 90 s no-answer; the working key + realistic token budgets reversed that on re-probe.
+- **Aion Labs free tier is a taste, not a lane:** 15 RPM / 20,000 tokens per day, account-wide. The 3.5 line's reasoning cannot be disabled (low/high/max only — the entry pins `low`); Aion 2.0 accepts reasoning off. The models are RP/storytelling-tuned, so quality is seeded conservatively despite the large contexts.
 
 ## Operations
 
@@ -155,7 +195,7 @@ Pool truth (free-catalog expansion, 2026-11-12): routes do not equal quotas. All
 
 ## Testing & CI
 
-- **Suite:** 248 pytest tests under `tests/`, mock upstreams only — no real provider calls. Coverage includes the registry premises (the suite loads the real `src/registry.json`, so a registry edit that breaks a premise fails before it can deploy), the gateway pipeline, classifier, sensitivity scan, governor, paid spillway, warn-only + lane-dead behavior, sticky/streaming, output validation, resilience, and shadow/alert paths.
+- **Suite:** 554 pytest tests under `tests/`, mock upstreams only — no real provider calls. Coverage includes the registry premises (the suite loads the real `src/registry.json`, so a registry edit that breaks a premise fails before it can deploy), the gateway pipeline, classifier, sensitivity scan, governor, paid spillway, warn-only + lane-dead behavior, sticky/streaming, output validation, resilience, and shadow/alert paths.
 - **Run it** (from the repo root): `src/.venv/bin/python -m pytest tests/`
 - **CI:** `.github/workflows/ci.yml` runs the full suite on Python 3.12 on every push and pull request to `main` (badge at the top of this file).
 - **Live harness:** `tests/e2e_live.py` boots a fake OpenAI-compatible upstream, the real classifier sidecar, and the real gateway over HTTP and exercises the full pipeline; exit code 0 only if every check passes. Run: `cd tests && ../src/.venv/bin/python e2e_live.py`.
@@ -168,7 +208,7 @@ Pool truth (free-catalog expansion, 2026-11-12): routes do not equal quotas. All
 | `classifier/` | Difficulty-classifier sidecar: rules → embedding nearest-match (150-example bank, 90% exact / 0% hard-task under-classification on the held-out set) → optional local LLM layer (Qwen2.5-1.5B-Instruct, Apache-2.0 — see `docs/LICENSE-REVIEW-arch-router.md` for why not Arch-Router). |
 | `phase0/` | Phase 0 measurement tools for the v0.3.3 canary: usage analyzer, report, the one allowed flagged patch, alert-chain design. |
 | `deploy/` | docker-compose stack (:6075 behind nginx, LAN allowlist), env templates, runbook, decisions record (with dated amendments), acceptance checklist. |
-| `tests/` | `pytest` suite (248 tests) + `e2e_live.py`, a live harness that boots gateway + sidecar + a fake upstream over real HTTP. |
+| `tests/` | `pytest` suite (554 tests) + `e2e_live.py`, a live harness that boots gateway + sidecar + a fake upstream over real HTTP. |
 | `docs/` | **`ROUTING-PRINCIPLES.md` — the current intent and routing rules (start here).** `incidents/` — post-mortems. The build-out report, verification report, license review, convergence record and routing discussion are dated historical records, banner-marked as such. `deploy-checklist.md` and `risks.md` are the v0.5.3-era deployment checklist and risk register (Exec Ops, 2026-11-11), likewise banner-marked historical records. |
 | `workflows/` | Export of the n8n Alert Chain workflow (the router's alert delivery), phone number redacted. |
 

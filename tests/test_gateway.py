@@ -181,7 +181,10 @@ def test_empty_answer_escalates_to_stronger_model(client):
                     headers=auth("hermes"))
     assert r.status_code == 200
     assert r.headers["X-Sovereign-Escalated"] == "true"
-    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash"
+    # Escalation lands on the cheapest stronger paid route: since
+    # expansion phase 2 (2026-11-12) that is DeepInfra's V4 Flash
+    # 0731 checkpoint ($0.06/$0.18), ahead of the original route.
+    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash-0731"
 
 
 def test_bad_tool_call_escalates(client):
@@ -287,7 +290,7 @@ def test_admin_costs_shape(client):
 def test_admin_reload(client):
     r = client.post("/admin/reload", headers=auth("admin"))
     assert r.status_code == 200
-    assert r.json()["models"] == 42
+    assert r.json()["models"] == 81
 
 
 def test_routes_log_has_no_prompt_text(client, app, tmp_path):

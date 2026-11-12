@@ -1,11 +1,14 @@
 """v0.5.6 — SiliconFlow non-sensitive paid slot (owner ruling 2026-11-07).
 
-SiliconFlow's GLM-5.3 costs exactly half of Z.ai direct on every
-component (like-for-like probe, 2026-11-07), so it joins the paid
-lane in cost order. But the same probe graded SF's data posture
-UNCLEAR — training never explicitly prohibited, retention
-unspecified, no ZDR — so SF must NEVER receive a sensitive-classified
-turn. That is not expressible with the pre-v0.5.6 mechanisms: the
+SiliconFlow's GLM-5.3 was seeded at half of Z.ai direct on a
+2026-11-07 probe reading, so it joined the paid lane in cost order.
+PRICE CORRECTION (2026-11-12, expansion phase 2): SiliconFlow's own
+published price list puts GLM-5.3 at $1.40/$4.40 per 1M — identical
+to Z.ai direct — and the registry seed was corrected to match; the
+"half price" claim is dead. What is NOT price-dependent, and stands:
+the same probe graded SF's data posture UNCLEAR — training never
+explicitly prohibited, retention unspecified, no ZDR — so SF must
+NEVER receive a sensitive-classified turn. That is not expressible with the pre-v0.5.6 mechanisms: the
 spillway (v0.5.5) deliberately relaxes the sensitive-clearance wall
 for the whole paid pool. Hence the per-model flag
 ``spillway_sensitive_excluded``: a flagged entry is dropped from
@@ -99,8 +102,11 @@ def _registry_variant(tmp_path: Path, *, disable: tuple[str, ...] = (),
 def test_sensitive_spillway_excludes_siliconflow_even_with_key(tmp_path):
     # SF key INJECTED: only the exclusion flag can keep SF out. The
     # triage signature (sensitive + L4 + ~23k tokens) exhausts free,
-    # the spillway engages — and must serve DeepInfra Flash exactly
-    # as it did in v0.5.5, with SF recorded as excluded, not attempted.
+    # the spillway engages — and must serve the cheapest UNFLAGGED
+    # paid model, with SF recorded as excluded, not attempted. (The
+    # cheapest unflagged paid was DeepInfra Flash in v0.5.5; since
+    # expansion phase 2, 2026-11-12, it is DeepInfra's gpt-oss-120b
+    # route at $0.037 in.)
     app, calls = build_recording_app(tmp_path, _ok_handler,
                                      registry_path=registry_variant(tmp_path, groq_tpm=8000),
                                      provider_keys_extra=SF_KEY)
@@ -109,8 +115,8 @@ def test_sensitive_spillway_excludes_siliconflow_even_with_key(tmp_path):
                         json=chat_body(BIG_SENSITIVE_TEXT),
                         headers={**auth("hermes"), **L4})
     assert r.status_code == 200
-    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash"
-    assert [c["model"] for c in calls] == ["deepseek-ai/DeepSeek-V4-Flash"]
+    assert r.headers["X-Sovereign-Model"] == "deepinfra/gpt-oss-120b"
+    assert [c["model"] for c in calls] == ["openai/gpt-oss-120b"]
     rec = _last_record(app)
     assert rec.data_class == "sensitive"
     assert rec.escalation_reasons == [SPILLWAY]
@@ -119,11 +125,15 @@ def test_sensitive_spillway_excludes_siliconflow_even_with_key(tmp_path):
 
 
 def test_sensitive_spillway_skips_flagged_to_next_paid(tmp_path):
-    # With the two cheaper paid entries disabled, the spillway must
-    # step OVER the flagged SF entry to the next eligible paid model
-    # (deepseek-v4-pro) — SF is never attempted upstream.
+    # With the cheaper unflagged paid entries disabled, the spillway
+    # must step OVER the flagged SF entry to the next eligible paid
+    # model (deepseek-v4-pro) — SF is never attempted upstream.
+    # (Phase 2, 2026-11-12, added two more unflagged DeepInfra rungs
+    # ahead of V4 Pro; they join the disable list.)
     reg = _registry_variant(
         tmp_path, disable=("deepinfra/deepseek-v4-flash",
+                           "deepinfra/gpt-oss-120b",
+                           "deepinfra/deepseek-v4-flash-0731",
                            "ollama/gpt-oss-120b"),
         groq_tpm=8000)  # free TPM-exhausted premise (2026-11-09)
     app, calls = build_recording_app(tmp_path, _ok_handler,
@@ -221,16 +231,42 @@ def test_non_sensitive_spillway_reaches_siliconflow(tmp_path):
     assert rec.cost_usd > 0
 
 
+# Expansion phase 2 (2026-11-12) paid additions — disabled in the
+# failover scenario below so its execution order is the v0.5.6
+# comparison set the scenario was written against.
+PHASE2_PAID_IDS = (
+    "openrouter/deepseek-v4-flash", "openrouter/glm-5.3-flash",
+    "openrouter/qwen3.8-flash", "openrouter/gemini-3.1-flash-lite",
+    "openrouter/llama-4-maverick", "openrouter/claude-haiku-5.5",
+    "siliconflow/qwen3-32b", "siliconflow/deepseek-v3.2",
+    "siliconflow/deepseek-v4-flash", "deepinfra/gpt-oss-120b",
+    "deepinfra/deepseek-v4-flash-0731", "deepinfra/llama-3.1-8b-turbo",
+    "deepinfra/mistral-small-24b", "deepinfra/qwen3.8-27b",
+    "novita/llama-3.1-8b", "novita/glm-4.7-flash",
+    "novita/qwen3.8-flash", "novita/deepseek-v4-flash-0731",
+    "novita/qwen3.8-27b", "novita/kimi-k2.5", "novita/glm-4.6",
+    "huggingface/glm-5.3-flash", "huggingface/qwen3.8-27b",
+    "mistral/mistral-small", "mistral/ministral-8b",
+    "mistral/mistral-medium", "zai/glm-4.6", "zai/glm-5.3-flash",
+    "cerebras/qwen-3.8-27b", "meta/muse-spark-1.2",
+)
+
+
 def test_non_sensitive_cost_order_position(tmp_path):
     # Premise 'free is TPM-out' uses the 8k Groq TPM variant
     # (pre-Developer-plan configuration, 2026-11-09).
     # Shadow candidate order for a big non-sensitive L4 turn (free is
-    # TPM/quality-out, premium is gated for hermes): the candidate
-    # list is EXACTLY DeepInfra Flash, then Ollama, then SiliconFlow
+    # TPM/quality-out, premium is gated for hermes). At v0.5.6 the
+    # candidate list was EXACTLY DeepInfra Flash, Ollama, SiliconFlow
     # — the slot the probe recommended, produced by price alone.
-    # (That SF also precedes DeepSeek V4 Pro in execution order is
-    # proven by test_non_sensitive_failover_reaches_siliconflow_third:
-    # with Flash and Ollama failing, SF — not V4 Pro — serves third.)
+    # Expansion phase 2 (2026-11-12) added a full paid bench around
+    # them, so the claim is now asserted RELATIVELY on the live
+    # registry: Flash still precedes Ollama, which still precedes
+    # SF GLM-5.3 — SF's slot is still produced by its (corrected)
+    # price alone. (That SF also precedes DeepSeek V4 Pro in
+    # execution order is proven by
+    # test_non_sensitive_failover_reaches_siliconflow_third, which
+    # isolates the original comparison set.)
     app, calls = build_recording_app(tmp_path, _ok_handler,
                                      registry_path=registry_variant(tmp_path, groq_tpm=8000),
                                      provider_keys_extra=SF_KEY)
@@ -239,22 +275,28 @@ def test_non_sensitive_cost_order_position(tmp_path):
                         headers={**auth("hermes"), **L4})
     assert r.status_code == 200
     ids = [c["model"] for c in r.json()["candidates"]]
-    assert ids == ["deepinfra/deepseek-v4-flash",
-                   "ollama/gpt-oss-120b",
-                   "siliconflow/glm-5.3"]
+    assert ids.index("deepinfra/deepseek-v4-flash") \
+        < ids.index("ollama/gpt-oss-120b") \
+        < ids.index("siliconflow/glm-5.3")
     assert calls == []  # shadow never calls upstream
 
 
 def test_non_sensitive_failover_reaches_siliconflow_third(tmp_path):
     # Execution order matches the shadow order: Flash and Ollama fail
     # upstream, SF serves third — no SF attempt before its turn.
+    # The phase-2 paid bench is disabled in this variant (see
+    # PHASE2_PAID_IDS) so the execution order is the v0.5.6
+    # comparison set; the live-registry slot is covered relatively
+    # by test_non_sensitive_cost_order_position.
     def fail_two(model, body, n):
         if model in ("deepseek-ai/DeepSeek-V4-Flash", "gpt-oss:120b"):
             return httpx.Response(500, json={"error": {"message": "boom"}})
         return _ok_handler(model, body, n)
 
+    reg = _registry_variant(tmp_path, disable=PHASE2_PAID_IDS,
+                            groq_tpm=8000)
     app, calls = build_recording_app(tmp_path, fail_two,
-                                     registry_path=registry_variant(tmp_path, groq_tpm=8000),
+                                     registry_path=reg,
                                      provider_keys_extra=SF_KEY)
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
@@ -275,16 +317,18 @@ def test_non_sensitive_failover_reaches_siliconflow_third(tmp_path):
 def test_keyless_siliconflow_skipped_and_next_candidate_serves(tmp_path):
     # Default fixtures carry NO siliconflow key — the production
     # state at deploy. A big non-sensitive turn must be served by
-    # DeepInfra Flash with SF recorded as provider_key_missing and
-    # never attempted; the disabled SF V4 Pro reports "disabled".
+    # the cheapest eligible paid model (DeepInfra Flash at v0.5.6;
+    # DeepInfra's gpt-oss-120b route since phase 2, 2026-11-12) with
+    # SF recorded as provider_key_missing and never attempted; the
+    # disabled SF V4 Pro reports "disabled".
     app, calls = build_recording_app(tmp_path, _ok_handler)
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
                         json=chat_body(BIG_PLAIN_TEXT),
                         headers={**auth("hermes"), **L4})
     assert r.status_code == 200
-    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash"
-    assert [c["model"] for c in calls] == ["deepseek-ai/DeepSeek-V4-Flash"]
+    assert r.headers["X-Sovereign-Model"] == "deepinfra/gpt-oss-120b"
+    assert [c["model"] for c in calls] == ["openai/gpt-oss-120b"]
     rec = _last_record(app)
     assert {"model": "siliconflow/glm-5.3",
             "reason": "provider_key_missing"} in rec.skipped
@@ -322,7 +366,7 @@ def test_keyless_sensitive_skip_reason_is_the_exclusion(tmp_path):
                         json=chat_body(BIG_SENSITIVE_TEXT),
                         headers={**auth("hermes"), **L4})
     assert r.status_code == 200
-    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash"
+    assert r.headers["X-Sovereign-Model"] == "deepinfra/gpt-oss-120b"
     rec = _last_record(app)
     assert rec.data_class == "sensitive"
     assert {"model": "siliconflow/glm-5.3",

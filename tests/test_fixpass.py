@@ -241,6 +241,11 @@ def test_north_mini_length_failure_retries_same_model(tmp_path):
     # Production registry (2026-11-04): north-mini-code-free IS
     # reasoning-flagged, so a length_no_content first attempt earns one
     # same-model retry at doubled budget instead of an escalation.
+    # 2026-11-12 (expansion phase 2): the request PINS the model —
+    # north's chat quality was lowered to 2 on Article Engine drafting
+    # evidence, so auto-selection no longer picks it for a big
+    # chat-class request (that is the correction working); the retry
+    # mechanic itself is what this test exercises, via the pin.
     seen: dict[str, int] = {}
 
     def handler(model, body, n):
@@ -253,7 +258,9 @@ def test_north_mini_length_failure_retries_same_model(tmp_path):
     app, calls = build_recording_app(tmp_path, handler)
     big = "word " * 15000
     with TestClient(app) as client:
-        r = client.post("/v1/chat/completions", json=chat_body(big),
+        r = client.post("/v1/chat/completions",
+                        json=chat_body(big,
+                                       model="openrouter/north-mini-code-free"),
                         headers=auth("hermes"))
     assert r.status_code == 200
     assert r.headers["X-Sovereign-Model"] == "openrouter/north-mini-code-free"

@@ -166,11 +166,15 @@ def test_triage_signature_spills_to_cheapest_paid(tmp_path):
                         json=chat_body(BIG_SENSITIVE_TEXT),
                         headers={**auth("hermes"), **L4})
     assert r.status_code == 200  # was 429 before v0.5.5
-    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash"
+    # Cheapest eligible paid under cost order. Since expansion
+    # phase 2 (2026-11-12) that is DeepInfra's gpt-oss-120b route
+    # ($0.037/$0.17), which undercut DeepInfra Flash — Jordan's
+    # routing philosophy working as ordered: next cheapest best.
+    assert r.headers["X-Sovereign-Model"] == "deepinfra/gpt-oss-120b"
     assert r.headers["X-Sovereign-Lane"] == "paid"
     assert r.headers["X-Sovereign-Escalated"] == "true"
     # exactly ONE upstream attempt: the cheapest paid model
-    assert [c["model"] for c in calls] == ["deepseek-ai/DeepSeek-V4-Flash"]
+    assert [c["model"] for c in calls] == ["openai/gpt-oss-120b"]
     rec = _last_record(app)
     assert rec.status == 200
     assert rec.data_class == "sensitive"
@@ -178,7 +182,7 @@ def test_triage_signature_spills_to_cheapest_paid(tmp_path):
     assert rec.escalated is True
     assert rec.escalation_reasons == [SPILLWAY]
     assert rec.cost_usd > 0  # paid pricing applies normally
-    assert "paid_spillway:deepinfra/deepseek-v4-flash" in rec.signals
+    assert "paid_spillway:deepinfra/gpt-oss-120b" in rec.signals
     # the route row shows WHY free was exhausted: the only
     # quality-eligible free model was TPM-walled by payload size
     assert {"model": "groq/gpt-oss-120b", "reason": "rate_limited_tpm"} \
@@ -197,7 +201,7 @@ def test_triage_signature_spills_streaming(tmp_path):
                         headers={**auth("hermes"), **L4})
     assert r.status_code == 200
     assert "Paid " in r.text and "answer" in r.text
-    assert [c["model"] for c in calls] == ["deepseek-ai/DeepSeek-V4-Flash"]
+    assert [c["model"] for c in calls] == ["openai/gpt-oss-120b"]
     rec = _last_record(app)
     assert rec.stream is True
     assert rec.status == 200
@@ -216,7 +220,7 @@ def test_spillway_applies_to_n8n_uniformly(tmp_path):
                         json=chat_body(BIG_SENSITIVE_TEXT),
                         headers={**auth("n8n"), **L4})
     assert r.status_code == 200
-    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash"
+    assert r.headers["X-Sovereign-Model"] == "deepinfra/gpt-oss-120b"
     rec = _last_record(app)
     assert rec.client == "n8n"
     assert rec.escalation_reasons == [SPILLWAY]
@@ -341,16 +345,22 @@ def test_execution_exhaustion_engages_spillway_json(tmp_path):
     # Small sensitive L4 turn: the ONLY first-pass candidate is
     # groq/gpt-oss-120b (paid is behind the sensitive wall). It fails
     # upstream — instead of the old 429, the spillway engages and the
-    # cheapest paid model serves.
+    # cheapest paid models serve in cost order.
+    # Phase 2 note (2026-11-12): the failure handler keys on the
+    # upstream string "openai/gpt-oss-120b", which now names TWO
+    # routes (Groq's and DeepInfra's $0.037 route), so the spillway's
+    # first rung fails on the same injected 500 and the second rung
+    # (DeepInfra's V4 Flash 0731 checkpoint) serves.
     app, calls = build_recording_app(tmp_path, _fail_free_handler)
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",
                         json=chat_body(SENSITIVE_TEXT),
                         headers={**auth("hermes"), **L4})
     assert r.status_code == 200
-    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash"
+    assert r.headers["X-Sovereign-Model"] == "deepinfra/deepseek-v4-flash-0731"
     assert [c["model"] for c in calls] == [
-        "openai/gpt-oss-120b", "deepseek-ai/DeepSeek-V4-Flash"]
+        "openai/gpt-oss-120b", "openai/gpt-oss-120b",
+        "deepseek-ai/DeepSeek-V4-Flash-0731"]
     rec = _last_record(app)
     assert rec.status == 200
     assert rec.escalated is True
@@ -368,7 +378,8 @@ def test_execution_exhaustion_engages_spillway_streaming(tmp_path):
     assert r.status_code == 200
     assert "Paid " in r.text and "answer" in r.text
     assert [c["model"] for c in calls] == [
-        "openai/gpt-oss-120b", "deepseek-ai/DeepSeek-V4-Flash"]
+        "openai/gpt-oss-120b", "openai/gpt-oss-120b",
+        "deepseek-ai/DeepSeek-V4-Flash-0731"]
     rec = _last_record(app)
     assert rec.status == 200
     assert rec.escalated is True
@@ -476,7 +487,7 @@ def test_shadow_reflects_spillway(tmp_path):
                         headers={**auth("hermes"), **L4})
     assert r.status_code == 200
     body = r.json()
-    assert body["would_route_to"]["model"] == "deepinfra/deepseek-v4-flash"
+    assert body["would_route_to"]["model"] == "deepinfra/gpt-oss-120b"
     assert body["would_route_to"]["lane"] == "paid"
     assert calls == []  # shadow never calls upstream
 
@@ -488,7 +499,7 @@ def test_registry_and_version_shape_v056():
     from registry import load_registry
     assert gateway.VERSION == "0.6.0"  # v0.6.0: provider expansion (22 models after the HF/Cerebras deletion); v0.5.7 was warn-only + dead-lane
     entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
-    assert len(entries) == 42  # +2 HF (2026-11-09), +3 providers (2026-11-12), +5 staged (2026-11-12), -1 HF/Cerebras deleted (2026-11-12), +20 free-catalog expansion (2026-11-12)
+    assert len(entries) == 81  # +2 HF (2026-11-09), +3 providers (2026-11-12), +5 staged (2026-11-12), -1 HF/Cerebras deleted (2026-11-12), +20 free-catalog expansion (2026-11-12), +39 expansion phase 2 (2026-11-12)
     # 2026-11-12 additions: Cerebras + Novita enabled, both sensitive-excluded;
     # Cerebras carries its reasoning-effort pin; Z.ai's free Flash is public-free.
     assert entries["cerebras/gpt-oss-120b"].enabled is True

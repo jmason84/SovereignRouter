@@ -7,6 +7,14 @@ reports its version at `GET /health` (`version` field) and in the
 `X-Sovereign-*` response metadata. The routing *policy* history lives in
 `docs/ROUTING-PRINCIPLES.md`; incident detail in `docs/incidents/`.
 
+## [Unreleased]
+
+Post-0.6.0 registry changes, 2026-11-12 (gateway code unchanged):
+
+- **Enabled** `google/gemini-3.5-flash-lite` (public-only-free), `cloudflare/gpt-oss-120b` and `cloudflare/glm-4.7-flash` (public-only-free, owner-supplied Workers AI token), `mistral/mistral-large` and `mistral/codestral` (reclassified to the paid lane at published pay-as-you-go rates after an owner-approved $10 activation — Mistral's free tier issues no API keys), and `meta/muse-spark-1.1` (premium; owner resolved the Meta team billing issue). Every enable was probe-verified directly and through the router.
+- **Removed** `huggingface/gpt-oss-120b-cerebras` (owner's order): the HF passthrough ignored reasoning controls and leaked deliberation (2026-11-11); the direct `cerebras/gpt-oss-120b` route replaces it. Standing rule recorded in `docs/ROUTING-PRINCIPLES.md`: Cerebras is called direct, never via HF.
+- Registry now 22 models, 21 enabled (only `siliconflow/deepseek-v4-pro` disabled, a deliberate duplicate).
+
 ## [0.6.0] — 2026-11-12
 
 The provider-expansion release: registry 15 → 23 models, four new live

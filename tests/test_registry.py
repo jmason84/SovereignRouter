@@ -22,7 +22,7 @@ def test_starting_registry_matches_spec_table():
     # + 5 entries added staged 2026-11-12 — all five enabled the same
     # day once their keys landed (mistral reclassified to the paid lane:
     # its free tier issues no API keys; owner funded $10 PAYG instead).
-    assert len(reg.entries) == 23
+    assert len(reg.entries) == 22
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
@@ -58,18 +58,17 @@ def test_starting_registry_matches_spec_table():
     assert (qw.input_usd_per_million, qw.output_usd_per_million) == (0.80, 4.00)
     # Hugging Face entries (2026-11-09): probe-proven and ENABLED on
     # the owner's order; still flagged non-sensitive-only, paid lane.
-    # 2026-11-11: the Cerebras route was DISABLED (hidden-reasoning fault
-    # via the HF passthrough — see the dots-3 incident doc); Flash stays on.
+    # (The sibling HF/Cerebras entry was disabled 2026-11-11 for the
+    # passthrough reasoning fault and deleted 2026-11-12; Flash stays.)
     hf = by_id["huggingface/deepseek-v4-flash"]
     assert hf.enabled is True and hf.spillway_sensitive_excluded is True
     assert hf.effective_base_url == "https://router.huggingface.co/v1"
     assert hf.lane == "paid"
-    hf = by_id["huggingface/gpt-oss-120b-cerebras"]
-    assert hf.enabled is False and hf.spillway_sensitive_excluded is True
-    assert hf.effective_base_url == "https://router.huggingface.co/v1"
-    assert hf.lane == "paid"
-    assert by_id["huggingface/gpt-oss-120b-cerebras"].model == \
-        "openai/gpt-oss-120b:cerebras"
+    # The HF/Cerebras route was DELETED 2026-11-12 on the owner's order
+    # (reasoning-control fault via the HF passthrough, 2026-11-11; the
+    # direct cerebras/ entry replaced it). Guard against re-adding it:
+    # Cerebras is called DIRECT only — see ROUTING-PRINCIPLES.
+    assert "huggingface/gpt-oss-120b-cerebras" not in by_id
     assert by_id["huggingface/deepseek-v4-flash"].model == \
         "deepseek-ai/DeepSeek-V4-Flash:deepinfra"
     assert by_id["premium/gpt-5.5"].lane == "premium"

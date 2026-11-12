@@ -486,9 +486,9 @@ def test_registry_and_version_shape_v056():
     sys.path.insert(0, str(SRC))
     import gateway
     from registry import load_registry
-    assert gateway.VERSION == "0.6.0"  # v0.6.0: provider expansion (23 models); v0.5.7 was warn-only + dead-lane
+    assert gateway.VERSION == "0.6.0"  # v0.6.0: provider expansion (22 models after the HF/Cerebras deletion); v0.5.7 was warn-only + dead-lane
     entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
-    assert len(entries) == 23  # +2 HF (2026-11-09), +3 providers (2026-11-12), +5 staged awaiting keys (2026-11-12)
+    assert len(entries) == 22  # +2 HF (2026-11-09), +3 providers (2026-11-12), +5 staged (2026-11-12), -1 HF/Cerebras deleted (2026-11-12)
     # 2026-11-12 additions: Cerebras + Novita enabled, both sensitive-excluded;
     # Cerebras carries its reasoning-effort pin; Z.ai's free Flash is public-free.
     assert entries["cerebras/gpt-oss-120b"].enabled is True

@@ -415,38 +415,6 @@
     },
     {
       "base_url": "https://router.huggingface.co/v1",
-      "cached_input_usd_per_million": null,
-      "context_tokens": 131072,
-      "enabled": false,
-      "id": "huggingface/gpt-oss-120b-cerebras",
-      "input_usd_per_million": 0.35,
-      "lane": "paid",
-      "latency_p50_ms": 300,
-      "limits": {},
-      "model": "openai/gpt-oss-120b:cerebras",
-      "notes": "Hugging Face Inference Providers route to Cerebras for gpt-oss-120b (provider pinned via the :cerebras suffix, per HF docs). Price from HF's own inference models catalog (read 2026-11-09): $0.35 in / $0.75 out per 1M — a speed premium over Groq direct ($0.15/$0.60); the catalog marks Cerebras fastest for this model (~1,074 tok/s vs Groq ~421). Quality mirrored from groq/gpt-oss-120b (same model). NON-SENSITIVE ONLY (spillway_sensitive_excluded): HF routes to third-party backends whose data posture varies by provider. Deployed DISABLED 2026-11-09 as a probe (owner approval 2026-11-09): enable only after the HF token lands as keys/huggingface.key and the benchmark battery passes. HF billing is pass-through (no markup) via the owner's HF account — a billing pool SEPARATE from the direct provider accounts. PROBE RESULT 2026-11-09 (CORRECTED same day — the first read was wrong): the route WORKS. Small turn 200 (0.16s at provider), tool-call turn 200 with well-formed arguments, 36,477-token turn 200. The morning's 403s were the probe client's fault: HF forwards the caller's User-Agent to the provider, and Cerebras/Groq Cloudflare bans the Python-urllib default UA (error 1010 HTML page naming the provider domain). SDK and httpx UAs pass — the gateway speaks httpx, so it was never affected. Cerebras prices do not appear in HF's usage estimated_cost (provider-dependent) — settle the real rate from HF billing after first serves. ENABLED 2026-11-09 on the owner's order, after fresh verification calls to both HF models passed. DISABLED 2026-11-11: this route served the default Hermes bot's agent session and leaked deliberation into user-visible replies, drifted tool argument shapes mid-batch, and confabulated an error report ('HTTP 500 Error in workflow' for what was a schema validation rejection). Probes the same day: its hidden reasoning burns ~2.2k tokens per turn and neither reasoning_effort=low nor reasoning.enabled=false is honoured on this route (finish=length, reasoning_len ~2,268). Same model remains available via groq/gpt-oss-120b, where reasoning.enabled=false IS honoured. Incident: SovereignRouter docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md addendum + Hermes-agent E-10.",
-      "output_usd_per_million": 0.75,
-      "probe": {
-        "cadence": "weekly",
-        "kind": "chat",
-        "max_tokens": 4,
-        "prompt": "ping"
-      },
-      "provider": "huggingface",
-      "quality": {
-        "chat": 4,
-        "code": 4,
-        "infra": 4,
-        "long-context": 3,
-        "reasoning": 4
-      },
-      "reasoning": true,
-      "spend_alert_usd": 5.0,
-      "spillway_sensitive_excluded": true,
-      "verified_until": null
-    },
-    {
-      "base_url": "https://router.huggingface.co/v1",
       "cached_input_usd_per_million": 0.018,
       "context_tokens": 262144,
       "enabled": true,
@@ -494,7 +462,7 @@
         "tpm": 90000
       },
       "model": "gpt-oss-120b",
-      "notes": "Direct Cerebras (api.cerebras.ai) — added 2026-11-12 on the owner's order after the HF-passthrough route to the same backend was disabled 2026-11-11. PROBE 2026-11-12 (direct key): plain turn 200 in 0.22s; substantive prompt reasoning 108 tokens default vs 42 at reasoning_effort=low, finish=stop both — the HF route's unbounded-reasoning fault (2,268 tokens, finish=length) does NOT reproduce direct; tool call well-formed; 41k-token prompt served in 1.7s; output speed ~2,500 tok/s (fastest in the registry). Reasoning can be damped via reasoning_effort (low/medium/high only — 'none' is a 400, and a reasoning:{enabled:false} body is a 400) — hence extra_body pins effort=low; the gateway must not expect reasoning fully off here. KEY TIER: the owner's key is on Cerebras' trial terms ($5 signup credit, 30-day expiry, 5 RPM / 90K TPM / 1M TPD, 65K context — Cerebras retired its permanent free tier 2026-07-16; the 'permanent free tier' claim in circulation is stale). Limits + context in this entry are the TRIAL figures: if the owner funds the account (pay-as-you-go $0.35/$0.75), raise context_tokens to 131072 and lift the limits. NON-SENSITIVE ONLY (spillway_sensitive_excluded): Cerebras' Developer tier is documented as not intended for production use and trial-tier data posture is unverified. Quality mirrored from groq/gpt-oss-120b (same weights). FIX 2026-11-12: base_url added after first deploy — without it the gateway has no default URL for the new cerebras provider and skips it as upstream_unreachable.",
+      "notes": "Direct Cerebras (api.cerebras.ai) — added 2026-11-12 on the owner's order after the HF-passthrough route to the same backend was disabled 2026-11-11. PROBE 2026-11-12 (direct key): plain turn 200 in 0.22s; substantive prompt reasoning 108 tokens default vs 42 at reasoning_effort=low, finish=stop both — the HF route's unbounded-reasoning fault (2,268 tokens, finish=length) does NOT reproduce direct; tool call well-formed; 41k-token prompt served in 1.7s; output speed ~2,500 tok/s (fastest in the registry). Reasoning can be damped via reasoning_effort (low/medium/high only — 'none' is a 400, and a reasoning:{enabled:false} body is a 400) — hence extra_body pins effort=low; the gateway must not expect reasoning fully off here. KEY TIER: the owner's key is on Cerebras' trial terms ($5 signup credit, 30-day expiry, 5 RPM / 90K TPM / 1M TPD, 65K context — Cerebras retired its permanent free tier 2026-07-16; the 'permanent free tier' claim in circulation is stale). Limits + context in this entry are the TRIAL figures: if the owner funds the account (pay-as-you-go $0.35/$0.75), raise context_tokens to 131072 and lift the limits. NON-SENSITIVE ONLY (spillway_sensitive_excluded): Cerebras' Developer tier is documented as not intended for production use and trial-tier data posture is unverified. Quality mirrored from groq/gpt-oss-120b (same weights). FIX 2026-11-12: base_url added after first deploy — without it the gateway has no default URL for the new cerebras provider and skips it as upstream_unreachable. DIRECT ONLY — never re-add these weights via the Hugging Face passthrough (openai/gpt-oss-120b:cerebras): that route ignored every reasoning control, burned ~2.2k hidden reasoning tokens per turn and leaked deliberation into a live Hermes reply (2026-11-11); its registry entry was DELETED 2026-11-12 on the owner's order once this direct route replaced it. Record: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md addendum + Hermes-agent E-10.",
       "output_usd_per_million": 0.75,
       "probe": {
         "cadence": "weekly",

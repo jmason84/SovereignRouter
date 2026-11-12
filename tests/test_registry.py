@@ -18,8 +18,9 @@ def test_starting_registry_matches_spec_table():
     # 8 spec entries + 3 premium-lane additions (2026-11-05, v0.5.4)
     # + 2 SiliconFlow entries (2026-11-07, v0.5.6)
     # + 2 Hugging Face probe entries (2026-11-09, v0.5.7)
-    # + 3 provider additions (2026-11-12: cerebras, novita, zai/glm-4.7-flash).
-    assert len(reg.entries) == 18
+    # + 3 provider additions (2026-11-12: cerebras, novita, zai/glm-4.7-flash)
+    # + 5 staged entries awaiting keys (2026-11-12: mistral x2, google, cloudflare x2).
+    assert len(reg.entries) == 23
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
@@ -110,6 +111,11 @@ def test_starting_registry_matches_spec_table():
                if e.provider not in ("siliconflow", "huggingface",
                                       "cerebras", "novita"))
 
+    for staged_id in ("mistral/mistral-large", "mistral/codestral",
+                      "cloudflare/gpt-oss-120b",
+                      "cloudflare/glm-4.7-flash"):
+        assert by_id[staged_id].enabled is False
+        assert by_id[staged_id].lane == "public-only-free"
 
 def test_cached_pricing_math():
     reg = load_registry(SRC / "registry.json")

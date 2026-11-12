@@ -1,8 +1,8 @@
-# Sovereign Router v0.5
+# Sovereign Router
 
 One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that sends each request to the cheapest model able to do it well — spec v0.5.3 (Drive: "Sovereign Router v0.5.3: Architecture, Specification and Implementation Plan").
 
-**Status: LIVE — v0.5.7 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **2026-11-11:** the Hugging Face Cerebras route is disabled (hidden-reasoning fault — see `docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md`); the HF Flash route and everything else are unchanged. **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; older documents in this repo describe earlier states.
+**Status: LIVE — v0.6.0 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **Registry: 23 models across 13 providers** (19 enabled; Mistral and Cloudflare Workers AI staged disabled pending owner-held keys). Version history: [`CHANGELOG.md`](CHANGELOG.md). **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; older documents in this repo describe earlier states.
 
 ## Layout
 
@@ -18,7 +18,7 @@ One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that send
 
 ## Key owner decisions (full record: `deploy/DECISIONS.md`; current rules: `docs/ROUTING-PRINCIPLES.md`)
 
-No spending caps, ever. Daily steer targets (alert-only): Hermes $1.25 / OpenClaw $5.00 / n8n $2.50 / TwentyCRM $1.25. Premium tier kept with $20/mo and >20/day alerts. The $25/day emergency level is **warn-only** (2026-11-09 ruling, replacing the 2026-11-01 hard switch): it alerts and never cuts the paid lanes. SiliconFlow and Hugging Face are non-sensitive-only. Judged quality sample OFF.
+No spending caps, ever. Daily steer targets (alert-only): Hermes $1.25 / OpenClaw $5.00 / n8n $2.50 / TwentyCRM $1.25. Premium tier kept with $20/mo and >20/day alerts. The $25/day emergency level is **warn-only** (2026-11-09 ruling, replacing the 2026-11-01 hard switch): it alerts and never cuts the paid lanes. SiliconFlow, Hugging Face, Cerebras (direct) and Novita are non-sensitive-only. Google Gemini (free tier), Z.ai's free Flash, Mistral (free tier, staged) and Cloudflare Workers AI (staged) sit in the public-only-free lane — never eligible for sensitive traffic. Judged quality sample OFF.
 
 ## History
 

@@ -90,7 +90,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.5.7"
+VERSION = "0.6.0"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across

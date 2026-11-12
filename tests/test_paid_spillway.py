@@ -502,9 +502,9 @@ def test_registry_and_version_shape_v056():
     assert not hasattr(entries["premium/gpt-5.5"], "rescue_eligible")
     assert entries["deepseek/deepseek-v4-pro"].enabled is True
     assert entries["zai/glm-5.3"].enabled is True
-    # Meta billing still unresolved: present but disabled, so the
-    # spillway cannot land on it either.
-    assert entries["meta/muse-spark-1.1"].enabled is False
+    # Meta billing resolved by the owner 2026-11-12 (probe-verified):
+    # the flagship premium entry is live and spillway-reachable.
+    assert entries["meta/muse-spark-1.1"].enabled is True
     # SiliconFlow (v0.5.6): GLM-5.3 enabled in the paid lane, V4 Pro
     # present but disabled; both sensitive-excluded (see
     # tests/test_siliconflow_slot.py for the behavioural proofs).

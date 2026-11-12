@@ -86,7 +86,7 @@ def test_starting_registry_matches_spec_table():
     assert (glm.input_usd_per_million, glm.output_usd_per_million) == (1.40, 4.40)
     assert glm.effective_base_url == "https://api.z.ai/api/paas/v4"
     spark = by_id["meta/muse-spark-1.1"]
-    assert spark.lane == "premium" and spark.enabled is False
+    assert spark.lane == "premium" and spark.enabled is True
     assert (spark.input_usd_per_million, spark.output_usd_per_million) == (1.25, 4.25)
     # SiliconFlow slot 2026-11-07 (v0.5.6): GLM-5.3 in the paid lane
     # at half of Z.ai direct; V4 Pro present but disabled. Both are

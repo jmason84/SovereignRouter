@@ -287,7 +287,7 @@ def test_admin_costs_shape(client):
 def test_admin_reload(client):
     r = client.post("/admin/reload", headers=auth("admin"))
     assert r.status_code == 200
-    assert r.json()["models"] == 15
+    assert r.json()["models"] == 18
 
 
 def test_routes_log_has_no_prompt_text(client, app, tmp_path):

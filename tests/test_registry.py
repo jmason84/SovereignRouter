@@ -17,8 +17,9 @@ def test_starting_registry_matches_spec_table():
     reg = load_registry(SRC / "registry.json")
     # 8 spec entries + 3 premium-lane additions (2026-11-05, v0.5.4)
     # + 2 SiliconFlow entries (2026-11-07, v0.5.6)
-    # + 2 Hugging Face probe entries (2026-11-09, v0.5.7).
-    assert len(reg.entries) == 15
+    # + 2 Hugging Face probe entries (2026-11-09, v0.5.7)
+    # + 3 provider additions (2026-11-12: cerebras, novita, zai/glm-4.7-flash).
+    assert len(reg.entries) == 18
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
@@ -54,12 +55,16 @@ def test_starting_registry_matches_spec_table():
     assert (qw.input_usd_per_million, qw.output_usd_per_million) == (0.80, 4.00)
     # Hugging Face entries (2026-11-09): probe-proven and ENABLED on
     # the owner's order; still flagged non-sensitive-only, paid lane.
-    for hf_id in ("huggingface/gpt-oss-120b-cerebras",
-                  "huggingface/deepseek-v4-flash"):
-        hf = by_id[hf_id]
-        assert hf.enabled is True and hf.spillway_sensitive_excluded is True
-        assert hf.effective_base_url == "https://router.huggingface.co/v1"
-        assert hf.lane == "paid"
+    # 2026-11-11: the Cerebras route was DISABLED (hidden-reasoning fault
+    # via the HF passthrough — see the dots-3 incident doc); Flash stays on.
+    hf = by_id["huggingface/deepseek-v4-flash"]
+    assert hf.enabled is True and hf.spillway_sensitive_excluded is True
+    assert hf.effective_base_url == "https://router.huggingface.co/v1"
+    assert hf.lane == "paid"
+    hf = by_id["huggingface/gpt-oss-120b-cerebras"]
+    assert hf.enabled is False and hf.spillway_sensitive_excluded is True
+    assert hf.effective_base_url == "https://router.huggingface.co/v1"
+    assert hf.lane == "paid"
     assert by_id["huggingface/gpt-oss-120b-cerebras"].model == \
         "openai/gpt-oss-120b:cerebras"
     assert by_id["huggingface/deepseek-v4-flash"].model == \
@@ -98,10 +103,12 @@ def test_starting_registry_matches_spec_table():
     assert sfp.cached_input_usd_per_million == pytest.approx(0.135)
     assert sfp.spillway_sensitive_excluded is True
     # the flag defaults off everywhere else (the 2026-11-09 HF probe
-    # entries are flagged as well — third-party-routed, posture varies)
+    # entries are flagged as well — third-party-routed, posture varies;
+    # 2026-11-12: cerebras + novita flagged on the same grounds)
     assert all(not e.spillway_sensitive_excluded
                for e in reg.entries
-               if e.provider not in ("siliconflow", "huggingface"))
+               if e.provider not in ("siliconflow", "huggingface",
+                                      "cerebras", "novita"))
 
 
 def test_cached_pricing_math():

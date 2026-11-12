@@ -488,7 +488,16 @@ def test_registry_and_version_shape_v056():
     from registry import load_registry
     assert gateway.VERSION == "0.5.7"  # v0.5.7: warn-only + dead-lane
     entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
-    assert len(entries) == 15  # +2 HF probe entries, 2026-11-09
+    assert len(entries) == 18  # +2 HF probe entries, 2026-11-09; +3 provider additions (cerebras, novita, zai flash), 2026-11-12
+    # 2026-11-12 additions: Cerebras + Novita enabled, both sensitive-excluded;
+    # Cerebras carries its reasoning-effort pin; Z.ai's free Flash is public-free.
+    assert entries["cerebras/gpt-oss-120b"].enabled is True
+    assert entries["cerebras/gpt-oss-120b"].spillway_sensitive_excluded is True
+    assert entries["cerebras/gpt-oss-120b"].extra_body["reasoning_effort"] == "low"
+    assert entries["novita/gpt-oss-120b"].enabled is True
+    assert entries["novita/gpt-oss-120b"].spillway_sensitive_excluded is True
+    assert entries["zai/glm-4.7-flash"].lane == "public-only-free"
+    assert entries["zai/glm-4.7-flash"].input_usd_per_million == 0.0
     # the rescue pin is gone from code and data alike
     assert not hasattr(entries["premium/gpt-5.5"], "rescue_eligible")
     assert entries["deepseek/deepseek-v4-pro"].enabled is True

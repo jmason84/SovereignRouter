@@ -2,7 +2,18 @@
 
 One OpenAI-compatible endpoint for OpenClaw, Hermes and n8n that sends each request to the cheapest model able
 to do it well. Implements Phase 1 of the "Sovereign Router v0.5.3: Architecture, Specification and Implementation
-Plan". **Nothing here is deployed.** Production v0.2.1 and the v0.3.3 canary are untouched.
+Plan".
+
+## What's running now
+
+| Version | Status | Notes |
+|---------|--------|-------|
+| v0.2.1 | **Production** | Untouched, serving all production traffic |
+| v0.3.3 | **Canary** | Untouched, canary traffic |
+| v0.5.3 | **Not deployed** | Active development branch. 66 tests pass against mock providers. No provider has been called live. |
+
+See [docs/deploy-checklist.md](docs/deploy-checklist.md) for the cutover path and
+[docs/risks.md](docs/risks.md) for the open risk register.
 
 ## Pipeline (`engine.py`)
 authenticate -> normalize (aliases, max_tokens clamp) -> secret scan -> profile -> classify (level 1-5) ->

@@ -1,1 +1,481 @@
-{"comment":"Sovereign Router v0.5 starting model set, exactly per spec v0.5.3 'Starting model set' table. No API keys here — provider keys live as mode-600 files in the state dir (keys/<provider>.key). spend_alert_usd is an alert level, never a cap. v0.5.5 (2026-11-07): rescue_eligible removed from premium/gpt-5.5 — the free-first / paid-spillway waterfall in the gateway supersedes the v0.5.3 rescue pin (owner ruling 2026-11-07). v0.5.6 (2026-11-07): SiliconFlow added — siliconflow/glm-5.3 ENABLED in the paid lane at half of Z.ai direct (NON-SENSITIVE ONLY, spillway_sensitive_excluded) and siliconflow/deepseek-v4-pro present but DISABLED; gateway v0.5.6 enforces the per-model sensitive exclusion in every pass. v0.5.7 (2026-11-09): Groq moved to Developer-plan limits/prices (owner top-up; docs-verified); Ollama TPD seed corrected 400k -> 10M (the seed, not Ollama, caused the 2026-11-09 05:11 self-throttle); two Hugging Face probe entries added DISABLED + non-sensitive-only (owner approval 2026-11-09).","models":[{"cached_input_usd_per_million":0.0,"context_tokens":131072,"id":"groq/gpt-oss-20b","input_usd_per_million":0.075,"lane":"private-free","latency_p50_ms":300,"limits":{"rpm":1000,"tpm":250000},"model":"openai/gpt-oss-20b","notes":"Spec: quality 2, small prompts only — Groq free tier is 8k tokens/min per model, so the tpm limit makes the router skip it for large (e.g. Hermes) prompts instead of waiting. 2026-11-09: owner moved Groq to the Developer (paid) plan — limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real.","output_usd_per_million":0.3,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"groq","quality":{"chat":2,"code":2,"infra":2,"long-context":2,"reasoning":2},"reasoning":true,"verified_until":null},{"cached_input_usd_per_million":0.0,"context_tokens":131072,"id":"groq/gpt-oss-120b","input_usd_per_million":0.15,"lane":"private-free","latency_p50_ms":450,"limits":{"rpm":1000,"tpm":250000},"model":"openai/gpt-oss-120b","notes":"Spec: quality 4, small prompts only (8k tokens/min Groq free limit). 2026-11-09: owner moved Groq to the Developer (paid) plan — limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real.","output_usd_per_million":0.6,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"groq","quality":{"chat":4,"code":4,"infra":4,"long-context":3,"reasoning":4},"reasoning":true,"verified_until":null},{"cached_input_usd_per_million":0.0,"context_tokens":131072,"id":"groq/qwen3.8-27b","input_usd_per_million":0.8,"lane":"private-free","latency_p50_ms":400,"limits":{"rpm":1000,"tpm":250000},"model":"qwen/qwen3.8-27b","notes":"Spec registry name qwen3.8-27b (v0.3 registry.json spelling); quality 3, small prompts only. 2026-11-09: Qwen3.8-27B is a Preview model on Groq; Developer-plan price $0.80/$4.00 per 1M and 250K TPM / 1K RPM from Groq's docs models page (checked 2026-11-09). 2026-11-09: owner moved Groq to the Developer (paid) plan — limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real.","output_usd_per_million":4.0,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"groq","quality":{"chat":3,"code":3,"infra":3,"long-context":3,"reasoning":3},"verified_until":null},{"cached_input_usd_per_million":0.0,"context_tokens":262144,"extra_body":{"provider":{"data_collection":"deny"},"reasoning":{"enabled":false}},"id":"openrouter/north-mini-code-free","input_usd_per_million":0.0,"lane":"private-free","latency_p50_ms":900,"limits":{"rpd":1000},"model":"cohere/north-mini-code:free","notes":"Spec: private-free only because data_collection=deny is enforced via extra_body on every call. About 1,000 requests/day shared across clients (rpd). Code quality seeded 4 (it is a code model); other classes at the spec's flat 3. 2026-11-04: reasoning disabled via extra_body - direct probes showed this endpoint's hidden reasoning expands to consume ANY budget (512-8192) on most code prompts, returning finish=length with zero content; OpenRouter ignores reasoning.max_tokens and effort caps for it but honours reasoning.enabled=false, after which it answers directly.","output_usd_per_million":0.0,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"openrouter","quality":{"chat":3,"code":4,"infra":3,"long-context":3,"reasoning":3},"reasoning":true,"verified_until":null},{"cached_input_usd_per_million":0.0,"context_tokens":524288,"extra_body":{"provider":{"data_collection":"deny"},"reasoning":{"enabled":false}},"id":"openrouter/dots-3-note-preview-free","input_usd_per_million":0.0,"lane":"private-free","latency_p50_ms":1100,"limits":{"rpd":1000},"model":"dots-studio/dots-3-note-preview:free","notes":"Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) — as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model — verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md.","output_usd_per_million":0.0,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"openrouter","quality":{"chat":3,"code":3,"infra":3,"long-context":4,"reasoning":3},"verified_until":null},{"cached_input_usd_per_million":0.018,"context_tokens":262144,"id":"deepinfra/deepseek-v4-flash","input_usd_per_million":0.09,"lane":"paid","latency_p50_ms":800,"model":"deepseek-ai/DeepSeek-V4-Flash","notes":"Spec: $0.09/$0.18 per 1M, 262k configured context, quality '4 to 5' — seeded 5 for infra/code (its proven v0.3.3 canary work) and 4 elsewhere. Cached input billed at 20% ($0.018/1M). Spend alert $10/month, no cap.","output_usd_per_million":0.18,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"deepinfra","quality":{"chat":4,"code":5,"infra":5,"long-context":4,"reasoning":4},"spend_alert_usd":10.0,"verified_until":null},{"cached_input_usd_per_million":null,"context_tokens":131072,"id":"ollama/gpt-oss-120b","input_usd_per_million":0.15,"lane":"paid","latency_p50_ms":1500,"limits":{"tpd":10000000},"model":"gpt-oss:120b","notes":"Spec: $0.15/$0.60 per 1M, quality 4, spend alert $5/month (no cap). Daily token limit matches the Ollama Cloud plan behaviour observed 2026-10-31 (400k/day exhausted by 17 Hermes turns); rpd/rpm to be set from the plan page at deploy time. 2026-11-09 CORRECTION: the 400k/day figure was a router-side conservative seed, NOT an Ollama limit — the owner's Ollama console shows 50 requests / $0.07 total for Nov 1-9 with gpt-oss:120b under free usage. The seed caused the 05:11 self-throttle during the 2026-11-09 DeepInfra outage. Raised to 10M/day (effectively unseeded); a real Ollama ceiling will now surface as upstream errors + lane_dead alerts instead of a silent self-skip.","output_usd_per_million":0.6,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"ollama","quality":{"chat":4,"code":4,"infra":4,"long-context":4,"reasoning":4},"reasoning":true,"spend_alert_usd":5.0,"verified_until":null},{"cached_input_usd_per_million":0.13,"context_tokens":1049000,"id":"siliconflow/glm-5.3","input_usd_per_million":0.7,"lane":"paid","latency_p50_ms":1500,"limits":{"rpm":1000,"tpm":40000},"model":"zai-org/GLM-5.3","notes":"SiliconFlow (international, api.siliconflow.com) serving Z.ai's GLM-5.3 — the like-for-like probe's one clear price win (2026-11-07): exactly half of Z.ai direct on every component ($0.70 in / $0.13 cached / $2.20 out vs $1.40 / $0.26 / $4.40). Quality mirrored from zai/glm-5.3 (same model). NON-SENSITIVE ONLY: spillway_sensitive_excluded — SF's data posture graded UNCLEAR (training not contractually prohibited, retention unspecified, no ZDR/DPA), so the gateway never selects this entry for sensitive turns in any pass. Limits are SF's L0 (new-account) ceilings: 1,000 RPM / 40,000 TPM per account and model — a ~45k-token turn exceeds the TPM window and skips to DeepInfra by design; raise the limits as the account tier rises with spend. Prices read from OpenRouter's live SF endpoints and corroborated by two aggregators (SF's own pricing page is JS-rendered); confirm firsthand once the account key lands — checklist in the deploy record. Key file keys/siliconflow.key via the capture page; deployed keyless 2026-11-07 (skipped as provider_key_missing until the key lands).","output_usd_per_million":2.2,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"siliconflow","quality":{"chat":4,"code":5,"infra":4,"long-context":4,"reasoning":5},"reasoning":true,"spend_alert_usd":10.0,"spillway_sensitive_excluded":true,"verified_until":null},{"cached_input_usd_per_million":null,"completion_tokens_param":true,"context_tokens":262144,"id":"premium/gpt-5.5","input_usd_per_million":5.0,"lane":"premium","latency_p50_ms":2000,"model":"gpt-5.5","notes":"Premium lane placeholder carried from v0.2.1 production (gpt-5.5 was 82 of the 104 premium requests in the live audit; claude-sonnet-4-6 took the rest and can be added as a second premium entry before Phase 3). PRICING IS A PLACEHOLDER — confirm against the provider price list before Phase 3; the premium monthly alert ($20 proposed) lives on the OpenClaw client policy. Only level 5 or explicit premium, only for clients with premium permission.","output_usd_per_million":30.0,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"openai","quality":{"chat":5,"code":5,"infra":5,"long-context":5,"reasoning":5},"reasoning":true,"spend_alert_usd":20.0,"supports_vision":true,"verified_until":null},{"base_url":"https://api.deepseek.com","cached_input_usd_per_million":0.044,"completion_tokens_param":false,"context_tokens":1000000,"id":"deepseek/deepseek-v4-pro","input_usd_per_million":1.32,"lane":"premium","latency_p50_ms":1200,"limits":{},"model":"deepseek-v4-pro","notes":"Direct DeepSeek (bypasses DeepInfra). Accounting at PEAK rates ($1.32 in / $0.044 cached / $3.96 out); off-peak (most of the MT day) is exactly half ($0.66 / $0.022 / $1.98). Peak windows 01:00-04:00 and 06:00-10:00 UTC weekdays. Quality: reasoning 5 (HLE #8, 60.0%); code/infra 5 (V4 family already carries 5/5 in this registry via DeepInfra canary work); chat/long-context 4 (strong but not the fleet's proven classes). Key file keys/deepseek.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway — as a premium entry this model is reachable in the spillway pass in normal cost order.","output_usd_per_million":3.96,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"deepseek","quality":{"chat":4,"code":5,"infra":5,"long-context":4,"reasoning":5},"reasoning":true,"verified_until":null},{"base_url":"https://api.z.ai/api/paas/v4","cached_input_usd_per_million":0.26,"completion_tokens_param":false,"context_tokens":1000000,"id":"zai/glm-5.3","input_usd_per_million":1.4,"lane":"premium","latency_p50_ms":1500,"limits":{},"model":"glm-5.3","notes":"Direct Z.ai pay-as-you-go (NOT the GLM Coding Plan, which is tool-restricted). Base path is /api/paas/v4 — /v1 returns 404 on this platform. Quality: reasoning 5 (HLE #6, 62.5%, best of the three newcomers); code 5 (GLM flagship coding line); chat/infra/long-context 4 (1M context, capable, but unproven in this fleet — raise from probe data). Latency seeded high: infra is primarily in China. Key file keys/zai.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway — as a premium entry this model is reachable in the spillway pass in normal cost order.","output_usd_per_million":4.4,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"zai","quality":{"chat":4,"code":5,"infra":4,"long-context":4,"reasoning":5},"reasoning":true,"verified_until":null},{"cached_input_usd_per_million":0.135,"context_tokens":1049000,"enabled":false,"id":"siliconflow/deepseek-v4-pro","input_usd_per_million":1.0,"lane":"premium","latency_p50_ms":1200,"limits":{"rpm":1000,"tpm":40000},"model":"deepseek-ai/DeepSeek-V4-Pro","notes":"SiliconFlow serving DeepSeek V4 Pro — a second host for the premium step (probe 2026-11-07: output $1.50 beats DeepSeek direct off-peak $1.98; cache $0.135 is ~6x DeepSeek direct's off-peak $0.022, so it would win output-heavy turns only). DEPLOYED DISABLED (the Muse Spark pattern): enable only after the with-key checklist settles its price firsthand — SF's own model page suggests $1.50/$3.135 for this model ID vs the probe's $1.00/$1.50 OpenRouter read. NON-SENSITIVE ONLY: spillway_sensitive_excluded, same posture basis as siliconflow/glm-5.3. Limits are SF's L0 ceilings (1,000 RPM / 40,000 TPM). Quality mirrored from deepseek/deepseek-v4-pro (same model).","output_usd_per_million":1.5,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"siliconflow","quality":{"chat":4,"code":5,"infra":5,"long-context":4,"reasoning":5},"reasoning":true,"spillway_sensitive_excluded":true,"verified_until":null},{"base_url":"https://api.meta.ai/v1","cached_input_usd_per_million":0.15,"completion_tokens_param":false,"context_tokens":262144,"enabled":false,"id":"meta/muse-spark-1.1","input_usd_per_million":1.25,"lane":"premium","latency_p50_ms":1000,"limits":{},"model":"muse-spark-1.1","notes":"Meta Model API, STANDARD tier only (contributor tier lets Meta train on traffic; 1.1 has no contributor variant). Quality: reasoning 5 (HLE #7, 62.1%); chat 5 (Meta's flagship assistant model); code/infra/long-context 4. context_tokens 262144 is a SEED — UNVERIFIED, confirm against Meta's docs in the probe battery before enabling. Documented team limits 3,000 RPM / 4M TPM (not enforced in limits until deploy decision). DEPLOYED DISABLED 2026-11-05: the account key verifies (GET /v1/models 200) but chat returns 402 billing_not_configured until Jordan resolves the Meta team billing issue at dev.meta.ai — enable only after billing clears AND the probe battery passes. Key file keys/meta.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway — as a premium entry this model is reachable in the spillway pass in normal cost order.","output_usd_per_million":4.25,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"meta","quality":{"chat":5,"code":4,"infra":4,"long-context":4,"reasoning":5},"reasoning":true,"verified_until":null},{"base_url":"https://router.huggingface.co/v1","cached_input_usd_per_million":null,"context_tokens":131072,"enabled":false,"id":"huggingface/gpt-oss-120b-cerebras","input_usd_per_million":0.35,"lane":"paid","latency_p50_ms":300,"limits":{},"model":"openai/gpt-oss-120b:cerebras","notes":"Hugging Face Inference Providers route to Cerebras for gpt-oss-120b (provider pinned via the :cerebras suffix, per HF docs). Price from HF's own inference models catalog (read 2026-11-09): $0.35 in / $0.75 out per 1M — a speed premium over Groq direct ($0.15/$0.60); the catalog marks Cerebras fastest for this model (~1,074 tok/s vs Groq ~421). Quality mirrored from groq/gpt-oss-120b (same model). NON-SENSITIVE ONLY (spillway_sensitive_excluded): HF routes to third-party backends whose data posture varies by provider. Deployed DISABLED 2026-11-09 as a probe (owner approval 2026-11-09): enable only after the HF token lands as keys/huggingface.key and the benchmark battery passes. HF billing is pass-through (no markup) via the owner's HF account — a billing pool SEPARATE from the direct provider accounts. PROBE RESULT 2026-11-09 (CORRECTED same day — the first read was wrong): the route WORKS. Small turn 200 (0.16s at provider), tool-call turn 200 with well-formed arguments, 36,477-token turn 200. The morning's 403s were the probe client's fault: HF forwards the caller's User-Agent to the provider, and Cerebras/Groq Cloudflare bans the Python-urllib default UA (error 1010 HTML page naming the provider domain). SDK and httpx UAs pass — the gateway speaks httpx, so it was never affected. Cerebras prices do not appear in HF's usage estimated_cost (provider-dependent) — settle the real rate from HF billing after first serves. ENABLED 2026-11-09 on the owner's order, after fresh verification calls to both HF models passed. DISABLED 2026-11-11: this route served the default Hermes bot's agent session and leaked deliberation into user-visible replies, drifted tool argument shapes mid-batch, and confabulated an error report ('HTTP 500 Error in workflow' for what was a schema validation rejection). Probes the same day: its hidden reasoning burns ~2.2k tokens per turn and neither reasoning_effort=low nor reasoning.enabled=false is honoured on this route (finish=length, reasoning_len ~2,268). Same model remains available via groq/gpt-oss-120b, where reasoning.enabled=false IS honoured. Record: Hermes-agent KNOWN-ISSUES E-10.","output_usd_per_million":0.75,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"huggingface","quality":{"chat":4,"code":4,"infra":4,"long-context":3,"reasoning":4},"reasoning":true,"spend_alert_usd":5.0,"spillway_sensitive_excluded":true,"verified_until":null},{"base_url":"https://router.huggingface.co/v1","cached_input_usd_per_million":0.018,"context_tokens":262144,"enabled":true,"id":"huggingface/deepseek-v4-flash","input_usd_per_million":0.09,"lane":"paid","latency_p50_ms":900,"limits":{},"model":"deepseek-ai/DeepSeek-V4-Flash:deepinfra","notes":"Hugging Face Inference Providers route to DeepSeek V4 Flash — a separately-billed second route to the spillway workhorse (the 2026-11-09 outage: direct DeepInfra credits died at 04:48; this route bills the HF account instead). Backend PINNED to :deepinfra at enable time (2026-11-09): the probes showed auto-routing lands on DeepInfra anyway, and the pin keeps the billed rate deterministic at the seeded parity prices — same iron as the direct account, different billing pool, which is the point of this route. Prices seeded at DeepInfra direct parity (pass-through, unverified). Quality mirrored from deepinfra/deepseek-v4-flash. NON-SENSITIVE ONLY (spillway_sensitive_excluded): HF routes to third-party backends whose data posture varies by provider. Deployed DISABLED 2026-11-09 as a probe (owner approval 2026-11-09): enable only after the HF token lands as keys/huggingface.key and the benchmark battery passes. HF billing is pass-through (no markup) via the owner's HF account — a billing pool SEPARATE from the direct provider accounts. PROBE RESULT 2026-11-09: verified serving through the HF connector (HTTP 200, exact reply, usage estimated_cost $2.52e-06 on a 21-token call — pass-through at DeepInfra parity). ENABLED 2026-11-09 on the owner's order, after fresh verification calls to both HF models passed. Tool-call and big-payload behaviour via HF is proven on the Cerebras entry (same router path); this entry itself was small-turn verified.","output_usd_per_million":0.18,"probe":{"cadence":"weekly","kind":"chat","max_tokens":4,"prompt":"ping"},"provider":"huggingface","quality":{"chat":4,"code":5,"infra":5,"long-context":4,"reasoning":4},"spend_alert_usd":5.0,"spillway_sensitive_excluded":true,"verified_until":null}],"version":2}
+{
+ "comment": "Sovereign Router v0.5 starting model set, exactly per spec v0.5.3 'Starting model set' table. No API keys here \u2014 provider keys live as mode-600 files in the state dir (keys/<provider>.key). spend_alert_usd is an alert level, never a cap. v0.5.5 (2026-11-07): rescue_eligible removed from premium/gpt-5.5 \u2014 the free-first / paid-spillway waterfall in the gateway supersedes the v0.5.3 rescue pin (owner ruling 2026-11-07). v0.5.6 (2026-11-07): SiliconFlow added \u2014 siliconflow/glm-5.3 ENABLED in the paid lane at half of Z.ai direct (NON-SENSITIVE ONLY, spillway_sensitive_excluded) and siliconflow/deepseek-v4-pro present but DISABLED; gateway v0.5.6 enforces the per-model sensitive exclusion in every pass. v0.5.7 (2026-11-09): Groq moved to Developer-plan limits/prices (owner top-up; docs-verified); Ollama TPD seed corrected 400k -> 10M (the seed, not Ollama, caused the 2026-11-09 05:11 self-throttle); two Hugging Face probe entries added DISABLED + non-sensitive-only (owner approval 2026-11-09).",
+ "models": [
+  {
+   "cached_input_usd_per_million": 0.0,
+   "context_tokens": 131072,
+   "id": "groq/gpt-oss-20b",
+   "input_usd_per_million": 0.075,
+   "lane": "private-free",
+   "latency_p50_ms": 300,
+   "limits": {
+    "rpm": 1000,
+    "tpm": 250000
+   },
+   "model": "openai/gpt-oss-20b",
+   "notes": "Spec: quality 2, small prompts only \u2014 Groq free tier is 8k tokens/min per model, so the tpm limit makes the router skip it for large (e.g. Hermes) prompts instead of waiting. 2026-11-09: owner moved Groq to the Developer (paid) plan \u2014 limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real.",
+   "output_usd_per_million": 0.3,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "groq",
+   "quality": {
+    "chat": 2,
+    "code": 2,
+    "infra": 2,
+    "long-context": 2,
+    "reasoning": 2
+   },
+   "reasoning": true,
+   "verified_until": null
+  },
+  {
+   "cached_input_usd_per_million": 0.0,
+   "context_tokens": 131072,
+   "id": "groq/gpt-oss-120b",
+   "input_usd_per_million": 0.15,
+   "lane": "private-free",
+   "latency_p50_ms": 450,
+   "limits": {
+    "rpm": 1000,
+    "tpm": 250000
+   },
+   "model": "openai/gpt-oss-120b",
+   "notes": "Spec: quality 4, small prompts only (8k tokens/min Groq free limit). 2026-11-09: owner moved Groq to the Developer (paid) plan \u2014 limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real.",
+   "output_usd_per_million": 0.6,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "groq",
+   "quality": {
+    "chat": 4,
+    "code": 4,
+    "infra": 4,
+    "long-context": 3,
+    "reasoning": 4
+   },
+   "reasoning": true,
+   "verified_until": null
+  },
+  {
+   "cached_input_usd_per_million": 0.0,
+   "context_tokens": 131072,
+   "id": "groq/qwen3.8-27b",
+   "input_usd_per_million": 0.8,
+   "lane": "private-free",
+   "latency_p50_ms": 400,
+   "limits": {
+    "rpm": 1000,
+    "tpm": 250000
+   },
+   "model": "qwen/qwen3.8-27b",
+   "notes": "Spec registry name qwen3.8-27b (v0.3 registry.json spelling); quality 3, small prompts only. 2026-11-09: Qwen3.8-27B is a Preview model on Groq; Developer-plan price $0.80/$4.00 per 1M and 250K TPM / 1K RPM from Groq's docs models page (checked 2026-11-09). 2026-11-09: owner moved Groq to the Developer (paid) plan \u2014 limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real.",
+   "output_usd_per_million": 4.0,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "groq",
+   "quality": {
+    "chat": 3,
+    "code": 3,
+    "infra": 3,
+    "long-context": 3,
+    "reasoning": 3
+   },
+   "verified_until": null
+  },
+  {
+   "cached_input_usd_per_million": 0.0,
+   "context_tokens": 262144,
+   "extra_body": {
+    "provider": {
+     "data_collection": "deny"
+    },
+    "reasoning": {
+     "enabled": false
+    }
+   },
+   "id": "openrouter/north-mini-code-free",
+   "input_usd_per_million": 0.0,
+   "lane": "private-free",
+   "latency_p50_ms": 900,
+   "limits": {
+    "rpd": 1000
+   },
+   "model": "cohere/north-mini-code:free",
+   "notes": "Spec: private-free only because data_collection=deny is enforced via extra_body on every call. About 1,000 requests/day shared across clients (rpd). Code quality seeded 4 (it is a code model); other classes at the spec's flat 3. 2026-11-04: reasoning disabled via extra_body - direct probes showed this endpoint's hidden reasoning expands to consume ANY budget (512-8192) on most code prompts, returning finish=length with zero content; OpenRouter ignores reasoning.max_tokens and effort caps for it but honours reasoning.enabled=false, after which it answers directly.",
+   "output_usd_per_million": 0.0,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "openrouter",
+   "quality": {
+    "chat": 3,
+    "code": 4,
+    "infra": 3,
+    "long-context": 3,
+    "reasoning": 3
+   },
+   "reasoning": true,
+   "verified_until": null
+  },
+  {
+   "cached_input_usd_per_million": 0.0,
+   "context_tokens": 524288,
+   "extra_body": {
+    "provider": {
+     "data_collection": "deny"
+    },
+    "reasoning": {
+     "enabled": false
+    }
+   },
+   "id": "openrouter/dots-3-note-preview-free",
+   "input_usd_per_million": 0.0,
+   "lane": "private-free",
+   "latency_p50_ms": 1100,
+   "limits": {
+    "rpd": 1000
+   },
+   "model": "dots-studio/dots-3-note-preview:free",
+   "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md.",
+   "output_usd_per_million": 0.0,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "openrouter",
+   "quality": {
+    "chat": 3,
+    "code": 3,
+    "infra": 3,
+    "long-context": 4,
+    "reasoning": 3
+   },
+   "verified_until": null
+  },
+  {
+   "cached_input_usd_per_million": 0.018,
+   "context_tokens": 262144,
+   "id": "deepinfra/deepseek-v4-flash",
+   "input_usd_per_million": 0.09,
+   "lane": "paid",
+   "latency_p50_ms": 800,
+   "model": "deepseek-ai/DeepSeek-V4-Flash",
+   "notes": "Spec: $0.09/$0.18 per 1M, 262k configured context, quality '4 to 5' \u2014 seeded 5 for infra/code (its proven v0.3.3 canary work) and 4 elsewhere. Cached input billed at 20% ($0.018/1M). Spend alert $10/month, no cap.",
+   "output_usd_per_million": 0.18,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "deepinfra",
+   "quality": {
+    "chat": 4,
+    "code": 5,
+    "infra": 5,
+    "long-context": 4,
+    "reasoning": 4
+   },
+   "spend_alert_usd": 10.0,
+   "verified_until": null
+  },
+  {
+   "cached_input_usd_per_million": null,
+   "context_tokens": 131072,
+   "id": "ollama/gpt-oss-120b",
+   "input_usd_per_million": 0.15,
+   "lane": "paid",
+   "latency_p50_ms": 1500,
+   "limits": {
+    "tpd": 10000000
+   },
+   "model": "gpt-oss:120b",
+   "notes": "Spec: $0.15/$0.60 per 1M, quality 4, spend alert $5/month (no cap). Daily token limit matches the Ollama Cloud plan behaviour observed 2026-10-31 (400k/day exhausted by 17 Hermes turns); rpd/rpm to be set from the plan page at deploy time. 2026-11-09 CORRECTION: the 400k/day figure was a router-side conservative seed, NOT an Ollama limit \u2014 the owner's Ollama console shows 50 requests / $0.07 total for Nov 1-9 with gpt-oss:120b under free usage. The seed caused the 05:11 self-throttle during the 2026-11-09 DeepInfra outage. Raised to 10M/day (effectively unseeded); a real Ollama ceiling will now surface as upstream errors + lane_dead alerts instead of a silent self-skip.",
+   "output_usd_per_million": 0.6,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "ollama",
+   "quality": {
+    "chat": 4,
+    "code": 4,
+    "infra": 4,
+    "long-context": 4,
+    "reasoning": 4
+   },
+   "reasoning": true,
+   "spend_alert_usd": 5.0,
+   "verified_until": null
+  },
+  {
+   "cached_input_usd_per_million": 0.13,
+   "context_tokens": 1049000,
+   "id": "siliconflow/glm-5.3",
+   "input_usd_per_million": 0.7,
+   "lane": "paid",
+   "latency_p50_ms": 1500,
+   "limits": {
+    "rpm": 1000,
+    "tpm": 40000
+   },
+   "model": "zai-org/GLM-5.3",
+   "notes": "SiliconFlow (international, api.siliconflow.com) serving Z.ai's GLM-5.3 \u2014 the like-for-like probe's one clear price win (2026-11-07): exactly half of Z.ai direct on every component ($0.70 in / $0.13 cached / $2.20 out vs $1.40 / $0.26 / $4.40). Quality mirrored from zai/glm-5.3 (same model). NON-SENSITIVE ONLY: spillway_sensitive_excluded \u2014 SF's data posture graded UNCLEAR (training not contractually prohibited, retention unspecified, no ZDR/DPA), so the gateway never selects this entry for sensitive turns in any pass. Limits are SF's L0 (new-account) ceilings: 1,000 RPM / 40,000 TPM per account and model \u2014 a ~45k-token turn exceeds the TPM window and skips to DeepInfra by design; raise the limits as the account tier rises with spend. Prices read from OpenRouter's live SF endpoints and corroborated by two aggregators (SF's own pricing page is JS-rendered); confirm firsthand once the account key lands \u2014 checklist in the deploy record. Key file keys/siliconflow.key via the capture page; deployed keyless 2026-11-07 (skipped as provider_key_missing until the key lands).",
+   "output_usd_per_million": 2.2,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "siliconflow",
+   "quality": {
+    "chat": 4,
+    "code": 5,
+    "infra": 4,
+    "long-context": 4,
+    "reasoning": 5
+   },
+   "reasoning": true,
+   "spend_alert_usd": 10.0,
+   "spillway_sensitive_excluded": true,
+   "verified_until": null
+  },
+  {
+   "cached_input_usd_per_million": null,
+   "completion_tokens_param": true,
+   "context_tokens": 262144,
+   "id": "premium/gpt-5.5",
+   "input_usd_per_million": 5.0,
+   "lane": "premium",
+   "latency_p50_ms": 2000,
+   "model": "gpt-5.5",
+   "notes": "Premium lane placeholder carried from v0.2.1 production (gpt-5.5 was 82 of the 104 premium requests in the live audit; claude-sonnet-4-6 took the rest and can be added as a second premium entry before Phase 3). PRICING IS A PLACEHOLDER \u2014 confirm against the provider price list before Phase 3; the premium monthly alert ($20 proposed) lives on the OpenClaw client policy. Only level 5 or explicit premium, only for clients with premium permission.",
+   "output_usd_per_million": 30.0,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "openai",
+   "quality": {
+    "chat": 5,
+    "code": 5,
+    "infra": 5,
+    "long-context": 5,
+    "reasoning": 5
+   },
+   "reasoning": true,
+   "spend_alert_usd": 20.0,
+   "supports_vision": true,
+   "verified_until": null
+  },
+  {
+   "base_url": "https://api.deepseek.com",
+   "cached_input_usd_per_million": 0.044,
+   "completion_tokens_param": false,
+   "context_tokens": 1000000,
+   "id": "deepseek/deepseek-v4-pro",
+   "input_usd_per_million": 1.32,
+   "lane": "premium",
+   "latency_p50_ms": 1200,
+   "limits": {},
+   "model": "deepseek-v4-pro",
+   "notes": "Direct DeepSeek (bypasses DeepInfra). Accounting at PEAK rates ($1.32 in / $0.044 cached / $3.96 out); off-peak (most of the MT day) is exactly half ($0.66 / $0.022 / $1.98). Peak windows 01:00-04:00 and 06:00-10:00 UTC weekdays. Quality: reasoning 5 (HLE #8, 60.0%); code/infra 5 (V4 family already carries 5/5 in this registry via DeepInfra canary work); chat/long-context 4 (strong but not the fleet's proven classes). Key file keys/deepseek.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway \u2014 as a premium entry this model is reachable in the spillway pass in normal cost order.",
+   "output_usd_per_million": 3.96,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "deepseek",
+   "quality": {
+    "chat": 4,
+    "code": 5,
+    "infra": 5,
+    "long-context": 4,
+    "reasoning": 5
+   },
+   "reasoning": true,
+   "verified_until": null
+  },
+  {
+   "base_url": "https://api.z.ai/api/paas/v4",
+   "cached_input_usd_per_million": 0.26,
+   "completion_tokens_param": false,
+   "context_tokens": 1000000,
+   "id": "zai/glm-5.3",
+   "input_usd_per_million": 1.4,
+   "lane": "premium",
+   "latency_p50_ms": 1500,
+   "limits": {},
+   "model": "glm-5.3",
+   "notes": "Direct Z.ai pay-as-you-go (NOT the GLM Coding Plan, which is tool-restricted). Base path is /api/paas/v4 \u2014 /v1 returns 404 on this platform. Quality: reasoning 5 (HLE #6, 62.5%, best of the three newcomers); code 5 (GLM flagship coding line); chat/infra/long-context 4 (1M context, capable, but unproven in this fleet \u2014 raise from probe data). Latency seeded high: infra is primarily in China. Key file keys/zai.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway \u2014 as a premium entry this model is reachable in the spillway pass in normal cost order.",
+   "output_usd_per_million": 4.4,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "zai",
+   "quality": {
+    "chat": 4,
+    "code": 5,
+    "infra": 4,
+    "long-context": 4,
+    "reasoning": 5
+   },
+   "reasoning": true,
+   "verified_until": null
+  },
+  {
+   "cached_input_usd_per_million": 0.135,
+   "context_tokens": 1049000,
+   "enabled": false,
+   "id": "siliconflow/deepseek-v4-pro",
+   "input_usd_per_million": 1.0,
+   "lane": "premium",
+   "latency_p50_ms": 1200,
+   "limits": {
+    "rpm": 1000,
+    "tpm": 40000
+   },
+   "model": "deepseek-ai/DeepSeek-V4-Pro",
+   "notes": "SiliconFlow serving DeepSeek V4 Pro \u2014 a second host for the premium step (probe 2026-11-07: output $1.50 beats DeepSeek direct off-peak $1.98; cache $0.135 is ~6x DeepSeek direct's off-peak $0.022, so it would win output-heavy turns only). DEPLOYED DISABLED (the Muse Spark pattern): enable only after the with-key checklist settles its price firsthand \u2014 SF's own model page suggests $1.50/$3.135 for this model ID vs the probe's $1.00/$1.50 OpenRouter read. NON-SENSITIVE ONLY: spillway_sensitive_excluded, same posture basis as siliconflow/glm-5.3. Limits are SF's L0 ceilings (1,000 RPM / 40,000 TPM). Quality mirrored from deepseek/deepseek-v4-pro (same model).",
+   "output_usd_per_million": 1.5,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "siliconflow",
+   "quality": {
+    "chat": 4,
+    "code": 5,
+    "infra": 5,
+    "long-context": 4,
+    "reasoning": 5
+   },
+   "reasoning": true,
+   "spillway_sensitive_excluded": true,
+   "verified_until": null
+  },
+  {
+   "base_url": "https://api.meta.ai/v1",
+   "cached_input_usd_per_million": 0.15,
+   "completion_tokens_param": false,
+   "context_tokens": 262144,
+   "enabled": false,
+   "id": "meta/muse-spark-1.1",
+   "input_usd_per_million": 1.25,
+   "lane": "premium",
+   "latency_p50_ms": 1000,
+   "limits": {},
+   "model": "muse-spark-1.1",
+   "notes": "Meta Model API, STANDARD tier only (contributor tier lets Meta train on traffic; 1.1 has no contributor variant). Quality: reasoning 5 (HLE #7, 62.1%); chat 5 (Meta's flagship assistant model); code/infra/long-context 4. context_tokens 262144 is a SEED \u2014 UNVERIFIED, confirm against Meta's docs in the probe battery before enabling. Documented team limits 3,000 RPM / 4M TPM (not enforced in limits until deploy decision). DEPLOYED DISABLED 2026-11-05: the account key verifies (GET /v1/models 200) but chat returns 402 billing_not_configured until Jordan resolves the Meta team billing issue at dev.meta.ai \u2014 enable only after billing clears AND the probe battery passes. Key file keys/meta.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway \u2014 as a premium entry this model is reachable in the spillway pass in normal cost order.",
+   "output_usd_per_million": 4.25,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "meta",
+   "quality": {
+    "chat": 5,
+    "code": 4,
+    "infra": 4,
+    "long-context": 4,
+    "reasoning": 5
+   },
+   "reasoning": true,
+   "verified_until": null
+  },
+  {
+   "base_url": "https://router.huggingface.co/v1",
+   "cached_input_usd_per_million": null,
+   "context_tokens": 131072,
+   "enabled": false,
+   "id": "huggingface/gpt-oss-120b-cerebras",
+   "input_usd_per_million": 0.35,
+   "lane": "paid",
+   "latency_p50_ms": 300,
+   "limits": {},
+   "model": "openai/gpt-oss-120b:cerebras",
+   "notes": "Hugging Face Inference Providers route to Cerebras for gpt-oss-120b (provider pinned via the :cerebras suffix, per HF docs). Price from HF's own inference models catalog (read 2026-11-09): $0.35 in / $0.75 out per 1M \u2014 a speed premium over Groq direct ($0.15/$0.60); the catalog marks Cerebras fastest for this model (~1,074 tok/s vs Groq ~421). Quality mirrored from groq/gpt-oss-120b (same model). NON-SENSITIVE ONLY (spillway_sensitive_excluded): HF routes to third-party backends whose data posture varies by provider. Deployed DISABLED 2026-11-09 as a probe (owner approval 2026-11-09): enable only after the HF token lands as keys/huggingface.key and the benchmark battery passes. HF billing is pass-through (no markup) via the owner's HF account \u2014 a billing pool SEPARATE from the direct provider accounts. PROBE RESULT 2026-11-09 (CORRECTED same day \u2014 the first read was wrong): the route WORKS. Small turn 200 (0.16s at provider), tool-call turn 200 with well-formed arguments, 36,477-token turn 200. The morning's 403s were the probe client's fault: HF forwards the caller's User-Agent to the provider, and Cerebras/Groq Cloudflare bans the Python-urllib default UA (error 1010 HTML page naming the provider domain). SDK and httpx UAs pass \u2014 the gateway speaks httpx, so it was never affected. Cerebras prices do not appear in HF's usage estimated_cost (provider-dependent) \u2014 settle the real rate from HF billing after first serves. ENABLED 2026-11-09 on the owner's order, after fresh verification calls to both HF models passed. DISABLED 2026-11-11: this route served the default Hermes bot's agent session and leaked deliberation into user-visible replies, drifted tool argument shapes mid-batch, and confabulated an error report ('HTTP 500 Error in workflow' for what was a schema validation rejection). Probes the same day: its hidden reasoning burns ~2.2k tokens per turn and neither reasoning_effort=low nor reasoning.enabled=false is honoured on this route (finish=length, reasoning_len ~2,268). Same model remains available via groq/gpt-oss-120b, where reasoning.enabled=false IS honoured. Incident: SovereignRouter docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md addendum + Hermes-agent E-10.",
+   "output_usd_per_million": 0.75,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "huggingface",
+   "quality": {
+    "chat": 4,
+    "code": 4,
+    "infra": 4,
+    "long-context": 3,
+    "reasoning": 4
+   },
+   "reasoning": true,
+   "spend_alert_usd": 5.0,
+   "spillway_sensitive_excluded": true,
+   "verified_until": null
+  },
+  {
+   "base_url": "https://router.huggingface.co/v1",
+   "cached_input_usd_per_million": 0.018,
+   "context_tokens": 262144,
+   "enabled": true,
+   "id": "huggingface/deepseek-v4-flash",
+   "input_usd_per_million": 0.09,
+   "lane": "paid",
+   "latency_p50_ms": 900,
+   "limits": {},
+   "model": "deepseek-ai/DeepSeek-V4-Flash:deepinfra",
+   "notes": "Hugging Face Inference Providers route to DeepSeek V4 Flash \u2014 a separately-billed second route to the spillway workhorse (the 2026-11-09 outage: direct DeepInfra credits died at 04:48; this route bills the HF account instead). Backend PINNED to :deepinfra at enable time (2026-11-09): the probes showed auto-routing lands on DeepInfra anyway, and the pin keeps the billed rate deterministic at the seeded parity prices \u2014 same iron as the direct account, different billing pool, which is the point of this route. Prices seeded at DeepInfra direct parity (pass-through, unverified). Quality mirrored from deepinfra/deepseek-v4-flash. NON-SENSITIVE ONLY (spillway_sensitive_excluded): HF routes to third-party backends whose data posture varies by provider. Deployed DISABLED 2026-11-09 as a probe (owner approval 2026-11-09): enable only after the HF token lands as keys/huggingface.key and the benchmark battery passes. HF billing is pass-through (no markup) via the owner's HF account \u2014 a billing pool SEPARATE from the direct provider accounts. PROBE RESULT 2026-11-09: verified serving through the HF connector (HTTP 200, exact reply, usage estimated_cost $2.52e-06 on a 21-token call \u2014 pass-through at DeepInfra parity). ENABLED 2026-11-09 on the owner's order, after fresh verification calls to both HF models passed. Tool-call and big-payload behaviour via HF is proven on the Cerebras entry (same router path); this entry itself was small-turn verified.",
+   "output_usd_per_million": 0.18,
+   "probe": {
+    "cadence": "weekly",
+    "kind": "chat",
+    "max_tokens": 4,
+    "prompt": "ping"
+   },
+   "provider": "huggingface",
+   "quality": {
+    "chat": 4,
+    "code": 5,
+    "infra": 5,
+    "long-context": 4,
+    "reasoning": 4
+   },
+   "spend_alert_usd": 5.0,
+   "spillway_sensitive_excluded": true,
+   "verified_until": null
+  }
+ ],
+ "version": 2
+}

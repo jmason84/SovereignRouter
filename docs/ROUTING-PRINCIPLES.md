@@ -1,6 +1,6 @@
 # Sovereign Router — Intent and Routing Principles
 
-**This is the authoritative statement of what the router is for and the rules it routes by, as they stand today (v0.5.7, 2026-11-10).** The v0.5.3 spec (Drive; extract in `docs/spec-v0.5.3-extracted.txt`) is the design record, `deploy/DECISIONS.md` is the decision log, and `docs/incidents/` holds the post-mortems. Where any older document disagrees with this one — the emergency switch is the known case — this document wins, and the ruling that changed it is cited inline.
+**This is the authoritative statement of what the router is for and the rules it routes by, as they stand today (v0.6.0, 2026-11-12).** The v0.5.3 spec (Drive; extract in `docs/spec-v0.5.3-extracted.txt`) is the design record, `deploy/DECISIONS.md` is the decision log, and `docs/incidents/` holds the post-mortems. Where any older document disagrees with this one — the emergency switch is the known case — this document wins, and the ruling that changed it is cited inline.
 
 ## Intent
 

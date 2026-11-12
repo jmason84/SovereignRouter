@@ -70,6 +70,12 @@ throttled alert evaluation; optional failure-triggered step-up
 (SOVEREIGN_FAILURE_STEPUP=1, default off). See
 docs/IMPROVEMENT-PLAN-2026-11-11.md.
 
+v0.5.9 (2026-11-12, operations review): streams that end empty or
+reasoning-only fail over to the next candidate (pre-content hold) and
+drop the sticky binding instead of serving a blank 200 — the 2026-11-11
+dots-3 incident; the scorecard attributes failures to the failing model
+(``attributed_failures``); nginx buffers fleet-sized bodies in memory.
+
 No startup patches: this is the v0.5 source tree (the v0.3.3 canary's
 PATCH_V033 mechanism is gone). Provider keys are read once at startup
 from mode-600 files in the state dir (``keys/<provider>.key``); they are
@@ -105,7 +111,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.5.8"
+VERSION = "0.5.9"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -120,6 +126,10 @@ ALLOWED_FIELDS = {
 SPILLWAY_REASON = "free_exhausted_paid_fallthrough"
 # Payloads at/above this size trigger the capacity_gap early warning.
 CAPACITY_GAP_MIN_TOKENS = int(os.environ.get("SOVEREIGN_CAPACITY_GAP_MIN_TOKENS", "20000"))
+# Streaming: how long / how many chunks of pre-content output (role header,
+# reasoning deltas) are held back so an empty stream can still fail over.
+PRECONTENT_HOLD_MAX_S = float(os.environ.get("SOVEREIGN_PRECONTENT_HOLD_S", "20"))
+PRECONTENT_HOLD_MAX_CHUNKS = 400
 DEFAULT_MAX_TOKENS = 2048          # spec: max_tokens clamp, 2048 default
 MIN_OUTPUT_TOKENS = 64             # reserve used by the context-fit check
 TOKEN_ESTIMATE_FACTOR = 1.05       # carried from v0.3 (o200k_base x1.05)
@@ -1688,6 +1698,19 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                     saw_content = False
                     usage_data: dict[str, Any] = {}
                     retry_candidate = False
+                    # Pre-content hold (v0.5.9): chunks that carry neither
+                    # text nor tool calls (role header, reasoning deltas,
+                    # empty keep-alives) are held, not sent, so a stream
+                    # that ends with NO usable output can still fail over
+                    # to the next candidate. 2026-11-11: dots-3 streams
+                    # opened with a role chunk (which committed the
+                    # response), then ended empty/reasoning-only; the
+                    # client got a blank 200 and its retries re-hit the
+                    # same sticky model. The hold is bounded so a long
+                    # reasoning phase cannot starve the client of bytes.
+                    pending: list[str] = []
+                    hold_started = time.perf_counter()
+                    stream_finish: Optional[str] = None
                     async for line in resp.aiter_lines():
                         if not line.startswith("data:"):
                             continue
@@ -1705,10 +1728,23 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         is_tool = bool(delta.get("tool_calls"))
                         is_text = isinstance(delta.get("content"), str) and delta["content"] != ""
                         sse_line = f"data: {payload_str}\n\n"
+                        if choice.get("finish_reason"):
+                            stream_finish = choice["finish_reason"]
                         if decided is None and is_tool:
                             decided = "tool"
                         elif decided is None and is_text:
                             decided = "text"
+                        if decided is None and not committed:
+                            if (len(pending) < PRECONTENT_HOLD_MAX_CHUNKS
+                                    and time.perf_counter() - hold_started
+                                    < PRECONTENT_HOLD_MAX_S):
+                                pending.append(sse_line)
+                                continue
+                            # Held long enough: commit to this model.
+                            for held in pending:
+                                yield held
+                            pending = []
+                            committed = True
                         if decided == "tool":
                             # Buffer tool-call chunks to completion; the
                             # client sees nothing until validation passes.
@@ -1719,11 +1755,48 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         if is_text:
                             saw_content = True
                             content_chars += len(delta["content"])
+                        if pending:
+                            for held in pending:
+                                yield held
+                            pending = []
                         committed = True
                         yield sse_line
                     record.latency_upstream_ms += (time.perf_counter() - t_u0) * 1000
 
+                    if decided is None and not committed:
+                        # Stream ended with no text and no tool calls and
+                        # nothing has been sent: an empty / reasoning-only
+                        # answer. Fail over instead of serving a blank 200.
+                        failures = validate_streamed_text_outcome(
+                            saw_content=False, finish_reason=stream_finish,
+                            content_chars=0)
+                        esc_idx = None if escalated else escalation_index(
+                            candidates, idx, entry, task_class)
+                        # Empty answers are a sticky-fitness failure: drop
+                        # the binding so neither this request nor the
+                        # client's retry is pinned to the same model.
+                        if record.sticky:
+                            app.state.sticky.invalidate(conv_key)
+                        if esc_idx is not None:
+                            escalated = True
+                            record.escalation_reasons = failures
+                            record.signals.append(
+                                f"stream_empty_failover:{entry.id}")
+                            skipped.append({
+                                "model": entry.id,
+                                "reason": "validation_failed:" + ",".join(failures)})
+                            idx = esc_idx
+                            continue
+                        record.signals.append(
+                            "validation_failed_no_escalation:" + ",".join(failures))
+                        for held in pending:
+                            yield held
+                        pending = []
+                        committed = True
                     if decided == "tool":
+                        for held in pending:
+                            yield held
+                        pending = []
                         assembled = assembler.assembled_response()
                         failures = validate_response(
                             assembled, tools=tools or None, json_mode=False)

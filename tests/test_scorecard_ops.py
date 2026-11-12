@@ -150,3 +150,25 @@ def test_outcome_tracker_purges_by_time():
     t.check_and_record("a", now=1000.0)
     t.check_and_record("b", now=1100.0)       # > 60 s later: "a" is purged
     assert "a" not in t._seen
+
+
+def test_attributed_failures_name_the_failing_model():
+    from scorecard import attribute_failures
+    rows = [
+        row(model="good", skipped=[
+            {"model": "bad", "reason": "validation_failed:empty_response"},
+            {"model": "flaky", "reason": "upstream_429"},
+            {"model": "x", "reason": "rate_limited_tpm"}]),   # a skip, not a failure
+        row(model="good", skipped=[
+            {"model": "bad", "reason": "validation_failed:length_no_content"}]),
+        {"model": None, "status": 429, "skipped": [
+            {"model": "flaky", "reason": "upstream_unreachable"}]},
+    ]
+    got = attribute_failures(rows)
+    assert got["bad"] == {"validation_failed": 2, "upstream_error": 0}
+    assert got["flaky"] == {"validation_failed": 0, "upstream_error": 2}
+    assert "x" not in got
+    card = build_scorecard(rows)
+    assert list(card["attributed_failures"])[0] in ("bad", "flaky")
+    assert "bad" not in card["models"]            # the blind spot this fixes
+    assert "Failures attributed" in render_markdown(card)

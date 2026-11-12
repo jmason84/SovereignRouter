@@ -54,10 +54,13 @@ def test_starting_registry_matches_spec_table():
     assert (qw.input_usd_per_million, qw.output_usd_per_million) == (0.80, 4.00)
     # Hugging Face entries (2026-11-09): probe-proven and ENABLED on
     # the owner's order; still flagged non-sensitive-only, paid lane.
-    for hf_id in ("huggingface/gpt-oss-120b-cerebras",
-                  "huggingface/deepseek-v4-flash"):
+    # 2026-11-11: the Cerebras gpt-oss-120b route was DISABLED after it
+    # leaked deliberation / drifted tool args on Hermes sessions
+    # (Hermes-agent E-10); it stays in the file, flagged, for re-test.
+    for hf_id, expected_enabled in (("huggingface/gpt-oss-120b-cerebras", False),
+                                    ("huggingface/deepseek-v4-flash", True)):
         hf = by_id[hf_id]
-        assert hf.enabled is True and hf.spillway_sensitive_excluded is True
+        assert hf.enabled is expected_enabled and hf.spillway_sensitive_excluded is True
         assert hf.effective_base_url == "https://router.huggingface.co/v1"
         assert hf.lane == "paid"
     assert by_id["huggingface/gpt-oss-120b-cerebras"].model == \

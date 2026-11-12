@@ -487,7 +487,7 @@ def test_registry_and_version_shape_v056():
     sys.path.insert(0, str(SRC))
     import gateway
     from registry import load_registry
-    assert gateway.VERSION == "0.5.8"  # v0.5.8: improvement plan (v0.5.7 warn-only kept)
+    assert gateway.VERSION == "0.5.9"  # v0.5.9: stream empty-failover (v0.5.7 warn-only kept)
     entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
     assert len(entries) == 15  # +2 HF probe entries, 2026-11-09
     # the rescue pin is gone from code and data alike

@@ -75,9 +75,37 @@ def _bucket(rows: list[dict[str, Any]], total_rows: int) -> dict[str, Any]:
     }
 
 
+def attribute_failures(rows: Iterable[dict[str, Any]]) -> dict[str, dict[str, int]]:
+    """Failures attributed to the model that *caused* them.
+
+    A model that fails and is failed-over-from never becomes a row's
+    ``model`` (the next candidate does), so the per-model table cannot see
+    it — exactly how dots-3's empty answers hid on 2026-11-11 until the
+    client complained. The skip list on each route row names the culprit:
+    ``validation_failed:<codes>`` (unusable answer) and ``upstream_*``
+    (error / unreachable). Count them per model here."""
+    out: dict[str, dict[str, int]] = {}
+    for r in rows:
+        for item in r.get("skipped") or []:
+            model, reason = item.get("model"), item.get("reason") or ""
+            if not model or model == "-":
+                continue
+            if reason.startswith("validation_failed:"):
+                kind = "validation_failed"
+            elif reason.startswith("upstream_"):
+                kind = "upstream_error"
+            else:
+                continue
+            slot = out.setdefault(model, {"validation_failed": 0, "upstream_error": 0})
+            slot[kind] += 1
+    return dict(sorted(out.items(), key=lambda kv: -(kv[1]["validation_failed"]
+                                                     + kv[1]["upstream_error"])))
+
+
 def build_scorecard(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """Scorecard + owner-approval proposals from route rows."""
-    rows = [r for r in rows if r.get("model")]
+    all_rows = list(rows)
+    rows = [r for r in all_rows if r.get("model")]
     total = len(rows)
     by_model: dict[str, list[dict[str, Any]]] = {}
     by_cell: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -111,7 +139,8 @@ def build_scorecard(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 "evidence_requests": len(crows), "reasons": why,
                 "requires_owner_approval": True,
             })
-    return {"total_requests": total, "models": models, "proposals": proposals}
+    return {"total_requests": total, "models": models, "proposals": proposals,
+            "attributed_failures": attribute_failures(all_rows)}
 
 
 def render_markdown(card: dict[str, Any], title: str = "Model scorecard") -> str:
@@ -137,4 +166,9 @@ def render_markdown(card: dict[str, Any], title: str = "Model scorecard") -> str
                          f"{'; '.join(p['reasons'])} (n={p['evidence_requests']})")
     else:
         lines.append("No proposals: no model x task class below the floors with enough samples.")
+    if card.get("attributed_failures"):
+        lines += ["", "## Failures attributed to the failing model (it never appears as the serving model)",
+                  "| model | unusable answers | upstream errors |", "|---|--:|--:|"]
+        for model, f in card["attributed_failures"].items():
+            lines.append(f"| {model} | {f['validation_failed']} | {f['upstream_error']} |")
     return "\n".join(lines) + "\n"

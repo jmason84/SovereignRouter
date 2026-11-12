@@ -9,6 +9,8 @@ Markers:
   FAIL::<upstream model>   -> that model returns 429
   PLEASE_EMPTY             -> groq gpt-oss-120b returns an empty answer
   BADTOOL_STREAM           -> free models stream a tool call with bad JSON args
+  EMPTY_STREAM             -> free models stream an empty / reasoning-only answer
+  EMPTY_STREAM_ALL         -> every model does
 """
 
 from __future__ import annotations
@@ -111,6 +113,17 @@ def fake_upstream(request: httpx.Request) -> httpx.Response:
                 _chunk(model, {"tool_calls": [
                     {"index": 0, "function": {"arguments": arg_parts[1]}}]}),
                 _chunk(model, {}, finish="tool_calls"),
+            ]
+            return httpx.Response(200, content=_sse(chunks, usage),
+                                  headers={"content-type": "text/event-stream"})
+        if "EMPTY_STREAM" in text and (
+                "EMPTY_STREAM_ALL" in text or model in FREE_MODELS):
+            # role header + hidden-reasoning delta, then a clean stop with
+            # NO content (the 2026-11-11 dots-3 / north-mini shape).
+            chunks = [
+                _chunk(model, {"role": "assistant", "content": ""}),
+                _chunk(model, {"reasoning": "thinking..."}),
+                _chunk(model, {}, finish="stop"),
             ]
             return httpx.Response(200, content=_sse(chunks, usage),
                                   headers={"content-type": "text/event-stream"})

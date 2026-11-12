@@ -705,6 +705,607 @@
       },
       "reasoning": true,
       "verified_until": null
+    },
+    {
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "enabled": false,
+      "id": "google/gemma-4-31b-it",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1500,
+      "limits": {
+        "rpd": 1000,
+        "rpm": 10
+      },
+      "model": "gemma-4-31b-it",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: Google's OpenAI-compatible endpoint returned HTTP 500 INTERNAL for this model on every deploy probe 2026-11-12 (three request shapes), although the morning catalog audit's ping had passed — Google-side instability, not a registry defect. Google free tier = per-model quota bucket (real added capacity when it works) but 'used to improve our products: Yes' — public-only-free permanently. Re-probe before enabling. Quality seeded from the Gemini Flash-Lite sibling; the audit ping observed hidden reasoning tokens, so reasoning=true.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "google",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.z.ai/api/paas/v4",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 200000,
+      "enabled": true,
+      "id": "zai/glm-4.5-flash",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 4000,
+      "limits": {},
+      "model": "glm-4.5-flash",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai official pricing page lists GLM-4.5-Flash as Free ($0 in/out/cached). Deploy probe 2026-11-12: plain chat 200 AND a well-formed tool call (finish=tool_calls) — tool-calling PROVEN, bettering the audit's caution from an older record. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Free-Flash throttling scope (per-model vs account) is UNVERIFIED — treat as soft capacity. $0 tier, weakest data posture — public-only-free, never sensitive.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "zai",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.z.ai/api/paas/v4",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 200000,
+      "enabled": true,
+      "id": "zai/glm-4.6v-flash",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 4000,
+      "limits": {},
+      "model": "glm-4.6v-flash",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai's free VISION Flash (official pricing page: Free). Deploy probe 2026-11-12: plain chat 200 (text path; vision input not probed). First vision-capable entry in the free lane. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Throttle scope unverified, as for its siblings. Public-only-free — $0 tier posture, never sensitive.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "zai",
+      "quality": {
+        "chat": 3,
+        "code": 2,
+        "infra": 2,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 131072,
+      "enabled": true,
+      "id": "cloudflare/llama-4-scout",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 900,
+      "limits": {},
+      "model": "@cf/meta/llama-4-scout-17b-16e-instruct",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: all Workers AI routes drink from one 10,000 Neurons/day account allocation (resets 00:00 UTC) — this route adds choice/failover, not capacity. Deploy probe 2026-11-12 was blocked by that pool being exhausted for the day (HTTP 429 'used up your daily free allocation', the identical failure the two pre-existing Cloudflare entries would have returned); the route is catalog-verified and rides the same endpoint/key path those entries serve on, so it ships enabled with content-serve verification pending the 00:00 UTC pool reset. Posture unverified for training — public-only-free. Llama 4 Scout 17B (vision-capable family); quality seeded at Flash-class 3s.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "cloudflare",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "enabled": true,
+      "id": "cloudflare/qwen3.8-27b",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 900,
+      "limits": {},
+      "model": "@cf/qwen/qwen3.8-27b",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: all Workers AI routes drink from one 10,000 Neurons/day account allocation (resets 00:00 UTC) — this route adds choice/failover, not capacity. Deploy probe 2026-11-12 was blocked by that pool being exhausted for the day (HTTP 429 'used up your daily free allocation', the identical failure the two pre-existing Cloudflare entries would have returned); the route is catalog-verified and rides the same endpoint/key path those entries serve on, so it ships enabled with content-serve verification pending the 00:00 UTC pool reset. Posture unverified for training — public-only-free. Same Qwen3.8-27B weights Groq serves on the metered Developer plan — this route spends the $0 neuron pool instead. Quality mirrored from groq/qwen3.8-27b.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "cloudflare",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1048576,
+      "enabled": false,
+      "id": "cloudflare/glm-5.3-flash",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1500,
+      "limits": {},
+      "model": "@cf/zai-org/glm-5.3-flash",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: deploy probe 2026-11-12 returned HTTP 403 — 'Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan'. Structural, not transient: this route cannot spend the free neuron pool; it becomes viable only if the account takes the $5/mo Workers Paid plan (owner decision, not taken). Would have been the only $0 route to GLM-5.3-Flash weights. Quality seeded from siliconflow/glm-5.3.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "cloudflare",
+      "quality": {
+        "chat": 4,
+        "code": 5,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 5
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 131072,
+      "enabled": true,
+      "id": "cloudflare/gpt-oss-20b",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 900,
+      "limits": {},
+      "model": "@cf/openai/gpt-oss-20b",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: all Workers AI routes drink from one 10,000 Neurons/day account allocation (resets 00:00 UTC) — this route adds choice/failover, not capacity. Deploy probe 2026-11-12 was blocked by that pool being exhausted for the day (HTTP 429 'used up your daily free allocation', the identical failure the two pre-existing Cloudflare entries would have returned); the route is catalog-verified and rides the same endpoint/key path those entries serve on, so it ships enabled with content-serve verification pending the 00:00 UTC pool reset. Posture unverified for training — public-only-free. Fourth billing pool for the gpt-oss-20b weights (after Groq). Quality mirrored from groq/gpt-oss-20b.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "cloudflare",
+      "quality": {
+        "chat": 2,
+        "code": 2,
+        "infra": 2,
+        "long-context": 2,
+        "reasoning": 2
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 131072,
+      "enabled": true,
+      "id": "cloudflare/mistral-small-3.1",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 900,
+      "limits": {},
+      "model": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: all Workers AI routes drink from one 10,000 Neurons/day account allocation (resets 00:00 UTC) — this route adds choice/failover, not capacity. Deploy probe 2026-11-12 was blocked by that pool being exhausted for the day (HTTP 429 'used up your daily free allocation', the identical failure the two pre-existing Cloudflare entries would have returned); the route is catalog-verified and rides the same endpoint/key path those entries serve on, so it ships enabled with content-serve verification pending the 00:00 UTC pool reset. Posture unverified for training — public-only-free. Mistral Small 3.1 24B — EU-model diversity in the free lane at $0 (distinct from the paid mistral direct entries). Quality seeded at 3s.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "cloudflare",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1000000,
+      "id": "openrouter/nemotron-3.5-lightning-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Fast small Nemotron; catalog context 1M (free endpoints may truncate upstream — treat as an upper bound). Public-only-free: no data_collection=deny routing established for this model.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 2
+      },
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 256000,
+      "id": "openrouter/nemotron-3-nano-omni-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Multimodal reasoning 30B-A3B. Public-only-free (no deny routing established).",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 2,
+        "infra": 2,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1048576,
+      "enabled": false,
+      "id": "openrouter/inkling-2-small-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "thinkingmachines/inkling-2-small:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: deploy probes 2026-11-12 returned HTTP 403 twice (plain, and with OpenRouter app-attribution headers) — 'only available on agentic harnesses'. The endpoint is gated to specific harness apps and cannot be served by this gateway's request shape. Re-probe if OpenRouter lifts the gate. SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. ",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 2,
+        "code": 2,
+        "infra": 2,
+        "long-context": 3,
+        "reasoning": 2
+      },
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1024000,
+      "id": "openrouter/ernie-5.5-flash-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "baidu/ernie-5.5-flash-preview:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. PREVIEW model id — expect churn/renames; Baidu ERNIE Flash with 1M catalog context. Public-only-free (no deny routing established).",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "id": "openrouter/flint-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "recursive/flint-v1.0:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Unknown-provenance model — seeded low, first to cut if it misbehaves. Public-only-free (no deny routing established).",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 2,
+        "code": 2,
+        "infra": 2,
+        "long-context": 3,
+        "reasoning": 2
+      },
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "id": "openrouter/lfm-3-1.7b-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "liquid/lfm-3-1.7b:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Tiny 1.7B — classification/extraction grunt work only; quality seeded at the floor so it only wins the easiest task classes. Public-only-free.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 1,
+        "code": 1,
+        "infra": 2,
+        "long-context": 2,
+        "reasoning": 1
+      },
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 65536,
+      "id": "openrouter/lfm-2.5-2.6b-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "liquid/lfm-2.5-2.6b:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Tiny 2.6B — grunt work only, quality seeded low. Public-only-free.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 2,
+        "code": 1,
+        "infra": 2,
+        "long-context": 2,
+        "reasoning": 1
+      },
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1000000,
+      "id": "openrouter/nemotron-3-ultra-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. Deploy probes 2026-11-12: plain chat 200, but the data_collection=deny probe returned 404 'No endpoints found matching your data policy' — no deny-honouring endpoint exists for this model, so it is PUBLIC-ONLY-free, never private (the §5.2 conditional resolved negative). 550B-class, the free lane's strongest weights when the shared pool has room.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 4,
+        "code": 4,
+        "infra": 4,
+        "long-context": 5,
+        "reasoning": 4
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "enabled": false,
+      "id": "openrouter/gemma-4-31b-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "google/gemma-4-31b-it:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: the upstream host was 'temporarily rate-limited' (HTTP 429) on every deploy probe 2026-11-12 — three rounds over ~15 minutes, plain and deny alike; no successful serve was observed, so per deploy discipline it ships disabled rather than force-enabled. Re-probe to enable; if the deny variant then succeeds it may also earn private-free. SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. ",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "enabled": false,
+      "id": "openrouter/gemma-4-26b-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "google/gemma-4-26b-a4b-it:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: same upstream rate-limit wall as its 31B sibling (HTTP 429 on every probe round 2026-11-12, plain and deny alike). Ships disabled pending a clean re-probe. SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. ",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1000000,
+      "id": "openrouter/nemotron-3.5-super-vl-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. Deploy probes 2026-11-12: plain chat 200, deny probe 404 'No endpoints found matching your data policy' — PUBLIC-ONLY-free (the §5.2 conditional resolved negative). Vision-capable Nemotron, 1M catalog context.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 200000,
+      "extra_body": {
+        "provider": {
+          "data_collection": "deny"
+        }
+      },
+      "id": "openrouter/free-router",
+      "input_usd_per_million": 0.0,
+      "lane": "private-free",
+      "latency_p50_ms": 1100,
+      "limits": {
+        "rpd": 1000
+      },
+      "model": "openrouter/free",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). OpenRouter's own free-model meta-router: one entry, OpenRouter internally rotates across its free roster (tracks their catalog churn for us). PRIVATE-FREE, conditional resolved POSITIVE 2026-11-12: the deny probe WITH data_collection=deny returned 200 — but ONLY without the reasoning-disable the other private OpenRouter entries carry: this endpoint answers 400 'Reasoning is mandatory for this endpoint and cannot be disabled', so its extra_body carries the deny alone (probe-verified shape). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) — this route adds choice/failover, not requests. Quality seeded mid — the underlying model varies by OpenRouter's choice.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "reasoning": true,
+      "verified_until": null
     }
   ],
   "version": 2

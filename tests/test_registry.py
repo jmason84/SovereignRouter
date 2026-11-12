@@ -22,7 +22,11 @@ def test_starting_registry_matches_spec_table():
     # + 5 entries added staged 2026-11-12 — all five enabled the same
     # day once their keys landed (mistral reclassified to the paid lane:
     # its free tier issues no API keys; owner funded $10 PAYG instead).
-    assert len(reg.entries) == 22
+    # + 20 free-catalog expansion entries (2026-11-12, owner's order):
+    # 15 enabled at deploy, 5 shipped disabled with dated probe-failure
+    # notes (google-direct 500s, CF glm-5.3-flash not on the Free plan,
+    # inkling harness-gated, OR gemma x2 upstream-throttled).
+    assert len(reg.entries) == 42
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4

@@ -29,6 +29,21 @@ mirroring tests/test_fixpass.py's build_recording_app. The production
 clients.json lives only on VM103, so the client-policy tests build
 the file from the stated intent (the same way conftest.py builds its
 fixture clients) and load it through the real loader.
+
+Later the same day (2026-11-12) the free-catalog expansion added 20
+more routes (registry 42 entries, 36 enabled) on the owner's order:
+15 public-only-free, openrouter/free-router in private-free (its
+data_collection=deny probe passed ONLY without the reasoning-disable
+— the endpoint mandates reasoning), and 5 shipped DISABLED with dated
+probe-failure notes in the registry: google/gemma-4-31b-it (Google
+500 INTERNAL on every probe shape), cloudflare/glm-5.3-flash (not
+available on the Workers Free plan — structural), inkling (403,
+gated to "agentic harnesses"), and both OpenRouter gemma routes
+(upstream 429 rate-limit wall on every probe round). Four Cloudflare
+routes ship enabled although their deploy probes were blocked by the
+shared neuron pool being exhausted for the day — an explained,
+pool-level failure that hit the pre-existing Cloudflare entries
+identically; their notes say so.
 """
 
 from __future__ import annotations
@@ -58,7 +73,25 @@ SENSITIVE_TEXT = (
 L4 = {"X-Sovereign-Level": "4"}
 
 PUBLIC_FREE_IDS = ("zai/glm-4.7-flash", "google/gemini-3.5-flash-lite",
-                   "cloudflare/gpt-oss-120b", "cloudflare/glm-4.7-flash")
+                   "cloudflare/gpt-oss-120b", "cloudflare/glm-4.7-flash",
+                   # free-catalog expansion 2026-11-12 (enabled subset)
+                   "zai/glm-4.5-flash", "zai/glm-4.6v-flash",
+                   "cloudflare/llama-4-scout", "cloudflare/qwen3.8-27b",
+                   "cloudflare/gpt-oss-20b", "cloudflare/mistral-small-3.1",
+                   "openrouter/nemotron-3.5-lightning-free",
+                   "openrouter/nemotron-3-nano-omni-free",
+                   "openrouter/ernie-5.5-flash-free",
+                   "openrouter/flint-free",
+                   "openrouter/lfm-3-1.7b-free",
+                   "openrouter/lfm-2.5-2.6b-free",
+                   "openrouter/nemotron-3-ultra-free",
+                   "openrouter/nemotron-3.5-super-vl-free")
+# The five expansion routes that shipped DISABLED, each with a dated
+# probe-failure note in the registry (see module docstring).
+FREE20_DISABLED_IDS = ("google/gemma-4-31b-it", "cloudflare/glm-5.3-flash",
+                       "openrouter/inkling-2-small-free",
+                       "openrouter/gemma-4-31b-free",
+                       "openrouter/gemma-4-26b-free")
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -113,19 +146,25 @@ def test_entry_raw_json_required_keys(entry):
 
 
 def test_registry_counts_and_unique_ids():
-    assert len(REG.entries) == 22
-    assert len(BY_ID) == 22  # ids unique (loader also enforces)
-    assert sum(1 for e in REG.entries if e.enabled) == 21
+    assert len(REG.entries) == 42
+    assert len(BY_ID) == 42  # ids unique (loader also enforces)
+    assert sum(1 for e in REG.entries if e.enabled) == 36
 
 
-def test_exactly_one_disabled_entry_and_it_is_the_siliconflow_duplicate():
-    disabled = [e.id for e in REG.entries if not e.enabled]
-    assert disabled == ["siliconflow/deepseek-v4-pro"]
-    # it is a duplicate ROUTE, not a distinct model: DeepSeek V4 Pro is
-    # still reachable via the enabled direct entry
+def test_disabled_entries_are_exactly_the_known_set():
+    disabled = {e.id for e in REG.entries if not e.enabled}
+    # the deliberate siliconflow duplicate + the five free-expansion
+    # routes whose deploy probes failed (each registry note is dated
+    # 2026-11-12 and states the failure; none may silently re-enable)
+    assert disabled == {"siliconflow/deepseek-v4-pro"} | \
+        set(FREE20_DISABLED_IDS)
+    # the siliconflow entry is a duplicate ROUTE, not a distinct
+    # model: DeepSeek V4 Pro is still reachable via the direct entry
     assert BY_ID["siliconflow/deepseek-v4-pro"].model == \
         "deepseek-ai/DeepSeek-V4-Pro"
     assert BY_ID["deepseek/deepseek-v4-pro"].enabled is True
+    for entry_id in FREE20_DISABLED_IDS:
+        assert "DISABLED AT DEPLOY" in BY_ID[entry_id].notes
 
 
 def test_deleted_hf_cerebras_route_stays_deleted():
@@ -259,6 +298,87 @@ def test_meta_muse_spark_enabled_in_premium():
     # premium lane as the sensitive spillway's last resort, and
     # test_registry.py pins the flag set provider-wise without meta).
     assert e.spillway_sensitive_excluded is False
+
+
+# ----------------------------------------------------------------------
+# the free-catalog expansion (2026-11-12, +20 routes)
+# ----------------------------------------------------------------------
+
+# id -> (lane, enabled, context_tokens); all are $0 in/out by design
+FREE20_ENTRIES = {
+    "google/gemma-4-31b-it": ("public-only-free", False, 262144),
+    "zai/glm-4.5-flash": ("public-only-free", True, 200000),
+    "zai/glm-4.6v-flash": ("public-only-free", True, 200000),
+    "cloudflare/llama-4-scout": ("public-only-free", True, 131072),
+    "cloudflare/qwen3.8-27b": ("public-only-free", True, 262144),
+    "cloudflare/glm-5.3-flash": ("public-only-free", False, 1048576),
+    "cloudflare/gpt-oss-20b": ("public-only-free", True, 131072),
+    "cloudflare/mistral-small-3.1": ("public-only-free", True, 131072),
+    "openrouter/nemotron-3.5-lightning-free": ("public-only-free", True, 1000000),
+    "openrouter/nemotron-3-nano-omni-free": ("public-only-free", True, 256000),
+    "openrouter/inkling-2-small-free": ("public-only-free", False, 1048576),
+    "openrouter/ernie-5.5-flash-free": ("public-only-free", True, 1024000),
+    "openrouter/flint-free": ("public-only-free", True, 262144),
+    "openrouter/lfm-3-1.7b-free": ("public-only-free", True, 262144),
+    "openrouter/lfm-2.5-2.6b-free": ("public-only-free", True, 65536),
+    "openrouter/nemotron-3-ultra-free": ("public-only-free", True, 1000000),
+    "openrouter/gemma-4-31b-free": ("public-only-free", False, 262144),
+    "openrouter/gemma-4-26b-free": ("public-only-free", False, 262144),
+    "openrouter/nemotron-3.5-super-vl-free": ("public-only-free", True, 1000000),
+    "openrouter/free-router": ("private-free", True, 200000),
+}
+
+
+@pytest.mark.parametrize("entry_id", sorted(FREE20_ENTRIES))
+def test_free20_entry_lane_enabled_context(entry_id):
+    lane, enabled, context = FREE20_ENTRIES[entry_id]
+    e = BY_ID[entry_id]
+    assert e.lane == lane
+    assert e.enabled is enabled
+    assert e.context_tokens == context
+    # the whole batch exists to spend $0 allocations: zero prices,
+    # and the shared-pool / posture story must stay in the notes
+    assert e.input_usd_per_million == 0
+    assert e.output_usd_per_million == 0
+    assert "free-catalog expansion" in e.notes
+
+
+def test_free20_openrouter_limits_seed_shared_pool_rpd():
+    for entry_id, (_lane, _en, _ctx) in FREE20_ENTRIES.items():
+        if entry_id.startswith("openrouter/"):
+            assert BY_ID[entry_id].limits == {"rpd": 1000}, entry_id
+
+
+def test_free_router_is_private_with_deny_only_extra_body():
+    # The §5.2 conditional resolved POSITIVE for exactly one route,
+    # and only in this shape: data_collection=deny WITHOUT the
+    # reasoning-disable (the endpoint 400s "Reasoning is mandatory"
+    # when reasoning.enabled=false is sent). Do not "fix" this to
+    # match the other OpenRouter entries — it is probe-verified.
+    e = BY_ID["openrouter/free-router"]
+    assert e.lane == "private-free"
+    assert e.extra_body == {"provider": {"data_collection": "deny"}}
+    assert e.model == "openrouter/free"
+
+
+def test_free20_conditionals_that_failed_deny_stay_public():
+    # nemotron ultra + super-vl answered plain probes but their deny
+    # probes 404'd ("No endpoints found matching your data policy"):
+    # they must carry NO deny extra_body and sit in public-only-free.
+    for entry_id in ("openrouter/nemotron-3-ultra-free",
+                     "openrouter/nemotron-3.5-super-vl-free"):
+        e = BY_ID[entry_id]
+        assert e.lane == "public-only-free"
+        assert e.extra_body == {}
+
+
+def test_free20_tiny_models_are_seeded_at_the_floor():
+    # the LFM minis exist for classification/extraction grunt work;
+    # if their quality ever creeps up they would start winning task
+    # classes they cannot actually serve
+    assert BY_ID["openrouter/lfm-3-1.7b-free"].quality_for("chat") == 1
+    assert BY_ID["openrouter/lfm-3-1.7b-free"].quality_for("reasoning") == 1
+    assert BY_ID["openrouter/lfm-2.5-2.6b-free"].quality_for("chat") <= 2
 
 
 # ----------------------------------------------------------------------
@@ -420,7 +540,23 @@ def test_shadow_public_client_can_select_public_only_free(tmp_path):
     d = r.json()
     assert d["data_class"] == "public"
     candidate_ids = {c["model"] for c in d["candidates"]}
-    assert set(PUBLIC_FREE_IDS) <= candidate_ids
+    # every enabled public-only-free entry is lane-eligible for a
+    # public turn: it is either a candidate, or it is filtered by the
+    # QUALITY floor for this L2 chat task (the floor-seeded minis —
+    # gpt-oss-20b's CF route and the sub-3-quality expansion entries —
+    # exist for the easiest classes only, by design). A lane or
+    # privacy skip here would be a regression; a quality skip is the
+    # seeded intent proving itself.
+    skipped = {(s["model"], s["reason"]) for s in d["skipped"]}
+    for entry_id in PUBLIC_FREE_IDS:
+        if entry_id in candidate_ids:
+            continue
+        assert (entry_id, "quality_below_required") in skipped, entry_id
+        assert BY_ID[entry_id].quality_for("chat") < 3, entry_id
+    # and the quality-eligible majority really are candidates
+    eligible = {i for i in PUBLIC_FREE_IDS
+                if BY_ID[i].quality_for("chat") >= 3}
+    assert eligible <= candidate_ids
 
 
 def test_shadow_crm_candidates_have_no_public_lane(tmp_path):
@@ -459,6 +595,23 @@ PIN_CASES = {
     "mistral/mistral-large": "hermes",
     "mistral/codestral": "hermes",
     "meta/muse-spark-1.1": "openclaw",
+    # free-catalog expansion 2026-11-12 — enabled routes only (the
+    # five disabled ones have no serve to pin)
+    "zai/glm-4.5-flash": "hermes",
+    "zai/glm-4.6v-flash": "hermes",
+    "cloudflare/llama-4-scout": "hermes",
+    "cloudflare/qwen3.8-27b": "hermes",
+    "cloudflare/gpt-oss-20b": "hermes",
+    "cloudflare/mistral-small-3.1": "hermes",
+    "openrouter/nemotron-3.5-lightning-free": "hermes",
+    "openrouter/nemotron-3-nano-omni-free": "hermes",
+    "openrouter/ernie-5.5-flash-free": "hermes",
+    "openrouter/flint-free": "hermes",
+    "openrouter/lfm-3-1.7b-free": "hermes",
+    "openrouter/lfm-2.5-2.6b-free": "hermes",
+    "openrouter/nemotron-3-ultra-free": "hermes",
+    "openrouter/nemotron-3.5-super-vl-free": "hermes",
+    "openrouter/free-router": "hermes",
 }
 
 

@@ -48,11 +48,14 @@ def test_sticky_ten_step_tool_loop(client):
 def test_sticky_switches_when_model_rate_limited(tmp_path):
     # Premise: groq/gpt-oss-120b is the loop's first server. Since
     # 2026-11-09 Groq carries real prices and the $0 OpenRouter
-    # models win small turns, so this test's registry disables them.
+    # models win small turns, so this test's registry disables them
+    # (openrouter/free-router joined that set in the 2026-11-12
+    # free-catalog expansion — same $0 private-free posture).
     from fastapi.testclient import TestClient
     app = build_app(tmp_path, registry_path=registry_variant(
         tmp_path, disable=("openrouter/north-mini-code-free",
                            "openrouter/dots-3-note-preview-free",
+                           "openrouter/free-router",
                            "deepinfra/deepseek-v4-flash")))
     client = TestClient(app)
     r = client.post("/v1/chat/completions",

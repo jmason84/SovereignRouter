@@ -4,7 +4,7 @@
 
 One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that sends each request to the cheapest model able to do it well — spec v0.5.3 (Drive: "Sovereign Router v0.5.3: Architecture, Specification and Implementation Plan").
 
-**Status: LIVE — v0.6.0 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **Registry: 22 models** (21 enabled; the one disabled entry is a deliberate duplicate route). Version history: [`CHANGELOG.md`](CHANGELOG.md). **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; where any older document disagrees with it, it wins. This README is the map; that document is the law.
+**Status: LIVE — v0.6.0 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **Registry: 42 models** (36 enabled; six disabled — one deliberate duplicate route and five free-expansion routes whose deploy probes failed, each carrying a dated note in the registry). Version history: [`CHANGELOG.md`](CHANGELOG.md). **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; where any older document disagrees with it, it wins. This README is the map; that document is the law.
 
 The router exists so that no single provider's failure — a dead API key, an exhausted credit balance, a rate-limit wall, an outage — can stall the fleet. When something dies, the router moves to the next rung in cost order and *says so* (a `lane_dead` alert, §Operations).
 
@@ -80,7 +80,7 @@ Full rules: `docs/ROUTING-PRINCIPLES.md`. The load-bearing ones:
 
 Decision #5 (`deploy/DECISIONS.md`, accepted 2026-11-01, still off). The spec proposed letting a strong model judge a 2% sample of internal-class requests for answer quality, feeding the Phase 4 learning loop. It stays off because the judge would see prompt text — the one place in the design where prompt text leaves for evaluation. The learning loop therefore relies on outcome signals only (escalations, retries, tool errors — all already in `routes.jsonl`). It can be approved later without a rebuild; nobody has.
 
-## Registry — the 22 models
+## Registry — the 42 models
 
 `src/registry.json` is the source of truth (models, prices, contexts, per-provider rate limits seeded from each provider's *actual plan*). Prices are USD per 1M tokens, in / out.
 
@@ -108,8 +108,30 @@ Decision #5 (`deploy/DECISIONS.md`, accepted 2026-11-01, still off). The spec pr
 | `google/gemini-3.5-flash-lite` | google | public-only-free | 1,048,576 | $0 / $0 | yes | Free tier trains on data → public-only permanently |
 | `cloudflare/gpt-oss-120b` | cloudflare | public-only-free | 131,072 | $0 / $0 | yes | Draws on the shared Neuron pool (see notes) |
 | `cloudflare/glm-4.7-flash` | cloudflare | public-only-free | 131,072 | $0 / $0 | yes | Tool-calling proven on this route |
+| `zai/glm-4.5-flash` | zai | public-only-free | 200,000 | $0 / $0 | yes | Free Flash; tool-calling proven at deploy |
+| `zai/glm-4.6v-flash` | zai | public-only-free | 200,000 | $0 / $0 | yes | Free vision Flash |
+| `cloudflare/llama-4-scout` | cloudflare | public-only-free | 131,072 | $0 / $0 | yes | Shared Neuron pool |
+| `cloudflare/qwen3.8-27b` | cloudflare | public-only-free | 262,144 | $0 / $0 | yes | Same weights as Groq's metered route, $0 pool |
+| `cloudflare/glm-5.3-flash` | cloudflare | public-only-free | 1,048,576 | $0 / $0 | **no** | Not available on the Workers Free plan (deploy probe 403) |
+| `cloudflare/gpt-oss-20b` | cloudflare | public-only-free | 131,072 | $0 / $0 | yes | Shared Neuron pool |
+| `cloudflare/mistral-small-3.1` | cloudflare | public-only-free | 131,072 | $0 / $0 | yes | Shared Neuron pool |
+| `google/gemma-4-31b-it` | google | public-only-free | 262,144 | $0 / $0 | **no** | Google endpoint returned 500 on every deploy probe; per-model free bucket when it works |
+| `openrouter/free-router` | openrouter | private-free | 200,000 | $0 / $0 | yes | Meta-router over OpenRouter's free roster; `data_collection=deny` (no reasoning-disable — the endpoint mandates reasoning); shared OR free pool |
+| `openrouter/nemotron-3-ultra-free` | openrouter | public-only-free | 1,000,000 | $0 / $0 | yes | Deny probe 404 → public-only; shared OR free pool |
+| `openrouter/nemotron-3.5-super-vl-free` | openrouter | public-only-free | 1,000,000 | $0 / $0 | yes | Vision; deny probe 404 → public-only; shared pool |
+| `openrouter/nemotron-3.5-lightning-free` | openrouter | public-only-free | 1,000,000 | $0 / $0 | yes | Shared OR free pool |
+| `openrouter/nemotron-3-nano-omni-free` | openrouter | public-only-free | 256,000 | $0 / $0 | yes | Multimodal; shared pool |
+| `openrouter/ernie-5.5-flash-free` | openrouter | public-only-free | 1,024,000 | $0 / $0 | yes | Preview id — expect churn; shared pool |
+| `openrouter/flint-free` | openrouter | public-only-free | 262,144 | $0 / $0 | yes | Unknown provenance; shared pool |
+| `openrouter/lfm-3-1.7b-free` | openrouter | public-only-free | 262,144 | $0 / $0 | yes | 1.7B — grunt work only; shared pool |
+| `openrouter/lfm-2.5-2.6b-free` | openrouter | public-only-free | 65,536 | $0 / $0 | yes | 2.6B — grunt work only; shared pool |
+| `openrouter/inkling-2-small-free` | openrouter | public-only-free | 1,048,576 | $0 / $0 | **no** | Gated to "agentic harnesses" (deploy probe 403) |
+| `openrouter/gemma-4-31b-free` | openrouter | public-only-free | 262,144 | $0 / $0 | **no** | Upstream rate-limit wall at deploy; re-probe to enable |
+| `openrouter/gemma-4-26b-free` | openrouter | public-only-free | 262,144 | $0 / $0 | **no** | Upstream rate-limit wall at deploy; re-probe to enable |
 
 Price caveats carried in the registry entries themselves: `novita` prices are seeded from Hugging Face's catalog listing, not yet verified against Novita's own price list; `premium/gpt-5.5` pricing is a placeholder carried from the v0.2.1 audit; `meta/muse-spark-1.1`'s context figure is a seed not yet confirmed against Meta's docs; DeepSeek direct is accounted at peak rates (off-peak is exactly half). Registry prices are seeds to correct on first console/invoice check — per-entry `notes` in `registry.json` carry the provenance.
+
+Pool truth (free-catalog expansion, 2026-11-12): routes do not equal quotas. All OpenRouter `:free` routes share **one** account pool (20 RPM / 1,000 requests/day) and all Cloudflare routes share **10,000 Neurons/day** — table rows marked "shared pool" add choice and failover, not capacity. Google's free quotas are per-model buckets and do add capacity; Z.ai's free-Flash throttle scope is unverified. The 2026-11-12 expansion took the registry 22 → 42 models (36 enabled); the five disabled newcomers carry their probe failures in their registry notes.
 
 ### Provider notes (standing gotchas)
 

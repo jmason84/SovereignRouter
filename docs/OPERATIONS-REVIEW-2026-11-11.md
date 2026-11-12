@@ -53,3 +53,31 @@ owner, not an auto-pass.
 | 10 | n8n AI Assistant: battery-proven, never yet used in a real in-UI conversation | Owner's one test prompt |
 | 11 | Adjacent (n8n, not the router): OpenSERP workflow returns 402 insufficient_credits; Consensus Engine + Chief of Staff Brief workflows still call OpenRouter/xAI direct instead of the router | Owner's call: top up / swap / pause; migrate / hold |
 | 12 | Housekeeping: sealed `client-keys.txt` on VM103 still to shred once all client keys are delivered (blocked on #4) | Muse, after #4 completes |
+
+---
+
+## CORRECTION — 2026-11-12: the dollar figures in this review are ledger estimates, and they overstate real spend
+
+The owner cross-checked the provider consoles on 2026-11-12. DeepSeek direct's
+**entire last-30-days bill is $9.34** (554 requests, 117,296,344 tokens) — less
+than this review's ledger figure for Nov 11 alone ($109.32). Z.ai's daily
+deductions are all under $0.70; DeepInfra's monthly usage is $7.19 with a
+$21.90 balance; Groq's 30-day spend is $1.55.
+
+**Root cause:** the gateway never reads the providers' cached-token counts
+(route rows record `cached_tokens: 0` even on cache-served turns) and the
+registry's premium prices apply no cached-input rate, so a cache-heavy session
+— a 300–530k-token context resent every turn, ~90%+ cache hits at roughly a
+tenth of the miss price — is priced as if every token were a full-price miss.
+Overstatement on V4 Pro traffic is roughly 12×.
+
+**What stands:** the traffic facts — request counts, token volumes (DeepSeek's
+console corroborates them), escalation and failure percentages, the spillway
+mechanics, and every incident narrative. **What falls:** every dollar figure
+denominated in ledger cost, including the Nov 11 "$117 Hermes day", the soak's
+Day 8 "$28.23" and its cost-target verdict leg, and the alert firings
+(above-target, runaway, emergency warn) that were denominated in those dollars.
+Treat all router dollar figures as upper-bound estimates until the gateway
+prices cache hits separately (parse `prompt_cache_hit_tokens` /
+`prompt_tokens_details.cached_tokens`; seed verified cached-input prices;
+prove with a reconciliation probe against a console delta).

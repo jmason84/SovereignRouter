@@ -1,5 +1,7 @@
 # Sovereign Router
 
+[![CI](https://github.com/jmason84/SovereignRouter/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jmason84/SovereignRouter/actions/workflows/ci.yml)
+
 One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that sends each request to the cheapest model able to do it well — spec v0.5.3 (Drive: "Sovereign Router v0.5.3: Architecture, Specification and Implementation Plan").
 
 **Status: LIVE — v0.6.0 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **Registry: 23 models across 13 providers** (19 enabled; Mistral and Cloudflare Workers AI staged disabled pending owner-held keys). Version history: [`CHANGELOG.md`](CHANGELOG.md). **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; older documents in this repo describe earlier states.

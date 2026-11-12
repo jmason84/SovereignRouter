@@ -4,7 +4,7 @@
 
 One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that sends each request to the cheapest model able to do it well — spec v0.5.3 (Drive: "Sovereign Router v0.5.3: Architecture, Specification and Implementation Plan").
 
-**Status: LIVE — v0.6.0 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **Registry: 23 models across 13 providers** (19 enabled; Mistral and Cloudflare Workers AI staged disabled pending owner-held keys). Version history: [`CHANGELOG.md`](CHANGELOG.md). **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; older documents in this repo describe earlier states.
+**Status: LIVE — v0.6.0 on :6075 serves all four clients;** production v0.2.1 (:6070) remains untouched as rollback. **Registry: 22 models** (21 enabled; the one disabled entry is a deliberate duplicate route). Version history: [`CHANGELOG.md`](CHANGELOG.md). **The intent and the current routing rules live in [`docs/ROUTING-PRINCIPLES.md`](docs/ROUTING-PRINCIPLES.md)** — read that first; older documents in this repo describe earlier states.
 
 ## Layout
 
@@ -22,6 +22,26 @@ One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that send
 
 No spending caps, ever. Daily steer targets (alert-only): Hermes $1.25 / OpenClaw $5.00 / n8n $2.50 / TwentyCRM $1.25. Premium tier kept with $20/mo and >20/day alerts. The $25/day emergency level is **warn-only** (2026-11-09 ruling, replacing the 2026-11-01 hard switch): it alerts and never cuts the paid lanes. SiliconFlow, Hugging Face, Cerebras (direct) and Novita are non-sensitive-only. Google Gemini (free tier), Z.ai's free Flash, Mistral (free tier, staged) and Cloudflare Workers AI (staged) sit in the public-only-free lane — never eligible for sensitive traffic. Judged quality sample OFF.
 
+## Branch guide
+
+Branch names follow one standard so any developer can read version, purpose,
+and disposition off the name: `<lifecycle>/v<semver>-<descriptor>-<disposition>`
+(`archive` = frozen history, `feature` = active work; disposition is `merged`,
+`unmerged`, or `superseded`). Historical branches are kept as a permanent
+archive — never deleted. Full record, including what worked and what didn't on
+each branch: [`docs/BRANCH-ARCHIVE.md`](docs/BRANCH-ARCHIVE.md).
+
+| Branch | What it is |
+|---|---|
+| `main` | Canonical tree, current release — the default branch |
+| `archive/v0.5.3-ccr-build-superseded` | Original hosted-session v0.5.3 build (+ the deploy-checklist/risk-register commit) |
+| `archive/v0.5.3-parallel-build-superseded` | The parallel v0.5.3 build that did not become canonical |
+| `archive/v0.5.3-review-response-superseded` | v0.5.3 build plus its review-response commit |
+| `archive/v0.5.4-improvements-merged` | Nov 5 improvement work — shipped as v0.5.4, merged in full |
+| `archive/v0.5.7-improvements-unmerged` | Nov 11 Phases 0–5 improvement program — never landed |
+| `archive/v0.5.7-optimization-unmerged` | v0.5.7 optimization pass — never landed |
+| `feature/v0.5.9-ops-hardening` | Active work — do not touch without its owner's word |
+
 ## History
 
-This tree is the canonical convergence of two parallel builds of the same spec (2026-11-02): this workspace build (sidecar, Phase 0, deploy package, live E2E verification) plus the package build previously on this repo's `main` — preserved on branch **`alt-build-2026-11-01`** — whose shadow endpoint, pulled-alerts outbox and resilience tests were ported here. See `docs/GITHUB-REPO-COMPARISON.md`.
+This tree is the canonical convergence of two parallel builds of the same spec (2026-11-02): this workspace build (sidecar, Phase 0, deploy package, live E2E verification) plus the package build previously on this repo's `main` — preserved on branch **`archive/v0.5.3-parallel-build-superseded`** (formerly `alt-build-2026-11-01`) — whose shadow endpoint, pulled-alerts outbox and resilience tests were ported here. See `docs/GITHUB-REPO-COMPARISON.md`.

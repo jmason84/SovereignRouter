@@ -13,7 +13,7 @@ One OpenAI-compatible endpoint for OpenClaw, Hermes, n8n and TwentyCRM that send
 | `phase0/` | Phase 0 measurement tools for the v0.3.3 canary: usage analyzer, report, the one allowed flagged patch, alert-chain design. |
 | `deploy/` | docker-compose stack (:6075 behind nginx, LAN allowlist), env templates, runbook, decisions record (with dated amendments), acceptance checklist. |
 | `tests/` | `pytest` suite (141 tests) + `e2e_live.py`, a live harness that boots gateway + sidecar + a fake upstream over real HTTP. |
-| `docs/` | **`ROUTING-PRINCIPLES.md` — the current intent and routing rules (start here).** `incidents/` — post-mortems. The build-out report, verification report, license review, convergence record and routing discussion are dated historical records, banner-marked as such. |
+| `docs/` | **`ROUTING-PRINCIPLES.md` — the current intent and routing rules (start here).** `incidents/` — post-mortems. The build-out report, verification report, license review, convergence record and routing discussion are dated historical records, banner-marked as such. `deploy-checklist.md` and `risks.md` are the v0.5.3-era deployment checklist and risk register (Exec Ops, 2026-11-11), likewise banner-marked historical records. |
 | `workflows/` | Export of the n8n Alert Chain workflow (the router's alert delivery), phone number redacted. |
 
 ## Key owner decisions (full record: `deploy/DECISIONS.md`; current rules: `docs/ROUTING-PRINCIPLES.md`)

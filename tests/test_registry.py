@@ -19,7 +19,9 @@ def test_starting_registry_matches_spec_table():
     # + 2 SiliconFlow entries (2026-11-07, v0.5.6)
     # + 2 Hugging Face probe entries (2026-11-09, v0.5.7)
     # + 3 provider additions (2026-11-12: cerebras, novita, zai/glm-4.7-flash)
-    # + 5 staged entries awaiting keys (2026-11-12: mistral x2, google, cloudflare x2).
+    # + 5 entries added staged 2026-11-12 — all five enabled the same
+    # day once their keys landed (mistral reclassified to the paid lane:
+    # its free tier issues no API keys; owner funded $10 PAYG instead).
     assert len(reg.entries) == 23
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
@@ -109,13 +111,15 @@ def test_starting_registry_matches_spec_table():
     assert all(not e.spillway_sensitive_excluded
                for e in reg.entries
                if e.provider not in ("siliconflow", "huggingface",
-                                      "cerebras", "novita"))
+                                      "cerebras", "novita", "mistral"))
 
-    for staged_id in ("mistral/mistral-large", "mistral/codestral",
-                      "cloudflare/gpt-oss-120b",
-                      "cloudflare/glm-4.7-flash"):
-        assert by_id[staged_id].enabled is False
-        assert by_id[staged_id].lane == "public-only-free"
+    # every 2026-11-12 addition is live; nothing remains staged
+    assert all(by_id[i].enabled for i in
+               ("google/gemini-3.5-flash-lite", "cloudflare/gpt-oss-120b",
+                "cloudflare/glm-4.7-flash", "mistral/mistral-large",
+                "mistral/codestral"))
+    assert by_id["mistral/mistral-large"].lane == "paid"
+    assert by_id["mistral/codestral"].lane == "paid"
 
 def test_cached_pricing_math():
     reg = load_registry(SRC / "registry.json")

@@ -58,6 +58,33 @@ class UsageEvent:
     estimated: bool = False
 
 
+@dataclass
+class AttemptEvent:
+    """One upstream attempt, served or failed (v0.8.0, aspect E).
+
+    The usage ledger above only ever saw serves; failures wrote no
+    rows at all, so the fleet had no failure memory (the 2026-11-09
+    census: 369 attempts against one dead account). This append-only
+    ledger records EVERY attempt with its pool, failure class and
+    scope, plus the would_demote annotation the demotion tracker
+    computed (observe-only in v0.8.0 — enforcement is decision J-2).
+    No prompt/response text is stored; the classifier's signal match
+    happens in memory and only the class/scope lands here.
+    """
+
+    ts: float
+    client_id: str
+    provider: str
+    model_id: str
+    pool_id: str
+    outcome: str                       # served | failed
+    status: Optional[int] = None       # upstream HTTP status; None = transport
+    failure_class: Optional[str] = None
+    scope: Optional[str] = None        # model | pool | account | request
+    scope_target: Optional[str] = None
+    would_demote: Optional[str] = None  # JSON annotation list, or None
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS usage_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,6 +127,24 @@ CREATE TABLE IF NOT EXISTS killswitch (
     active INTEGER NOT NULL DEFAULT 0,
     updated_ts REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS attempt_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL NOT NULL,
+    client_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    pool_id TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    status INTEGER,
+    failure_class TEXT,
+    scope TEXT,
+    scope_target TEXT,
+    would_demote TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_attempt_ts ON attempt_events(ts);
+CREATE INDEX IF NOT EXISTS idx_attempt_provider_ts ON attempt_events(provider, ts);
+CREATE INDEX IF NOT EXISTS idx_attempt_pool_ts ON attempt_events(pool_id, ts);
 """
 
 
@@ -318,6 +363,50 @@ class QuotaStore:
             if limits.get("tpd") and t + est_tokens > int(limits["tpd"]):
                 return "rate_limited_tpd"
         return None
+
+    # ------------------------------------------------------------------
+    # attempt ledger (v0.8.0): every upstream attempt, incl. failures
+    # ------------------------------------------------------------------
+    def record_attempt(self, ev: AttemptEvent) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO attempt_events(ts, client_id, provider,"
+                " model_id, pool_id, outcome, status, failure_class,"
+                " scope, scope_target, would_demote)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    ev.ts, ev.client_id, ev.provider, ev.model_id,
+                    ev.pool_id, ev.outcome, ev.status, ev.failure_class,
+                    ev.scope, ev.scope_target, ev.would_demote,
+                ),
+            )
+            self._conn.commit()
+
+    def attempts_since(self, since: float) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT ts, client_id, provider, model_id, pool_id,"
+                " outcome, status, failure_class, scope, scope_target,"
+                " would_demote FROM attempt_events WHERE ts>=?"
+                " ORDER BY id ASC", (since,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def attempt_counts(self, since: float) -> dict[str, int]:
+        """Outcome counts for quick health reads: served / failed /
+        per failure class."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT outcome, failure_class, COUNT(*) AS n"
+                " FROM attempt_events WHERE ts>=?"
+                " GROUP BY outcome, failure_class", (since,),
+            ).fetchall()
+            out: dict[str, int] = {}
+            for r in rows:
+                key = r["outcome"] if r["failure_class"] is None \
+                    else f"{r['outcome']}:{r['failure_class']}"
+                out[key] = int(r["n"])
+            return out
 
     # ------------------------------------------------------------------
     # alerts (de-duplicated per day by the governor's dedup key)

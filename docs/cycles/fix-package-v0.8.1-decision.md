@@ -2,9 +2,15 @@
 
 - **Date:** 2026-11-13 (build run, ~01:15 MST)
 - **Status:** **BUILT ON BRANCH — NOT DEPLOYED.** Branch
-  `fix/v0.8.1-tool-output-budget`, draft PR (see PR description). Full
-  suite **627 passed** locally (616 baseline + 11 new); CI result
-  recorded in the PR. Deploy waits for the owner's decision at the
+  `fix/v0.8.1-tool-output-budget`, draft PR #5. Full
+  suite **627 passed** locally (616 baseline + 11 new) on the tree
+  that was pushed. CI run #32 (`43393991009`) fired on the PR and
+  completed in the suite's normal envelope (28s); its conclusion
+  badge is **not readable** through this environment's connector or
+  web text surfaces — the same read-back limitation PR #4's build
+  hit, whose run was later confirmed SUCCESS at its deploy gate.
+  Treat CI-green as *unconfirmed* until the merge/deploy flow
+  surfaces it in GitHub, exactly as with v0.8.0. Deploy waits for the owner's decision at the
   standard gate (snapshot + verified backup first). The deploy is a
   **code-only swap** — this package changes no registry content, so
   there is no registry step and no registry rollback question.

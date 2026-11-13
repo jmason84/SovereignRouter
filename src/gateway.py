@@ -91,7 +91,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -142,11 +142,43 @@ def _reasoning_effort_stripped(entry: ModelEntry) -> bool:
     if entry.provider == "mistral" and not entry.reasoning:
         return True
     return False
+
+
+def _default_max_tokens(body: dict[str, Any]) -> int:
+    """The output budget a request gets when neither the client nor
+    an internal override states one (v0.8.1, F-09).
+
+    Tool-bearing is read from the request's own shape, the same way
+    the handlers read it for selection (``body.get("tools") or []``):
+    a non-empty ``tools`` array, or an explicit ``tool_choice``.
+    Any explicit tool_choice counts — including "none": the client
+    has stated a tool-calling shape for the request, and the raised
+    budget is a ceiling that protects the tool-call payloads that
+    shape produces; a turn that emits no tool call simply never
+    approaches it. Everything else is plain chat and keeps the
+    DEFAULT_MAX_TOKENS budget."""
+    if body.get("tools") or body.get("tool_choice") is not None:
+        return TOOL_DEFAULT_MAX_TOKENS
+    return DEFAULT_MAX_TOKENS
 FAILOVER_STATUSES = {401, 403, 408, 413, 429, 500, 502, 503, 504}
 # Escalation reason recorded on every turn the paid spillway serves
 # (v0.5.5 free-first / paid-spillway waterfall, owner ruling 2026-11-07).
 SPILLWAY_REASON = "free_exhausted_paid_fallthrough"
 DEFAULT_MAX_TOKENS = 2048          # spec: max_tokens clamp, 2048 default
+# v0.8.1 (F-09; protocol §7): the 2048 default binds every client that
+# omits max_tokens — and Hermes omits it on every turn. The victims
+# were tool calls: a write_file body is a single tool-call payload,
+# and tool payloads are the longest outputs those clients produce, so
+# the default truncated tool calls mid-stream (finish=length at
+# exactly 2048) while plain chat never noticed. A tool-bearing
+# request that omits max_tokens therefore defaults to the raised
+# budget below. Plain chat keeps 2048: free-lane cost discipline is
+# preserved where outputs are naturally short, and the budget is a
+# ceiling, not a target — a turn that generates less is unaffected.
+# (Raising DEFAULT_MAX_TOKENS globally was considered and rejected
+# in the §7 fix proposal: it would lengthen every free-lane
+# generation, runaway ones included.)
+TOOL_DEFAULT_MAX_TOKENS = 8192
 MIN_OUTPUT_TOKENS = 64             # reserve used by the context-fit check
 TOKEN_ESTIMATE_FACTOR = 1.05       # carried from v0.3 (o200k_base x1.05)
 
@@ -630,7 +662,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         room = entry.context_tokens - est_tokens
         requested = int(max_tokens_override or body.get("max_tokens")
                         or body.get("max_completion_tokens")
-                        or DEFAULT_MAX_TOKENS)
+                        or _default_max_tokens(body))
         budget = max(64, min(requested, room)) if room > 64 else requested
         if entry.completion_tokens_param:
             # OpenAI's gpt-5.5 rejects max_tokens outright ("Unsupported

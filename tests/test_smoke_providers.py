@@ -116,10 +116,14 @@ FREE20_DISABLED_IDS = ("google/gemma-4-31b-it", "cloudflare/glm-5.3-flash",
                        "openrouter/inkling-2-small-free",
                        "openrouter/gemma-4-31b-free",
                        "openrouter/gemma-4-26b-free")
-# The three phase-2 routes that shipped DISABLED, each with a dated
-# probe-failure note (reasoning-burn empty content, no-content probes,
-# intermittent Google 500s — see PHASE2_ENTRIES).
-EXPAND2_DISABLED_IDS = ("openrouter/kimi-k2.6", "meta/muse-spark-1.3",
+# The phase-2 routes that shipped DISABLED and remain disabled, each
+# with a dated probe-failure note (reasoning-burn empty content,
+# intermittent Google 500s — see PHASE2_ENTRIES). meta/muse-spark-1.3
+# also shipped disabled but was RE-ENABLED 2026-11-12 by the owner's
+# deploy decision at the v0.6.1 minimal-effort profile (its no-content
+# behavior was a default-effort artifact — see its registry note), so
+# it is no longer in this set.
+EXPAND2_DISABLED_IDS = ("openrouter/kimi-k2.6",
                         "google/gemma-4-26b-it")
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
@@ -195,7 +199,7 @@ def test_entry_raw_json_required_keys(entry):
 def test_registry_counts_and_unique_ids():
     assert len(REG.entries) == 81
     assert len(BY_ID) == 81  # ids unique (loader also enforces)
-    assert sum(1 for e in REG.entries if e.enabled) == 72
+    assert sum(1 for e in REG.entries if e.enabled) == 73
 
 
 def test_registry_get_by_id_is_exact_for_every_entry():
@@ -214,9 +218,11 @@ def test_registry_get_by_id_is_exact_for_every_entry():
 def test_disabled_entries_are_exactly_the_known_set():
     disabled = {e.id for e in REG.entries if not e.enabled}
     # the deliberate siliconflow duplicate + the five free-expansion
-    # routes whose deploy probes failed + the three phase-2 routes
-    # whose probes failed (each registry note is dated 2026-11-12 and
-    # states the failure; none may silently re-enable)
+    # routes whose deploy probes failed + the phase-2 routes whose
+    # probes failed and remain disabled (each registry note is dated
+    # 2026-11-12 and states the failure; none may silently re-enable —
+    # muse-spark-1.3 left this set only via the owner's explicit
+    # 2026-11-12 re-enable decision, recorded in its registry note)
     assert disabled == {"siliconflow/deepseek-v4-pro"} | \
         set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS)
     # the siliconflow entry is a duplicate ROUTE, not a distinct
@@ -479,7 +485,7 @@ PHASE2_ENTRIES = {
     "zai/glm-4.6": ("paid", True, 204800, (0.60, 2.20)),
     "zai/glm-5.3-flash": ("paid", True, 1048576, (0.15, 0.50)),
     "meta/muse-spark-1.2": ("premium", True, 1048576, (1.25, 4.25)),
-    "meta/muse-spark-1.3": ("premium", False, 1048576, (1.25, 4.25)),
+    "meta/muse-spark-1.3": ("premium", True, 1048576, (1.25, 4.25)),
     "cerebras/qwen-3.8-27b": ("paid", True, 65536, (0.99, 1.49)),
     "aion/aion-3.5-mini": ("public-only-free", True, 262144, (0.0, 0.0)),
     "aion/aion-2.0": ("public-only-free", True, 131072, (0.0, 0.0)),

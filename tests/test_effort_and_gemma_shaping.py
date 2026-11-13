@@ -275,10 +275,13 @@ def test_shaping_change_set_is_exactly_the_intended_entries():
     assert google_shape == {"google/gemma-4-31b-it", "google/gemma-4-26b-it"}
 
 
-def test_disabled_stays_disabled_in_the_package():
+def test_disabled_set_matches_owner_decisions():
     entries = _entries()
     assert entries["google/gemma-4-31b-it"].get("enabled", True) is False
     assert entries["google/gemma-4-26b-it"].get("enabled", True) is False
-    assert entries["meta/muse-spark-1.3"].get("enabled", True) is False
+    # muse-spark-1.3 shipped disabled in the fix package and was
+    # RE-ENABLED 2026-11-12 by the owner's deploy decision, at the
+    # minimal-effort profile pinned above (see its registry note).
+    assert entries["meta/muse-spark-1.3"].get("enabled", True) is True
     assert entries["meta/muse-spark-1.1"].get("enabled", True) is True
     assert entries["meta/muse-spark-1.2"].get("enabled", True) is True

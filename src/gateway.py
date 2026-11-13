@@ -90,16 +90,57 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
 # providers when a request fails over.
+# v0.6.1: reasoning_effort joins the allowlist — Meta's Muse Spark
+# defaults an omitted effort to "high" and burns hundreds of hidden
+# reasoning tokens per turn; until now a client-sent effort was dropped
+# here and no registry entry could set one either, so Meta's documented
+# control was unexercisable through the gateway (route-health
+# diagnosis 2026-11-12, docs/cycles/route-health-investigation-protocol.md).
 ALLOWED_FIELDS = {
     "messages", "temperature", "top_p", "max_tokens", "stream", "tools",
     "tool_choice", "response_format", "stop", "presence_penalty",
-    "frequency_penalty", "seed", "user", "n",
+    "frequency_penalty", "seed", "user", "n", "reasoning_effort",
 }
+# Providers whose upstreams REJECT a top-level reasoning_effort field
+# outright with HTTP 400 — and 400 is not in FAILOVER_STATUSES, so the
+# poisoned field would fail the whole turn instead of failing over.
+# upstream_body strips the field for these providers AFTER the
+# extra_body merge, so neither a client nor a registry entry can leak
+# it upstream. Evidence (2026-11-12, fix package v0.6.1; full table in
+# docs/cycles/fix-package-v0.6.1-decision.md): Google — proven 400
+# "Thinking budget is not supported for this model" on the Gemini
+# OpenAI-compatible endpoint (protocol doc, probe G3). Mistral is
+# handled in upstream_body rather than here because its validation is
+# per-model (see _reasoning_effort_stripped). The other providers were
+# probe-audited live from VM103 with the field set: accepted or
+# ignored (cerebras, deepinfra, deepseek, groq, huggingface, novita,
+# nvidia, openai, openrouter, siliconflow, aion); cloudflare, ollama
+# and zai answered with account-level errors that do not implicate
+# the field (dead neuron pool / no credits / overload).
+REASONING_EFFORT_STRIPPED_PROVIDERS = {"google"}
+
+
+def _reasoning_effort_stripped(entry: ModelEntry) -> bool:
+    """True when a top-level reasoning_effort must not reach this
+    entry's upstream (v0.6.1 poison-field guard; evidence above)."""
+    if entry.provider in REASONING_EFFORT_STRIPPED_PROVIDERS:
+        return True
+    # Mistral validates reasoning_effort per model (live probes
+    # 2026-11-12): ministral-8b rejects the field outright ("not
+    # enabled for this model") and mistral-small / mistral-medium
+    # reject the graded values, accepting only none/high — while
+    # mistral-large (the registry's only reasoning-flagged Mistral
+    # entry) accepts it. Strip for every Mistral entry that is not
+    # reasoning-flagged; a lost client control on those entries is
+    # cheaper than a 400 that fails the whole turn.
+    if entry.provider == "mistral" and not entry.reasoning:
+        return True
+    return False
 FAILOVER_STATUSES = {401, 403, 408, 413, 429, 500, 502, 503, 504}
 # Escalation reason recorded on every turn the paid spillway serves
 # (v0.5.5 free-first / paid-spillway waterfall, owner ruling 2026-11-07).
@@ -545,6 +586,11 @@ def create_app(config: Optional[GatewayConfig] = None,
                 merged = dict(out[k]); merged.update(v); out[k] = merged
             else:
                 out[k] = v
+        if _reasoning_effort_stripped(entry):
+            # Poison-field guard (v0.6.1): this upstream 400s on a
+            # top-level reasoning_effort; strip it no matter whether
+            # the client or the entry's extra_body put it there.
+            out.pop("reasoning_effort", None)
         if stream:
             opts = dict(out.get("stream_options") or {})
             opts["include_usage"] = True

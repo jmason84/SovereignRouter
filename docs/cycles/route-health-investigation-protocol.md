@@ -243,7 +243,110 @@ by Meta as not yet final).
 completion tokens across 18 calls at the $4.25/M rate, plus negligible
 input). Google: $0 (free tier).
 
-## 7. Standing outputs
+## 7. Worked example 3 — `openrouter/dots-3-note-preview-free` stream stalls (2026-11-13)
+
+**Symptom on record:** the Hermes Smoke Signal session stalled repeatedly
+on `write_file` — seven stalls 2026-11-12 21:55–22:01 MST (session
+`20261112_191400_8b28ce`, context 93k→116k tokens), three more 2026-11-13
+~00:35–00:47 MST. Hermes reports "Stream stalled mid tool-call
+(write_file); the action was not executed." The route records show every
+stalled turn served by `openrouter/dots-3-note-preview-free` with
+`output_tokens` at exactly 2048 and `finish=length`; the v0.8.0
+`attempt_events` ledger records them as clean serves — no transport
+failure: the stream completes, and the tool call inside it is truncated.
+The owner's question: is it the model, or the way we interact with it?
+
+**What the primary source says (OpenRouter models API):**
+`dots-studio/dots-3-note-preview:free` — `context_length` 512,000,
+`top_provider.max_completion_tokens` **460,800**. No 2,048 output cap
+exists on the provider side. (Probe B below confirms it behaviorally:
+direct with `max_tokens` unset, the model generated 6,080 tokens and
+stopped naturally — OpenRouter imposes no 2,048 default either.)
+
+**What our side does (the audit, before any probe):**
+
+- **Registry entry:** `extra_body` = `{provider.data_collection: deny,
+  reasoning.enabled: false}` (reasoning disabled 2026-11-11 for a
+  different incident — empty responses, not stalls). Nothing in the entry
+  touches the output budget. Lane `private-free`; it is the free lane's
+  only 512k-context entry.
+- **Gateway (v0.8.0):** `DEFAULT_MAX_TOKENS = 2048` (`gateway.py:107`).
+  `upstream_body()` computes `requested` = the client's `max_tokens` /
+  `max_completion_tokens` when present, else the default, clamps only to
+  the model's remaining context room, and **always writes the budget
+  explicitly into the upstream body**. A client that sends `max_tokens`
+  gets it passed through; a client that sends none gets exactly 2,048.
+- **Hermes:** sends no `max_tokens`. Its config (VM112,
+  `/opt/data/config.yaml`) sets no cap — the only match is a commented-out
+  example (`# max_tokens_cap: 4096`). Every Hermes turn therefore
+  inherits the gateway's 2,048 default.
+- **Why dots-3:** sticky sessions bind Hermes' longest sessions to the
+  only free entry whose context fits their 93k–173k-token inputs, and
+  `write_file` payloads are the longest outputs Hermes produces — so the
+  default binds exactly where outputs are longest. Route-log census for
+  dots-3: 3,308 serves < 2,048 output tokens, 141 at exactly 2,048, and
+  **38 above 2,048** — the route exceeds the cap whenever the budget on
+  the request allows it.
+
+**Differential matrix (2026-11-13, from VM103; copy task — reproduce 320
+provided lines ≈ 6,080 tokens; production `extra_body` on every dots-3
+arm; $0, free tier):**
+
+| Arm | Result |
+|---|---|
+| Direct, plain, `max_tokens=8192` (A) | 200, `finish=stop`, 6,080 completion tokens, 320/320 lines |
+| Direct, plain, `max_tokens` UNSET (B) | 200, `finish=stop`, 6,080 tokens, 320/320 — provider default is not 2,048 |
+| Direct, plain, 8192, ~90k-token context (D) | 200, `finish=stop`, 6,080 tokens, 320/320 — **no context squeeze**: output identical at 6k and 90k context |
+| Gateway (hermes client, pinned), plain, `max_tokens=8192` (C) | 200, `finish=stop`, 6,080 tokens, 320/320 |
+| Gateway (hermes client, pinned), plain, `max_tokens` UNSET (C2 — the Hermes replica) | 200, **`finish=length`, exactly 2,048 tokens, 108/320 lines** — the production stall reproduced with one variable changed |
+| Tool-shaped arms (direct + gateway) | dots-3's tool arguments on fresh single-turn calls are degenerate (`{"content": ": ", "path": ": "}`); through the gateway that shape is classified `empty_response` and escalates to nemotron (attempt-ledger rows 213–215). A tooling-quality defect — **not** the stall mechanism: production payloads truncate on length, not degeneracy. |
+
+**Classification: `ours-config`** (primary) **× interaction.** The binding
+ceiling is the gateway's own `DEFAULT_MAX_TOKENS = 2048`, applied because
+the client omits `max_tokens`. The model is exonerated: whenever a budget
+above 2,048 reaches it, by any path, it completes at 6,080 tokens. The
+provider is exonerated: published max completion is 460,800 and its unset
+default does not bind at 2,048. The squeeze hypothesis is refuted by arm
+D. **The single discriminating variable is the `max_tokens` on the
+request as it leaves the gateway.**
+
+**Secondary finding (feeds R4, not this verdict):** dots-3's
+tool-argument fidelity on fresh single-turn calls is poor — degenerate
+arguments, gateway-classified `empty_response` with failover; the entry's
+own 2026-11-11 note records "malformed-tool-call loops" in production.
+Measured evidence against dots-3 for tool-class work in the R4 tooling
+dimension; its long-context chat standing is unchanged.
+
+**Fix proposal (not applied; gated fix package):**
+
+1. **Gateway (primary):** give tool-bearing requests a raised default
+   budget (proposed 8,192) while plain chat turns keep the 2,048 default
+   — the truncation victims are tool payloads, and free-lane cost
+   discipline is preserved where outputs are naturally short. (The
+   one-line alternative — raising `DEFAULT_MAX_TOKENS` globally — is
+   rejected in this proposal: it lengthens every free-lane generation,
+   including runaway ones, against shared pool RPM.)
+2. **Client (complementary):** set Hermes' `max_tokens_cap` — its config
+   already documents the knob, commented at 4096 — so Hermes states its
+   own budget explicitly. This protects Hermes even if gateway defaults
+   change again, but not other omitting clients, which is why the gateway
+   fix is primary.
+3. **Ledger follow-through (R3 taxonomy):** record `finish_reason` on
+   route records / attempt rows so a length-truncated tool call is
+   visible as its own class (`truncated_tool_call`) instead of a clean
+   serve; v0.8.0's ledger cannot currently see this failure shape.
+
+**Standing outputs:** failure log **F-09**; registry-note correction
+queued for the next gated registry change (append this verdict and the
+tooling evidence to the dots-3 entry's notes); the entry remains
+**enabled** — no disable: the route is sound, the budget was ours;
+weekly re-probe cadence unchanged, with the next re-probe to include one
+tool-shaped arm scored on argument completeness.
+
+**Probe cost for this investigation:** $0 (OpenRouter free tier
+throughout; ~50k completion tokens across all arms).
+
+## 8. Standing outputs
 
 Every investigation closes with all four: (1) the failure-log entry, (2) the
 registry-note correction queued for the next gated registry change, (3) the

@@ -1,11 +1,14 @@
 # Release v0.8.0 — Decision Package: Pool Ledger & Failure Memory (Cycle 1, R2)
 
 - **Date:** 2026-11-12 (build run, evening MST)
-- **Status:** **BUILT ON BRANCH — NOT DEPLOYED.** Branch
-  `feature/v0.8.0-pool-ledger`, draft PR (see PR description). Full
-  suite **582 passed** locally (566 baseline + 16 new); CI result
-  recorded in the PR. Deploy waits for the owner's decision at the
-  standard gate (snapshot + verified backup first).
+- **Status:** **DEPLOYED 2026-11-13** (owner's order at the standard
+  gate). Content merged to main as
+  `9f811cb6a7e141876da14bc1b0b4f2adbf015281` (merge mechanics and the
+  full evidence trail in the CHANGELOG [0.8.0] deploy record); merged
+  tree suite **616 passed**; CI run #26 (PR) and #29 (main) SUCCESS;
+  snapshot `snapshots/pre-v080-20261113`; ledger proof live in
+  `state/quota.db` (`attempt_events` recording serves and failures).
+  Branch `feature/v0.8.0-pool-ledger` retained as archive.
 - **Origin:** `docs/SOVEREIGN-ROUTER-NEXT-PLAN.md` §3 (release R2) and
   `docs/cycles/cycle-01-plan.md` aspect E. **Data layer, observe-only:
   this release changes NO selection behavior.** Enforcement authority

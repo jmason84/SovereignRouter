@@ -90,7 +90,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.6.1"
+VERSION = "0.7.0"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -555,6 +555,65 @@ def create_app(config: Optional[GatewayConfig] = None,
         return candidates, skipped
 
     # ------------------------------------------------------------------
+    # explicit model pins (Cycle 1 aspect G; ruling J-1, 2026-11-12)
+    # ------------------------------------------------------------------
+    def pin_safety_reason(entry: ModelEntry, client: ClientPolicy,
+                          data_class: str) -> Optional[str]:
+        """The two hard boundaries a pin may NOT override (J-1): the
+        entry must be enabled, and a sensitive request's pin must satisfy
+        the same sensitive wall normal selection applies — the per-model
+        exclusion, the public-lane bar, and provider clearance.
+        Everything else about selection (quality floor, cost order,
+        context fit, provider limits) stays pin-overridable: that is
+        what makes pins useful for testing and for the voice stack.
+        Returns the build_candidates-style skip reason, or None."""
+        if not entry.enabled:
+            return "disabled"
+        if data_class == "sensitive":
+            if entry.spillway_sensitive_excluded:
+                return "sensitive_spillway_excluded"
+            if entry.lane == "public-only-free":
+                return "sensitive_public_lane"
+            cleared = entry.sensitive_cleared or \
+                entry.provider in client.sensitive_cleared_providers
+            if not cleared and entry.lane != "private-free":
+                return "sensitive_not_cleared"
+        return None
+
+    def apply_pin(candidates: list[ModelEntry],
+                  explicit_entry: Optional[ModelEntry],
+                  client: ClientPolicy, data_class: str,
+                  paid_off_reason: str
+                  ) -> tuple[list[ModelEntry], Optional[dict[str, str]]]:
+        """Move a client's explicit model pin to the front of the
+        candidate list, force-inserting it when selection left it out
+        for an overridable reason only. Live and shadow selection share
+        this one implementation so /v1/shadow predicts the live pin
+        outcome exactly (the pre-v0.7.0 shadow only reordered a pin
+        already in candidates and diverged on every force-insert case).
+
+        Returns (candidates, blocked) where blocked is a skip annotation
+        when a J-1 hard boundary stopped the pin, else None. Blocks for
+        non-safety reasons (lane membership, governor paid-off, missing
+        provider key) stay silent here — build_candidates already put
+        those reasons on the route row."""
+        if explicit_entry is None:
+            return candidates, None
+        if explicit_entry in candidates:
+            candidates.remove(explicit_entry)
+            candidates.insert(0, explicit_entry)
+            return candidates, None
+        reason = pin_safety_reason(explicit_entry, client, data_class)
+        if reason is not None:
+            return candidates, {"model": explicit_entry.id,
+                                "reason": f"pin_blocked:{reason}"}
+        if explicit_entry.lane in client.lanes and not (
+                paid_off_reason and explicit_entry.lane in ("paid", "premium")) \
+                and app.state.provider_keys.get(explicit_entry.provider):
+            candidates.insert(0, explicit_entry)
+        return candidates, None
+
+    # ------------------------------------------------------------------
     # upstream call helpers
     # ------------------------------------------------------------------
     def upstream_body(body: dict[str, Any], entry: ModelEntry,
@@ -869,9 +928,10 @@ def create_app(config: Optional[GatewayConfig] = None,
             exact = [c for c in candidates if c.quality_for(task_class) == 4]
             if exact:
                 candidates = exact
-        if explicit_entry is not None and explicit_entry in candidates:
-            candidates.remove(explicit_entry)
-            candidates.insert(0, explicit_entry)
+        candidates, pin_blocked = apply_pin(
+            candidates, explicit_entry, client, data_class, paid_off_reason)
+        if pin_blocked:
+            skipped.append(pin_blocked)
         if sticky_entry:
             match = next((c for c in candidates if c.id == sticky_entry.model_id), None)
             if match is not None:
@@ -1067,23 +1127,13 @@ def create_app(config: Optional[GatewayConfig] = None,
                                         "reason": "governor_cheapest_quality4_only"})
                 candidates = exact
         # Explicit real model name: pin it first when it is eligible.
-        if explicit_entry is not None:
-            if explicit_entry in candidates:
-                candidates.remove(explicit_entry)
-                candidates.insert(0, explicit_entry)
-            elif explicit_entry.lane in client.lanes and not (
-                    paid_off_reason and explicit_entry.lane in ("paid", "premium")) \
-                    and app.state.provider_keys.get(explicit_entry.provider) \
-                    and not (data_class == "sensitive"
-                             and explicit_entry.spillway_sensitive_excluded):
-                # The force-insert must not resurrect what selection
-                # excluded on safety or availability grounds: a
-                # sensitive-excluded entry (v0.5.6) stays out even
-                # when pinned by name, and a keyless provider is
-                # unavailable rather than an unauthenticated attempt.
-                # (Both skip reasons are already on the route row
-                # from build_candidates.)
-                candidates.insert(0, explicit_entry)
+        # J-1 (2026-11-12): the force-insert respects the two hard
+        # boundaries — a disabled entry is never resurrected by a pin,
+        # and a pin cannot carry sensitive data past the sensitive wall.
+        candidates, pin_blocked = apply_pin(
+            candidates, explicit_entry, client, data_class, paid_off_reason)
+        if pin_blocked:
+            skipped.append(pin_blocked)
         # Sticky reuse: same model if still eligible and no higher level.
         sticky_used = False
         if sticky_entry and not new_higher_level:
@@ -1445,6 +1495,11 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
             if key:
                 hdrs["Authorization"] = f"Bearer {key}"
             t_u0 = time.perf_counter()
+            # Hoisted before the try (v0.7.0): the transport-error
+            # handler below must know whether visible output was
+            # already committed for THIS candidate — including when the
+            # failure happened before the in-stream reset further down.
+            committed = False
             try:
                 async with http.stream("POST", url, json=payload, headers=hdrs) as resp:
                     if resp.status_code != 200:
@@ -1563,6 +1618,35 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                     return
             except (httpx.TimeoutException, httpx.TransportError):
                 record.latency_upstream_ms += (time.perf_counter() - t_u0) * 1000
+                if committed:
+                    # Commit guard (ADD-06, v0.7.0): visible output from
+                    # this model is already with the client. Failing
+                    # over would append a SECOND model's output to the
+                    # same stream — a corrupt transcript the client
+                    # cannot separate. Terminate the stream with a
+                    # typed error event instead; the route row carries
+                    # the signal for the failure log. (The tool path
+                    # never reaches this branch: its chunks are buffered
+                    # until validation, so committed stays False and
+                    # pre-commit failover below still applies.)
+                    skipped.append({"model": entry.id,
+                                    "reason": "stream_failed_after_commit"})
+                    record.signals.append(
+                        f"stream_aborted_after_commit:{entry.id}")
+                    record.model = entry.id
+                    record.lane = entry.lane
+                    record.status = 502
+                    record.upstream_failure = True
+                    record.latency_upstream_ms = round(
+                        record.latency_upstream_ms, 2)
+                    telemetry.write(record)
+                    yield ("data: " + json.dumps({
+                        "error": {
+                            "message": "upstream stream interrupted after partial output",
+                            "type": "upstream_error",
+                            "code": "stream_interrupted"}}) + "\n\n")
+                    finalized = True
+                    return
                 skipped.append({"model": entry.id, "reason": "upstream_unreachable"})
                 idx += 1
                 continue

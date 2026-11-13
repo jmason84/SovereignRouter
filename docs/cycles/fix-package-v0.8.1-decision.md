@@ -1,19 +1,27 @@
 # Fix Package v0.8.1 — Decision Package: tool-bearing default output budget (F-09)
 
 - **Date:** 2026-11-13 (build run, ~01:15 MST)
-- **Status:** **BUILT ON BRANCH — NOT DEPLOYED.** Branch
-  `fix/v0.8.1-tool-output-budget`, draft PR #5. Full
-  suite **627 passed** locally (616 baseline + 11 new) on the tree
-  that was pushed. CI run #32 (`43393991009`) fired on the PR and
-  completed in the suite's normal envelope (28s); its conclusion
-  badge is **not readable** through this environment's connector or
-  web text surfaces — the same read-back limitation PR #4's build
-  hit, whose run was later confirmed SUCCESS at its deploy gate.
-  Treat CI-green as *unconfirmed* until the merge/deploy flow
-  surfaces it in GitHub, exactly as with v0.8.0. Deploy waits for the owner's decision at the
-  standard gate (snapshot + verified backup first). The deploy is a
-  **code-only swap** — this package changes no registry content, so
-  there is no registry step and no registry rollback question.
+- **Status:** **DEPLOYED 2026-11-13** (owner's order at the standard
+  gate). PR #5 merged cleanly via the connector — merge commit
+  `618a11c7b3a23dd983714ca209e38e2fd12a1c32`; production runs image
+  `192.168.0.28:5000/sovereign-router:v0.8.1` (snapshot
+  `snapshots/pre-v081-20261113`; registry unchanged, md5
+  `96eaa3c99643e1016508cee16caf23de` across all three copies). The
+  CI read-back gap recorded at build time is CLOSED: PR run #32
+  (`43393991009`) and the synchronize run (`43394342150`) both read
+  back **SUCCESS** via the GitHub API, as did run `43396867354` on
+  main for the merge commit. Live verification at the gate
+  (omitting-client smokes): the F-09 copy shape, tool-bearing with
+  `max_tokens` unset, completed finish=stop at 8,001 tokens with
+  320/320 lines; the plain-chat negative control still bound at
+  exactly 2,048; a client-sent 4096 bound exactly; the streaming
+  arm bound at 8,192 and an identical re-run completed the full
+  SSE (stop, 8,001 tokens, 320/320 lines); unpinned auto served
+  200 on the free lane. Full deploy record: CHANGELOG [0.8.1].
+  Note: the original deploy agent was interrupted after the deploy
+  proper; verification and records were completed in a separate
+  pass (no re-merge, no re-deploy). The deploy was a **code-only
+  swap** — this package changed no registry content.
 - **Origin:** failure log **F-09** and the route-health differential
   investigation (`docs/cycles/route-health-investigation-protocol.md`
   §7, worked example 3). Classification there: **ours-config ×

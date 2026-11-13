@@ -64,6 +64,10 @@ class RouteRecord:
     repeat_within_60s: bool = False
     tool_error_next_turn: bool = False
     signals: list[str] = field(default_factory=list)
+    # v0.8.0 (aspect E, observe-only): demotions selection WOULD have
+    # applied from this turn's attempt outcomes, per the pool ledger's
+    # demotion tracker. Recorded, never enforced (decision J-2).
+    would_demote: list[dict[str, Any]] = field(default_factory=list)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), separators=(",", ":"), sort_keys=True)

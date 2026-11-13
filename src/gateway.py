@@ -82,7 +82,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from classifier import REQUIRED_QUALITY, Classifier
 from clients import ALIASES, ClientPolicy, ClientStore, extract_bearer_key, load_clients
 from governor import EmergencyConfig, Governor
-from quota import QuotaStore, UsageEvent
+from pools import DemotionTracker, classify_failure, pool_for
+from quota import AttemptEvent, QuotaStore, UsageEvent
 from registry import FREE_LANES, ModelEntry, Registry, load_registry
 from sensitivity import scan_messages
 from sticky import StickyStore, conversation_key
@@ -90,7 +91,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.7.0"
+VERSION = "0.8.0"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -355,6 +356,10 @@ def create_app(config: Optional[GatewayConfig] = None,
     app.state.classifier = classifier
     app.state.provider_keys = provider_keys
     app.state.http = upstream_client
+    # v0.8.0 (aspect E): observe-only demotion tracker. Selection NEVER
+    # reads it in this release; it exists so the attempt ledger and the
+    # route records carry what enforcement WOULD do (decision J-2).
+    app.state.demotions = DemotionTracker()
 
     # ------------------------------------------------------------------
     def provider_alert_levels(reg: Registry) -> dict[str, float]:
@@ -1266,6 +1271,47 @@ def create_app(config: Optional[GatewayConfig] = None,
 # ======================================================================
 # non-streaming execution with failover + validation escalation
 # ======================================================================
+def _record_attempt(app: FastAPI, record: RouteRecord, client: ClientPolicy,
+                    entry: ModelEntry, *, outcome: str,
+                    status: Optional[int] = None, body_text: str = "",
+                    headers: Any = None, transport: bool = False,
+                    units: float = 0.0) -> None:
+    """Write one attempt to the pool ledger (v0.8.0, aspect E).
+
+    Every upstream attempt lands here exactly once: failures are
+    classified into the taxonomy (class + scope), the observe-only
+    demotion tracker computes its would_demote annotations, and the
+    attempt row + annotations are persisted (annotations also ride on
+    the turn's route record). The ledger is observability, never on
+    the critical path: a ledger failure must not break serving, so
+    errors fold into a route-record signal instead of raising.
+    Selection does not read any of this in v0.8.0 (decision J-2).
+    """
+    try:
+        pool = pool_for(entry)
+        failure = None
+        if outcome == "failed":
+            failure = classify_failure(
+                entry=entry, status=status, body_text=body_text[:2000],
+                headers=headers, transport=transport)
+        annotations = app.state.demotions.observe(
+            entry=entry, failure=failure, now=time.time(), units=units)
+        app.state.store.record_attempt(AttemptEvent(
+            ts=time.time(), client_id=client.id, provider=entry.provider,
+            model_id=entry.id, pool_id=pool.id, outcome=outcome,
+            status=status,
+            failure_class=failure.failure_class if failure else None,
+            scope=failure.scope if failure else None,
+            scope_target=failure.target if failure else None,
+            would_demote=json.dumps(annotations) if annotations else None))
+        seen = {(a["scope"], a["target"]) for a in record.would_demote}
+        for ann in annotations:
+            if (ann["scope"], ann["target"]) not in seen:
+                record.would_demote.append(ann)
+    except Exception:  # noqa: BLE001 — observability never breaks serving
+        record.signals.append("attempt_ledger_error")
+
+
 async def _json_response(*, app: FastAPI, body: dict[str, Any],
                          candidates: list[ModelEntry], record: RouteRecord,
                          client: ClientPolicy, conv_key: str, level: int,
@@ -1315,6 +1361,8 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
         except (httpx.TimeoutException, httpx.TransportError):
             record.latency_upstream_ms += (time.perf_counter() - t_u0) * 1000
             skipped.append({"model": entry.id, "reason": "upstream_unreachable"})
+            _record_attempt(app, record, client, entry,
+                            outcome="failed", transport=True)
             if record.sticky:
                 app.state.sticky.invalidate(conv_key)
             idx += 1
@@ -1323,6 +1371,9 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
         if resp.status_code in FAILOVER_STATUSES or resp.status_code >= 400:
             skipped.append({"model": entry.id,
                             "reason": f"upstream_{resp.status_code}"})
+            _record_attempt(app, record, client, entry,
+                            outcome="failed", status=resp.status_code,
+                            body_text=resp.text, headers=resp.headers)
             if resp.status_code in DEAD_LANE_STATUSES:
                 note_lane_dead(app, entry, f"upstream_{resp.status_code}")
             if record.sticky:
@@ -1333,6 +1384,8 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             data = resp.json()
         except ValueError:
             skipped.append({"model": entry.id, "reason": "upstream_bad_json"})
+            _record_attempt(app, record, client, entry,
+                            outcome="failed", status=resp.status_code)
             idx += 1
             continue
 
@@ -1355,6 +1408,10 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                 budget_override = int(current) * 2
                 record.signals.append(
                     f"same_model_retry:{entry.id}:length_no_content")
+                _r_in, _r_out, _, _ = _usage_from_response(
+                    data, est_tokens, entry)
+                _record_attempt(app, record, client, entry,
+                                outcome="served", units=_r_in + _r_out)
                 continue
             # Escalate once: next candidate at quality+1 (spec). Fallback
             # (found by live E2E, 2026-11-02): when no candidate reaches
@@ -1378,6 +1435,10 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                 last_failures = failures
                 skipped.append({"model": entry.id,
                                 "reason": "validation_failed:" + ",".join(failures)})
+                _r_in, _r_out, _, _ = _usage_from_response(
+                    data, est_tokens, entry)
+                _record_attempt(app, record, client, entry,
+                                outcome="served", units=_r_in + _r_out)
                 idx = esc_idx
                 continue
             # No stronger candidate: return the answer we have, logged.
@@ -1404,6 +1465,8 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             model_id=entry.id, lane=entry.lane, level=level,
             task_class=task_class, input_tokens=in_tok, output_tokens=out_tok,
             cached_tokens=cached, cost_usd=cost, estimated=False))
+        _record_attempt(app, record, client, entry,
+                        outcome="served", units=in_tok + out_tok)
         app.state.sticky.set(conv_key, entry.id, level)
         app.state.governor.evaluate_alerts(
             app.state.clients.clients,
@@ -1503,9 +1566,14 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
             try:
                 async with http.stream("POST", url, json=payload, headers=hdrs) as resp:
                     if resp.status_code != 200:
-                        await resp.aread()
+                        raw = await resp.aread()
                         skipped.append({"model": entry.id,
                                         "reason": f"upstream_{resp.status_code}"})
+                        _record_attempt(
+                            app, record, client, entry,
+                            outcome="failed", status=resp.status_code,
+                            body_text=raw.decode("utf-8", "replace"),
+                            headers=resp.headers)
                         if resp.status_code in DEAD_LANE_STATUSES:
                             note_lane_dead(app, entry,
                                            f"upstream_{resp.status_code}")
@@ -1586,6 +1654,11 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                 idx = esc_idx
                                 retry_candidate = True
                         if retry_candidate:
+                            _record_attempt(
+                                app, record, client, entry,
+                                outcome="served",
+                                units=int(usage_data.get("prompt_tokens") or 0)
+                                + int(usage_data.get("completion_tokens") or 0))
                             continue
                         for sse_line in buffered:
                             yield sse_line
@@ -1618,6 +1691,11 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                     return
             except (httpx.TimeoutException, httpx.TransportError):
                 record.latency_upstream_ms += (time.perf_counter() - t_u0) * 1000
+                # v0.8.0: the attempt is recorded FIRST in this handler —
+                # when the v0.7.0 commit guard merges in, its post-commit
+                # return path must not bypass the ledger write.
+                _record_attempt(app, record, client, entry,
+                                outcome="failed", transport=True)
                 if committed:
                     # Commit guard (ADD-06, v0.7.0): visible output from
                     # this model is already with the client. Failing
@@ -1682,6 +1760,8 @@ def _finalize_stream(app: FastAPI, record: RouteRecord, entry: ModelEntry,
         model_id=entry.id, lane=entry.lane, level=level, task_class=task_class,
         input_tokens=in_tok, output_tokens=out_tok, cached_tokens=0,
         cost_usd=cost, estimated=False))
+    _record_attempt(app, record, client, entry,
+                    outcome="served", units=in_tok + out_tok)
     app.state.sticky.set(conv_key, entry.id, level)
     app.state.telemetry.write(record)
 

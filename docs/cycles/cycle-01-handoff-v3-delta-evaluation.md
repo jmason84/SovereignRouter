@@ -1,0 +1,142 @@
+# Cycle 1 — Handoff v3 Delta Evaluation: What Changed After the v1 Evaluation
+
+- **Date:** 2026-11-12 (evaluation run ~22:25 MST)
+- **Type:** Research + evaluation only — improvement-loop stages 1–3 work product. No code, registry, or production changes were made.
+- **Scope:** DELTA evaluation. The v1 handoff was fully evaluated in `docs/cycles/cycle-01-handoff-evaluation.md` (GitHub main `ffc49fa3`); that work is **not** redone here. This document covers only what v2 and v3 added or changed, verifies the new claims against the code, and records Jordan's J-1 ruling.
+- **Texts evaluated:**
+  1. **v2** — "SovereignRouter_Free_First_Routing_Research_Handoff_v2_2026-11-12.md" (Drive id `1vwDSumaRK1KuamMvaELLz2rgTes0FCd_`, 54,023 bytes; local copy `hidden_files/handoff-free-first-routing-v2-2026-11-12.md`).
+  2. **v3 (the live document)** — "SovereignRouter_Free_First_Routing_Research_Handoff_v3_2026-11-12.md" (Drive id `11fRxnKukdHccy3o-pngXl_aSsFz1Rq9k`, 79,436 bytes; local copy `hidden_files/handoff-free-first-routing-v3-2026-11-12.md`).
+  3. v1 (Drive id `1H0s6TQYcUGkprNkXFzKyXrhtHPh7xvck`) and Jordan's pasted summary review remain the baseline, via the v1 evaluation.
+- **Ground truth:** `src/gateway.py`, `src/quota.py`, `src/registry.py`, `src/registry.json` (81 entries; blob SHAs re-verified this run — see §4.1), `docs/cycles/cycle-01-plan.md`, `docs/IMPROVEMENT-LOOP.md`, `docs/ROUTING-PRINCIPLES.md`, and the v1 evaluation's verified findings, which stand unless this document explicitly revisits one.
+
+---
+
+## 1. VERDICT ON v3
+
+**Adopt v3 as the live research text, superseding v1/v2 — it is the first version of the handoff that has read and reconciled itself against this project's own evaluation, and its corrections are the right ones.** v3's §11 (the governing addendum) explicitly adopts the v1 evaluation's three corrections — the normal pass already cost-sorts paid entries (§2.9 of the evaluation), the Cloudflare 00:00 UTC reset is *documented but not observed* on this account (evaluation §3b-1), and breakers are a design that ships observe-only until J-2 is ruled, not active routing logic — and it restates the build order (A → B → E → G → F1 → D → C → F2) and the ADD-01..08 criteria as its own baseline. Nothing in §11 conflicts with any verified finding of the v1 evaluation. The genuinely new material is net-positive: a pool-boundary correction that *refines* the v1 evaluation (NEW-01), a failed-attempt accounting gap stated at line level (NEW-03), two new candidate providers (UnoRouter, Kilo), a catalog endpoint-family safety rule, a real-zero-cash accounting boundary, and 28 additional test designs (FFC-15..42). **One new claim is imprecise against the project's own records** — Gemini 3.8 Flash is described as "MODEL RESPONSES UNPROBED," but this project's registry notes record that 3.8-flash was probed on 2026-11-12 and timed out at 60s and 120s while 3.5-flash-lite answered in ~1.5s (§4.10). It is a probe-failed candidate, not an unprobed one — a distinction that matters under the investigation protocol Jordan ordered the same evening. **J-1 is now RULED** (§7); v3 predates the ruling and still lists it as open — this document closes that gap, and the ruling is recorded in the Cycle 1 plan's new Decisions log addendum.
+
+## 2. LINEAGE DIFF — what each version actually added
+
+Diff-verified this run (byte-level, not skimmed):
+
+| Step | Change | Substance |
+|---|---|---|
+| v1 → v2 | §§0–9 **byte-identical** except the closing line; v2 appends **§10 "Continued research addendum"** (~250 lines) | §10.1 six new executive findings (NEW-01..06); §10.2 five candidate-capacity leads (UnoRouter, Kilo, OpenRouter non-`:free` $0 sweep, Vercel credits, directory sweep); §10.3 rejected/restricted leads (GitHub Models, OpenCode, SambaNova, NVIDIA); §10.4 provider quota/privacy details restated as data; §10.5 minimal pool schema + quota state machine (attempt ledger, reservations, breaker tables); §10.6 tests FFC-15..28; §10.7 re-prioritization + tau2-bench + a caching note; §10.8 next-engineer instructions |
+| v2 → v3 | §§0–10 **byte-identical** except the closing line; v3 adds a **V3 notice** at the head and appends **§11 "V3 RESEARCH ADDENDUM — READ THIS SECTION FIRST"** (~210 lines) | §11.0 provenance + the three corrections (§1 above); §11.1 Gemini 3.8 Flash candidate; §11.2 Mistral free-mode exclusion; §11.3 endpoint-family verification rule; §11.4 real-zero-cash accounting boundary + price-truth record sketch; §11.5 nested-retry lesson + caching cautions; §11.6 work program (capacity ledger + bounded evaluation; five named research probes); §11.7 tests FFC-29..42; §11.8 source register S-V3-01..18; §11.9 one coherent next-steps proposal |
+
+No other edits exist in either step. In particular, **no v1/v2 recommendation was quietly weakened or dropped in the text itself** — supersession happens only through §11's explicit precedence statements (§8).
+
+## 3. THE "UNO" IDENTIFICATION — FOUND
+
+Jordan (2026-11-12 ~22:20 MST): *"explore uno and other things that we've dug up in this research."* **"Uno" is UnoRouter** — CANDIDATE-01 in §10.2 of v2 and v3, a new candidate public/free capacity provider not present in v1:
+
+- Provider: **UnoRouter**; documented API host `https://api.unorouter.com/v1`; catalog endpoint `https://api.unorouter.com/api/pricing/catalog`; docs `https://unorouter.com/en/docs/platform/platform-api`.
+- Published claim (per the handoff, from UnoRouter's own docs/blog): many `:free` models at roughly one request/minute per model/account, OpenAI-compatible, catalog exposes per-model `is_free`, `online`, price, tags, provider uptime; capacity is claimed **per-model**, not one global counter.
+- The catch the handoff itself records: third-party free routes on UnoRouter can **retain/train on prompts**, and the provider requires **per-model informed consent** — consent must never be auto-accepted (test FFC-23 guards exactly this).
+- Status in the handoff: DOCUMENTED CANDIDATE, NOT INTEGRATED. Status in the registry: **absent** (verified this run — no UnoRouter or Kilo entry exists in `src/registry.json`).
+- Disposition: **ADOPT as a P2 research candidate** under the standing discovery discipline — public-only posture, disabled until probed, per-endpoint terms/consent review before any synthetic probe, no account creation or consent acceptance without Jordan's explicit go. It sits in the same evaluation queue as Kilo Gateway (CANDIDATE-02, `ai-gateway.kilo.ai`, claimed anonymous 200 req/hr/IP, same data-retention warnings). Neither is a pool we can count until account-level probes prove real, independent capacity.
+
+## 4. NEW-CLAIMS VERIFICATION (v2 §10 + v3 §11 vs. the code)
+
+Fourteen load-bearing new claims checked. **12 verified, 1 verified-with-nuance, 1 imprecise** (§4.10).
+
+### 4.1 v3 §11.0 cites the exact tree it read — VERIFIED
+§11.0 names main commit `ffc49fa3…` (the v1 evaluation commit) and blob SHAs for the three core files. Recomputed this run with `git hash-object`: `src/registry.json` = `6069c663ba8d1491c8dd86d356e78d0b7f961d52`, `src/gateway.py` = `30a56710d610176c02bf970d12dc1e17f8d50c6d`, `src/quota.py` = `5daf12400c6ca2a4b272e84abb249e5f9684aee5` — **all three match §11.0 exactly**. The v3 author read the current tree, including the evaluation it reconciles with.
+
+### 4.2 NEW-01: the `:free` pool boundary + the count of 11 — VERIFIED, and it refines the v1 evaluation
+v2 NEW-01: only `:free`-suffixed variants share OpenRouter's account-level free cap; other zero-priced models do not necessarily share it; `openrouter/free` should be treated as overlapping the `:free` pool until proven otherwise; the repo has **11 enabled OpenRouter $0 entries: ten distinct `:free` model IDs and one `openrouter/free`**. Counted directly from the registry this run: **exactly 11** — north-mini-code, dots-3-note-preview, nemotron-3.5-lightning, nemotron-3-nano-omni, ernie-5.5-flash, flint, lfm-3-1.7b, lfm-2.5-2.6b, nemotron-3-ultra, nemotron-3.5-super-vl (all upstream `:free`) + `openrouter/free-router` → `openrouter/free`. Total enabled $0 across all providers re-counts to **26**, matching the v1 evaluation. The v1 evaluation (§2.13) described the OpenRouter pool monolithically ("one account pool, 20 RPM / 1,000 rpd") — true for every entry we currently enable, but NEW-01's distinction is the correct general rule and matters the moment a non-`:free` zero-price candidate is considered (CANDIDATE-03's sweep). **Refinement adopted; no current routing fact changes**, because the registry contains no enabled non-`:free` $0 OpenRouter chat entry other than the virtual router, which NEW-01 correctly scopes *into* the `:free` pool.
+
+### 4.3 NEW-02: authenticated OpenRouter quota source — VERIFIED
+`GET /api/v1/key` exposing the free-model daily counters is the same authenticated source the v1 evaluation's §6 source check confirmed (documented `free_model_daily_requests` / `limit_remaining` fields). Consistent; feeds decision D4 (quota source of truth — hybrid), which remains Jordan's.
+
+### 4.4 NEW-03: failed attempts are invisible to the quota ledger — VERIFIED
+Spot-checked this run: `record_usage` fires at gateway.py L1142 (the pre-call *estimated* row for the first candidate only), L1306 (JSON path, on serve), L1550 (stream finalize). Upstream failure paths append skip reasons to the route record and write **no** usage/attempt rows — exactly NEW-03's claim (its cited range ~1285–1315 brackets L1306), and the same gap the v1 evaluation recorded in §2.8 from the quota side. §10.5's remedy (append-only attempt ledger, reconciled on completion) is the right shape; the *atomic pre-dispatch reservation* half is amended in §5 (scoped, not universal). NEW-03's caution against copying LiteLLM's soft counters is noted and consistent with the v1 evaluation's rejection of LiteLLM-as-framework.
+
+### 4.5 NEW-04: day boundaries are server-local, per-provider — VERIFIED
+`src/quota.py` L107 buckets days with `time.localtime()`; windows are local calendar day per provider (v1 evaluation §2.8). There is no per-pool timezone/reset model anywhere — NEW-04's gap statement is exact. Its remedy (windows as UTC instants + per-pool IANA reset rules via `zoneinfo`, rolling vs. calendar distinguished) is adopted into B/E (§5), with the standing caveat from the v1 evaluation §3b-1: Cloudflare's `reset_at` must be *observed*, never assumed from documentation.
+
+### 4.6 NEW-05: streaming failover after commit — VERIFIED (convergent finding)
+v2 §10.5 identifies the same post-commit transport-error edge the v1 evaluation found independently (§2.6, criterion ADD-06): the streaming producer's `except (httpx.TimeoutException, httpx.TransportError)` handler has no committed guard. The two findings were produced independently (v2's Drive timestamp precedes the evaluation's publication) and agree on mechanism and remedy — terminate with a typed error after commit; no continuation. v3 §11.6 acknowledges the evaluation's independent identification and correctly adds that **a deterministic reproducer test still needs to run** before any production edit. FFC-19 and FFC-38 restate this criterion; they are de-duplicated into ADD-06 in §6.
+
+### 4.7 NEW-06: trial terms are prose, not a gate — VERIFIED
+`production_allowed` / `trial_only` do not exist in `src/registry.py`'s schema (grep-verified this run); the two NVIDIA entries are enabled in `public-only-free` with the evaluation-terms caveat only in `notes`. NEW-06's claim is exact. This is the code-side twin of decision D3 (NVIDIA entries in production), which remains Jordan's; §5 adopts the *fields* into aspect B and leaves the *gate's effect on the existing entries* to the D3 ruling.
+
+### 4.8 §10.2/§10.3 candidate and rejection lists — VERIFIED as far as the code can speak
+Neither UnoRouter nor Kilo appears in the registry (grep-verified). The rejection list (GitHub Models retired, OpenCode free models external-403, SambaNova "free" requiring purchased credits) consists of provider-terms claims the code cannot confirm or refute; none conflicts with any registry fact (no such providers are registered), and all three are consistent with the project's discovery discipline. They are adopted as research notes — dead ends not to re-walk — without independent re-verification in this pass.
+
+### 4.9 §11.2: Mistral's Free mode is not an API tier — VERIFIED against our posture
+All five Mistral entries in the registry sit in the **paid** lane (mistral-large, codestral, mistral-small, ministral-8b, mistral-medium); nothing in the project has ever treated Mistral as $0 capacity. §11.2's exclusion (Free mode = Vibe/Studio trial budget, no API access; API requires billing activation + PAYG) is consistent with that posture and is adopted — it forecloses a plausible future catalog-sweep error before it happens.
+
+### 4.10 §11.1: Gemini 3.8 Flash — registry list VERIFIED; "unprobed" IMPRECISE against project records
+§11.1's registry census is exact (verified this run): `google/gemini-3.5-flash-lite` enabled, `google/gemini-3.1-flash-lite` enabled, `google/gemma-4-31b-it` disabled, `google/gemma-4-26b-it` disabled, **no `gemini-3.8-flash` entry**. The catalog claim (Google's pricing page lists `gemini-3.8-flash` with a free tier) is the researcher's provider-doc finding, consistent with a second project record: the registry note on `google/gemini-3.5-flash-lite` records that Google's own error message named gemini-3.8-flash as the current replacement model. **But the status block's "MODEL RESPONSES UNPROBED" is wrong for this project**: that same registry note records that on 2026-11-12, from VM103, **gemini-3.8-flash timed out at both 60s and 120s on trivial probes**, while 3.5-flash-lite answered twice in ~1.5s — which is precisely why the enabled Google entry runs the Lite model. The v3 author read the registry *file* but not, apparently, the entry notes. Corrected status: **CATALOG VERIFIED; ACCOUNT ENTITLEMENT UNKNOWN; PROBE-FAILED 2026-11-12 (timeouts at production-shaped trivial probes); NOT INTEGRATED.** Under Jordan's 2026-11-12 directive (suspect our end first; differential-diagnose before defending a disable), 3.8-flash belongs on the re-probe list alongside Gemma 4 31B and Muse Spark 1.3 — the timeouts may be provider-side slowness, an endpoint/shape problem on our side, or transient launch-week congestion; none of those has been distinguished yet. If a re-probe passes, the path is the standing one: register disabled → F1 battery → enable decision, in `public-only-free` permanently (Google free-tier training posture, per the existing Google entries' notes).
+
+### 4.11 §11.3: endpoint-family verification rule — ADOPTED as a rule; example not independently fetched
+The rule — a $0 catalog listing is not evidence of a chat-completions contract; discovery must carry `endpoint_family` and capability-proof fields and may only emit chat candidates on contract evidence — is sound, cheap, and directly protective of aspect C's discovery work. The motivating example (a zero-priced OpenRouter "decisions" product on a non-chat endpoint) is the researcher's catalog observation, not re-fetched in this pass; the rule stands regardless of the example.
+
+### 4.12 §11.5: nested-retry hazard — VERIFIED ABSENT in the current stack
+§11.5 warns against a hidden retry layer under the gateway's failover. Checked this run: the gateway constructs a plain `httpx.AsyncClient` (gateway.py L298, 120s timeout), uses no provider SDKs, and configures no transport retries; httpx itself performs no automatic retries. The only retries in the system are the gateway's own intentional ones (same-model budget retry, escalation, failover). The hazard does not exist today; FFC-37 is adopted as the guard that keeps it that way (attempt-count integrity, §6).
+
+### 4.13 Two smaller §11 claims — VERIFIED
+- *"verified_until is blank on all 81 entries"* (§11.6): re-counted this run — set on **0 of 81** ✓ (v1 evaluation §3b-3).
+- *S-V3-18: Cerebras is "$5 starter credit + PAYG, not permanent $0"* (§11.8): consistent with project records — the Cerebras trial ($5 credit, expiry ≈2026-12-12) and its carried funding decision. No conflict.
+
+## 5. DISPOSITIONS — new proposals mapped to Cycle 1 aspects
+
+Order stands: **A → B → E → G → F1 → D → C → F2**. J-2 still gates all E enforcement (observe-only until ruled); nothing below changes that.
+
+| Proposal (source) | Disposition | Mapping / reasoning |
+|---|---|---|
+| Pool taxonomy: `:free` pool vs. independent zero-price class vs. credit pools (§10.4, NEW-01, CANDIDATE-04) | **ADOPT** | **B** — pool declarations become explicit data (`quota_pool_id`, `cost_mode`: `zero_price \| free_allowance \| promotional_credit \| paid \| local`, per §10.5). Vercel's $5/mo is classified `promotional_credit`, never $0 capacity — the handoff's own framing, adopted verbatim. |
+| Attempt ledger (append-only, reconciled) (§10.5, NEW-03) | **ADOPT** | **E** — extends the existing `QuotaStore`; failure evidence stops living only in `routes.jsonl` skip reasons. |
+| Atomic pre-dispatch reservations (§10.5, NEW-03) | **AMEND** | **E**, scoped exactly as §11.5 itself conditions it: reservations only for *deterministic, well-understood scarce limits* (OpenRouter free RPD, Cloudflare neuron proxy). Not a universal dispatch gate — client traffic is low-concurrency agent work, and a general reservation layer is weight the current incident record doesn't justify. |
+| Per-pool windows/timezones via `zoneinfo` (NEW-04) | **ADOPT** | **B** (declarations) + **E** (enforcement of windows); Cloudflare `reset_at` remains observed-not-documented (v1 evaluation §3b-1). |
+| Terms/eligibility fields + hard gate (`production_allowed`, `trial_only`, `usage_posture`, `privacy_posture`, `terms_url`) (NEW-06, §10.5) | **ADOPT fields; gate follows D3** | **B** lands the fields (extending the v1 evaluation §4 merge). Whether the two existing NVIDIA entries are gated off, isolated, or kept under caveat is decision **D3**, still Jordan's — the fields make any of the three rulings machine-checkable, and no entry is auto-disabled by this adoption (J-4 discipline). |
+| Endpoint-family + capability-proof catalog fields (§11.3) | **ADOPT** | **B** (schema) + **C** (discovery filter). Extends the v1 evaluation's adopted field set with `endpoint_family`, `input/output_modalities`, `supported_parameters`, `supports_stream`, `supports_tools_verified`, `supports_json_schema_verified`, `resolved_upstream_model`, `source_last_checked_at`, `owner_approved_for_prod`. |
+| Real-zero-cash accounting boundary (§11.4: nominal price vs. predicted cash spend; fees/overage/credits in the estimate) | **ADOPT as principle** | **C** + the J-3(i) logging-only fields question. This is a *record* distinction (what we write down), fully compatible with Jordan's ruling that displayed dollar figures are not cache-corrected. |
+| Gemini 3.8 Flash candidate (§11.1) | **AMEND** | Status corrected per §4.10 (probe-failed, not unprobed). Route: differential re-probe under Jordan's investigation protocol; if healthy → register disabled → F1 → enable decision, `public-only-free`. The bounded evaluation protocol §11.1 proposes (synthetic public prompts only, 3 reps, full evidence capture) is adopted as the re-probe shape. |
+| Mistral free-mode exclusion (§11.2) | **ADOPT** | No action — records a dead end (§4.9). |
+| UnoRouter + Kilo candidates (§10.2) | **ADOPT as research queue** | **C**-adjacent discovery work, P2-third in §10.7's own ordering. Public-only, consent/terms review first (FFC-23/24), disabled until probed and approved. No enrollment or consent without Jordan's go. |
+| Nested-retry prohibition (§11.5) | **ADOPT as constraint** | Current stack verified clean (§4.12); FFC-37 guards regressions. |
+| Caching ideas (CF AI Gateway response cache, §10.7/§11.5; vLLM prefix caching) | **DEFER (P3)** | Response caching of agent traffic is privacy- and side-effect-sensitive; the handoff's own cautions (public, idempotent, opt-in only) are the minimum bar and no current need is demonstrated. vLLM prefix caching is not applicable — no local vLLM serves in the router path. Neither is free capacity. |
+| tau2-bench (§10.7) | **ADOPT as methodology reference** | Joins BFCL/LiveCodeBench in the **F1/D** evidence toolkit — nomination and test-shape reference only; scores still come from production-shaped local probes (v1 evaluation §4 rule). |
+| §11.6 work program / §11.9 next steps | **ADOPT** | They restate the governed sequence (evaluate J-decisions against the plan, resolve the Cloudflare reset discrepancy, evidence table before builds, de-duplicate FFC + ADD criteria). The five named research probes require owner authorization for authenticated reads; `GEMINI_38` is partially pre-run (§4.10) and `CLOUDFLARE_RESET` is decision D4's resolver. |
+
+## 6. TEST CRITERIA — FFC-15..42 dispositioned
+
+The FFC series is the handoff lineage's own numbering (v1's §7 tests were TEST-01..14, dispositioned in the v1 evaluation; FFC-01..14 are not used in any version). v2 added FFC-15..28, v3 added FFC-29..42 — **28 criteria: 21 accept, 3 amend, 2 accept-conditional, 2 duplicate (merged into ADD-06)**.
+
+| Range | Disposition |
+|---|---|
+| FFC-15 (pool split `:free` vs non-`:free` $0), FFC-16 (failed attempts count), FFC-18 (reset calendars incl. DST), FFC-20 (Retry-After parsing + bounds), FFC-22 (discovery records documented restrictions), FFC-25 (failure scope from error body, not status — extends ADD-08), FFC-27 (price ≠ terms), FFC-28 (pricing change → proposal, never auto-enable) | **ACCEPT** (8) — land with B/E/C as mapped in §5 |
+| FFC-29 (catalog discovery stays disabled until account probe), FFC-30 (Google free never serves sensitive — candidate instance of ADD-01's wall), FFC-31 (Mistral console budget ≠ API entitlement), FFC-32 (catalog excludes non-chat families), FFC-33 ($0 may require funded account; no auto-purchase), FFC-34 (reset disagreement never force-reopens a pool), FFC-35 (Workers Paid overage never labeled cash-free), FFC-36 (feature fees inside real cost or route stays unverified), FFC-37 (attempt-count integrity / no hidden retries), FFC-39 (shadow breaker has zero routing effect pre-J-2), FFC-40 (tool support earned by fixture evidence — extends TEST-02), FFC-41 (auth scope ≠ pool identity), FFC-42 (normal-pass + spillway semantics regression lock) | **ACCEPT** (13) |
+| FFC-17 (30 parallel reservations vs 10-request bucket) | **AMEND** — keep the test, scope it to the deterministic-limit pools named in §5's reservation amendment; it is not a universal dispatch property |
+| FFC-21 (NVIDIA trial-only not production-eligible) | **AMEND** — the test encodes one D3 outcome (gate off). Write it against the `production_allowed` field so it passes under whichever D3 ruling Jordan makes; until D3 is ruled, the field's *value* for the NVIDIA entries is the decision, not the test |
+| FFC-26 (all zero-cost pools attempted before paid, despite sticky/reservations/timezones) | **AMEND** — substance is TEST-01 + ADD-04; implement once as ADD-04's extended fixture set rather than a parallel criterion |
+| FFC-23 (UnoRouter consent blocks without manual approval), FFC-24 (Kilo auto-free is public-only + resolved model logged) | **ACCEPT-CONDITIONAL** (2) — valid criteria, written when (and if) the candidates reach probe stage; nothing to test against today |
+| FFC-19 (stream disconnect after first text never restarts model), FFC-38 (sticky route has no post-commit stream retry) | **DUPLICATE** (2) — both are ADD-06 from the v1 evaluation (FFC-38 adds the sticky framing; ADD-06's fixture set absorbs it). Implement once, under ADD-06 |
+
+## 7. ADDED CRITERIA (continuing the ADD series from the v1 evaluation)
+
+- **ADD-09 — Probe-failed candidates carry their evidence.** *Given* a candidate model with a recorded probe failure in its registry evidence (e.g. gemini-3.8-flash, timeouts 2026-11-12), *when* a later research text or catalog sweep describes it as unprobed or new, *then* the evaluation record corrects the status to probe-failed with the dated evidence, and re-probing follows the investigation protocol before any registration.
+- **ADD-10 — Virtual routers inherit their pool.** *Given* `openrouter/free-router` (upstream `openrouter/free`) serves a request via an upstream `:free` model, *when* usage and attempts are recorded, *then* they count against the `openrouter-free-variants` pool — the virtual router is never accounted as an independent pool.
+- **ADD-11 — Endpoint-family gate on discovery.** *Given* a catalog candidate whose `endpoint_family` is anything other than `chat_completions` — or is unverified — *when* the discovery job processes it, *then* it is recorded as a non-chat candidate and can never be emitted as a chat route, regardless of a $0 price.
+- **ADD-12 — Attempt-ledger completeness.** *Given* any upstream dispatch — success, upstream failure, or failover — *when* the request finishes, *then* exactly one attempt-ledger row exists per dispatch carrying `pool_id` and `outcome_class`, and the ledger's attempt count equals the gateway's actual upstream HTTP call count for the window (the ledger-side half of FFC-37).
+
+**Added criteria this evaluation: 4 (ADD-09..ADD-12).** Running series: ADD-01..12.
+
+## 8. SUPERSESSION — does v3 replace v1 cleanly?
+
+**Yes, with two footnotes.** (i) *Preservation is total*: diff-verified, v3 contains v1 §§0–9 and v2 §10 verbatim; nothing was silently dropped. The operative content of the earlier versions that §11 does not restate — v1's TEST-01..14 (dispositioned in the v1 evaluation), v2's rejected-leads list (§10.3), and the §10.5 schema sketch (merged in §5) — remains in force through the evaluations, not through the handoff text alone. (ii) *Stale sentences survive in the preserved body*: v1 §1's spillway sentence and §10.4's flat "Cloudflare … resetting 00:00 UTC" still sit in the historical text. §11's precedence notice governs them, but anyone quoting the body standalone will re-import the errors — the same failure mode as the v1 evaluation flagged for §1. Recommendation: treat §11 + this evaluation + the v1 evaluation as the citable record; the handoff body is archive. **One governance point v3 gets right and this evaluation confirms:** v3 states the Cycle 1 plan/evaluation control over the handoff in any conflict, and that the plan's existence is not deployment. The handoff lineage has fully converged to the project's own discipline.
+
+## 9. DECISIONS STATUS (changes since the v1 evaluation §7)
+
+1. **J-1 — RULED (closed).** Jordan, 2026-11-12 ~22:20 MST: pins are bound to the two hard boundaries — a pin for a disabled model does not serve it; a pin cannot carry sensitive data to an uncleared provider; quality floor, cost order, and context estimates remain pin-overridable. Recorded in the Cycle 1 plan's Decisions log addendum (appended 2026-11-12). Aspect G is unblocked in full; v3's references to J-1 as open predate the ruling.
+2. **J-2 — still open.** FFC-39 now encodes the observe-only guard as a testable criterion.
+3. **D3 (NVIDIA production posture) — still open**, now with NEW-06's field design ready to encode any ruling (§5).
+4. **D4 (quota source of truth) — still open**; NEW-02 re-confirms the authenticated OpenRouter source exists.
+5. **D5 (persist the handoff to GitHub) — still Jordan's.** As with v1, this evaluation is pushed; the handoff documents themselves are not (v3 now exists in three Drive versions + local copies).
+6. **J-3, J-4, and the carried money/ops items (Cloudflare $5/mo Workers Paid; Cerebras funding before ≈2026-12-12; Hermes key rotation; SiliconFlow $0 probe; "NROUTER" identification; Week-2 soak gate) — unchanged.** One carried item is *advanced* by this lineage: "uno" is identified (§3) — UnoRouter — which is a different thread from the still-unidentified "NROUTER" of the earlier record; the two should not be conflated.
+
+---
+
+*Delta evaluation ends. Sources: v2/v3 handoff texts (Drive ids above); `src/registry.json` / `src/gateway.py` / `src/quota.py` / `src/registry.py` as cited, re-read this run; the v1 evaluation (`ffc49fa3`) and the Cycle 1 plan. No code, registry, or production state was changed by this evaluation; the only repo edits are this document and the plan's Decisions log addendum recording Jordan's J-1 ruling.*

@@ -1093,6 +1093,29 @@ its observe-only week, with F2's replay as its regression net.
   per-task-class effort defaults beyond D's conservative v1 (only if
   Jordan wants a hand in them).
 
+## Decisions log (addendum, appended 2026-11-12)
+
+- **J-1 — RULED (Jordan, 2026-11-12 ~22:20 MST).** Pins are bound
+  to the two hard boundaries: **a pin for a disabled model does not
+  serve it, and a pin cannot carry sensitive data to an uncleared
+  provider.** Everything softer — quality floor, cost order,
+  context estimates — remains pin-overridable. Jordan's words: the
+  override "stops overriding the two hard boundaries. A pin for a
+  disabled model doesn't serve it. A pin can't carry sensitive data
+  to an uncleared provider. Everything softer — quality floor, cost
+  order, context estimates — a pin still overrides, which is what
+  makes pins useful for testing and for the voice stack."
+  Consequences: aspect G's fix is unblocked on its full scope (the
+  G.6 sub-question — pulling `enabled`-binding forward into B — is
+  moot; the whole boundary is ruled, not a subset); the aspect-G
+  audit suite promotes its wall and disabled-pin cases from
+  expected-fail to required-pass; aspect F.3.4's shadow/live pin
+  divergence is now decidable against a ruled behavior. J-2, J-3
+  and J-4 remain open. Evaluation record:
+  `docs/cycles/cycle-01-handoff-v3-delta-evaluation.md`. (The Drive
+  copy of this plan predates this addendum and is stale on J-1;
+  this repo copy governs.)
+
 ## Appendix — evidence index
 
 - **Registry invariant audit** (aspect B/D): read-only Python audit of

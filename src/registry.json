@@ -1,5 +1,5 @@
 {
-  "comment": "Sovereign Router v0.5 starting model set, exactly per spec v0.5.3 'Starting model set' table. No API keys here \u2014 provider keys live as mode-600 files in the state dir (keys/<provider>.key). spend_alert_usd is an alert level, never a cap. v0.5.5 (2026-11-07): rescue_eligible removed from premium/gpt-5.5 \u2014 the free-first / paid-spillway waterfall in the gateway supersedes the v0.5.3 rescue pin (owner ruling 2026-11-07). v0.5.6 (2026-11-07): SiliconFlow added \u2014 siliconflow/glm-5.3 ENABLED in the paid lane at half of Z.ai direct (NON-SENSITIVE ONLY, spillway_sensitive_excluded) and siliconflow/deepseek-v4-pro present but DISABLED; gateway v0.5.6 enforces the per-model sensitive exclusion in every pass. v0.5.7 (2026-11-09): Groq moved to Developer-plan limits/prices (owner top-up; docs-verified); Ollama TPD seed corrected 400k -> 10M (the seed, not Ollama, caused the 2026-11-09 05:11 self-throttle); two Hugging Face probe entries added DISABLED + non-sensitive-only (owner approval 2026-11-09). v0.5.8 candidate (2026-11-12): three additions \u2014 cerebras/gpt-oss-120b (direct, trial-tier key, reasoning_effort=low pinned), novita/gpt-oss-120b (cheapest 120B route), zai/glm-4.7-flash ($0 public-free, 200K ctx, throttles under load). NVIDIA NIM probed same day and NOT added: its free endpoint did not answer a trivial request within 90s. 2026-11-12 staging: +5 DISABLED entries awaiting keys \u2014 mistral/mistral-large, mistral/codestral (owner signup pending), google/gemini-3.5-flash-lite (ENABLED 2026-11-12 \u2014 key minted in the owner's account; 3.8-flash timed out on probes), cloudflare/gpt-oss-120b + cloudflare/glm-4.7-flash (Workers-AI-scoped token pending). All public-only-free. 2026-11-12 expansion phase 2 (owner's order \u2014 more options with verified prices): +39 routes (81 total, 72 enabled) across OpenRouter paid, SiliconFlow, DeepInfra, Novita, Hugging Face (:deepinfra only), Mistral, Groq, Z.ai, Meta, Cerebras, Aion, NVIDIA (trial-terms caveat recorded per entry) and Google; SiliconFlow's two existing price seeds corrected to SF's own published list; north-mini-code-free quality lowered for drafting classes on Article Engine failure evidence.",
+  "comment": "Sovereign Router v0.5 starting model set, exactly per spec v0.5.3 'Starting model set' table. No API keys here \u2014 provider keys live as mode-600 files in the state dir (keys/<provider>.key). spend_alert_usd is an alert level, never a cap. v0.5.5 (2026-11-07): rescue_eligible removed from premium/gpt-5.5 \u2014 the free-first / paid-spillway waterfall in the gateway supersedes the v0.5.3 rescue pin (owner ruling 2026-11-07). v0.5.6 (2026-11-07): SiliconFlow added \u2014 siliconflow/glm-5.3 ENABLED in the paid lane at half of Z.ai direct (NON-SENSITIVE ONLY, spillway_sensitive_excluded) and siliconflow/deepseek-v4-pro present but DISABLED; gateway v0.5.6 enforces the per-model sensitive exclusion in every pass. v0.5.7 (2026-11-09): Groq moved to Developer-plan limits/prices (owner top-up; docs-verified); Ollama TPD seed corrected 400k -> 10M (the seed, not Ollama, caused the 2026-11-09 05:11 self-throttle); two Hugging Face probe entries added DISABLED + non-sensitive-only (owner approval 2026-11-09). v0.5.8 candidate (2026-11-12): three additions \u2014 cerebras/gpt-oss-120b (direct, trial-tier key, reasoning_effort=low pinned), novita/gpt-oss-120b (cheapest 120B route), zai/glm-4.7-flash ($0 public-free, 200K ctx, throttles under load). NVIDIA NIM probed same day and NOT added: its free endpoint did not answer a trivial request within 90s. 2026-11-12 staging: +5 DISABLED entries awaiting keys \u2014 mistral/mistral-large, mistral/codestral (owner signup pending), google/gemini-3.5-flash-lite (ENABLED 2026-11-12 \u2014 key minted in the owner's account; 3.8-flash timed out on probes), cloudflare/gpt-oss-120b + cloudflare/glm-4.7-flash (Workers-AI-scoped token pending). All public-only-free. 2026-11-12 expansion phase 2 (owner's order \u2014 more options with verified prices): +39 routes (81 total, 72 enabled) across OpenRouter paid, SiliconFlow, DeepInfra, Novita, Hugging Face (:deepinfra only), Mistral, Groq, Z.ai, Meta, Cerebras, Aion, NVIDIA (trial-terms caveat recorded per entry) and Google; SiliconFlow's two existing price seeds corrected to SF's own published list; north-mini-code-free quality lowered for drafting classes on Article Engine failure evidence. v0.7.0 (2026-11-12): price provenance fields (price_source / price_verified_at / price_confidence) backfilled on every priced entry \u2014 confidence is graded honestly (verified = provider's own published source; observed = probe-billed; seeded = carried, unverified). quota_pool_id marks shared quota pools; the OpenRouter :free pool entries carry the shared limits {rpd: 1000, rpm: 20}. spend_alert_usd is now armed on every premium entry.",
   "models": [
     {
       "cached_input_usd_per_million": 0.0,
@@ -30,7 +30,10 @@
         "reasoning": 2
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "groq:docs models page (Developer plan figures)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-09"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -61,7 +64,10 @@
         "reasoning": 4
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "groq:docs models page (Developer plan figures)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-09"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -91,7 +97,10 @@
         "long-context": 3,
         "reasoning": 3
       },
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "groq:docs models page (Developer plan figures)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-09"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -109,7 +118,8 @@
       "lane": "private-free",
       "latency_p50_ms": 900,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "cohere/north-mini-code:free",
       "notes": "Spec: private-free only because data_collection=deny is enforced via extra_body on every call. About 1,000 requests/day shared across clients (rpd). Code quality seeded 4 (it is a code model); other classes at the spec's flat 3. 2026-11-04: reasoning disabled via extra_body - direct probes showed this endpoint's hidden reasoning expands to consume ANY budget (512-8192) on most code prompts, returning finish=length with zero content; OpenRouter ignores reasoning.max_tokens and effort caps for it but honours reasoning.enabled=false, after which it answers directly. QUALITY CORRECTION 2026-11-12 (expansion phase 2, owner's order): chat 3->2 and long-context 3->2. Evidence: the Launch AI Works Article Engine census (verified 2026-11-12) reconciled 16 malformed-JSON article-draft failures 1:1 to this model while a control model (nemotron) went 11/11 clean on the same node, and 2026-11-04 records show empty-length failures \u2014 it is demonstrably bad at structured long-form generation. Drafting-class work classifies as chat at L2+ (required quality floor 3) or as long-context for very long inputs, so the lowered scores remove it from auto-selection for drafting while L1 simple chat (floor 2) still reaches it and code (unchanged at 4 \u2014 its genuine strength) is untouched.",
@@ -129,7 +139,8 @@
         "reasoning": 3
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -147,7 +158,8 @@
       "lane": "private-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "dots-studio/dots-3-note-preview:free",
       "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md.",
@@ -166,7 +178,8 @@
         "long-context": 4,
         "reasoning": 3
       },
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.018,
@@ -193,7 +206,10 @@
         "reasoning": 4
       },
       "spend_alert_usd": 10.0,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "deepinfra:/v1/openai/models",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "cached_input_usd_per_million": null,
@@ -224,7 +240,9 @@
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "spec v0.5.3 seed at groq parity; ollama console showed free-tier usage only as of 2026-11-09 \u2014 unverified against ollama's price list",
+      "price_confidence": "seeded"
     },
     {
       "cached_input_usd_per_million": 0.26,
@@ -257,7 +275,10 @@
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "siliconflow:/models listing (provider's own published list)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "cached_input_usd_per_million": null,
@@ -287,7 +308,9 @@
       "reasoning": true,
       "spend_alert_usd": 20.0,
       "supports_vision": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "PLACEHOLDER carried from v0.2.1 (per entry notes) \u2014 unverified against OpenAI's price list",
+      "price_confidence": "seeded"
     },
     {
       "base_url": "https://api.deepseek.com",
@@ -317,7 +340,10 @@
         "reasoning": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "deepseek published peak/off-peak pricing as recorded at add; no dated verification in the record",
+      "price_confidence": "seeded",
+      "spend_alert_usd": 10.0
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -347,7 +373,10 @@
         "reasoning": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "parity with the verified siliconflow/glm-5.3 list price; z.ai direct price not separately recorded",
+      "price_confidence": "seeded",
+      "spend_alert_usd": 10.0
     },
     {
       "cached_input_usd_per_million": 0.135,
@@ -380,7 +409,10 @@
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "siliconflow model page suggests $1.50/$3.135 vs probe read $1.00/$1.50 \u2014 unsettled; entry ships disabled pending firsthand price confirmation",
+      "price_confidence": "seeded",
+      "spend_alert_usd": 10.0
     },
     {
       "base_url": "https://api.meta.ai/v1",
@@ -414,7 +446,11 @@
         "reasoning": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "meta:dev.meta.ai pricing page",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12",
+      "spend_alert_usd": 10.0
     },
     {
       "base_url": "https://router.huggingface.co/v1",
@@ -445,7 +481,10 @@
       },
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "huggingface:router pass-through at the deepinfra rate (deepinfra:/v1/openai/models); billing observed via probe estimated_cost 2026-11-09, rate re-confirmed 2026-11-12",
+      "price_confidence": "observed",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.cerebras.ai/v1",
@@ -484,7 +523,9 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "cerebras published developer-card rate as carried at add (2026-11-12); entry notes record no first-hand source read for this entry",
+      "price_confidence": "seeded"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -516,7 +557,9 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "huggingface catalog listing of novita's rate (read 2026-11-09) \u2014 NOT verified against novita's own price list",
+      "price_confidence": "seeded"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -580,7 +623,10 @@
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "mistral:docs pricing table",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -614,7 +660,10 @@
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "mistral:docs pricing table",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -964,7 +1013,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "nvidia/nemotron-3.5-lightning:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Fast small Nemotron; catalog context 1M (free endpoints may truncate upstream \u2014 treat as an upper bound). Public-only-free: no data_collection=deny routing established for this model.",
@@ -983,7 +1033,8 @@
         "long-context": 4,
         "reasoning": 2
       },
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -993,7 +1044,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Multimodal reasoning 30B-A3B. Public-only-free (no deny routing established).",
@@ -1013,7 +1065,8 @@
         "reasoning": 3
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1024,7 +1077,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "thinkingmachines/inkling-2-small:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: deploy probes 2026-11-12 returned HTTP 403 twice (plain, and with OpenRouter app-attribution headers) \u2014 'only available on agentic harnesses'. The endpoint is gated to specific harness apps and cannot be served by this gateway's request shape. Re-probe if OpenRouter lifts the gate. SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. ",
@@ -1043,7 +1097,8 @@
         "long-context": 3,
         "reasoning": 2
       },
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1053,7 +1108,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "baidu/ernie-5.5-flash-preview:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. PREVIEW model id \u2014 expect churn/renames; Baidu ERNIE Flash with 1M catalog context. Public-only-free (no deny routing established).",
@@ -1072,7 +1128,8 @@
         "long-context": 4,
         "reasoning": 3
       },
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1082,7 +1139,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "recursive/flint-v1.0:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Unknown-provenance model \u2014 seeded low, first to cut if it misbehaves. Public-only-free (no deny routing established).",
@@ -1101,7 +1159,8 @@
         "long-context": 3,
         "reasoning": 2
       },
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1111,7 +1170,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "liquid/lfm-3-1.7b:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Tiny 1.7B \u2014 classification/extraction grunt work only; quality seeded at the floor so it only wins the easiest task classes. Public-only-free.",
@@ -1130,7 +1190,8 @@
         "long-context": 2,
         "reasoning": 1
       },
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1140,7 +1201,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "liquid/lfm-2.5-2.6b:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Tiny 2.6B \u2014 grunt work only, quality seeded low. Public-only-free.",
@@ -1159,7 +1221,8 @@
         "long-context": 2,
         "reasoning": 1
       },
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1169,7 +1232,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probes 2026-11-12: plain chat 200, but the data_collection=deny probe returned 404 'No endpoints found matching your data policy' \u2014 no deny-honouring endpoint exists for this model, so it is PUBLIC-ONLY-free, never private (the \u00a75.2 conditional resolved negative). 550B-class, the free lane's strongest weights when the shared pool has room. QUALITY RAISE 2026-11-12 (expansion phase 2, owner's routing philosophy \u2014 the best free model for a class carries that class's top free score): chat 4->5, reasoning 4->5. As the free bench's strongest model (550B, 1M ctx) it now leads chat and reasoning among $0 routes; long-context was already 5.",
@@ -1189,7 +1253,8 @@
         "reasoning": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1200,7 +1265,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "google/gemma-4-31b-it:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: the upstream host was 'temporarily rate-limited' (HTTP 429) on every deploy probe 2026-11-12 \u2014 three rounds over ~15 minutes, plain and deny alike; no successful serve was observed, so per deploy discipline it ships disabled rather than force-enabled. Re-probe to enable; if the deny variant then succeeds it may also earn private-free. SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. ",
@@ -1220,7 +1286,8 @@
         "reasoning": 3
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1231,7 +1298,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "google/gemma-4-26b-a4b-it:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: same upstream rate-limit wall as its 31B sibling (HTTP 429 on every probe round 2026-11-12, plain and deny alike). Ships disabled pending a clean re-probe. SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. ",
@@ -1251,7 +1319,8 @@
         "reasoning": 3
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1261,7 +1330,8 @@
       "lane": "public-only-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "nvidia/nemotron-3.5-super-vl:free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probes 2026-11-12: plain chat 200, deny probe 404 'No endpoints found matching your data policy' \u2014 PUBLIC-ONLY-free (the \u00a75.2 conditional resolved negative). Vision-capable Nemotron, 1M catalog context.",
@@ -1280,7 +1350,8 @@
         "long-context": 4,
         "reasoning": 3
       },
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1295,7 +1366,8 @@
       "lane": "private-free",
       "latency_p50_ms": 1100,
       "limits": {
-        "rpd": 1000
+        "rpd": 1000,
+        "rpm": 20
       },
       "model": "openrouter/free",
       "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). OpenRouter's own free-model meta-router: one entry, OpenRouter internally rotates across its free roster (tracks their catalog churn for us). PRIVATE-FREE, conditional resolved POSITIVE 2026-11-12: the deny probe WITH data_collection=deny returned 200 \u2014 but ONLY without the reasoning-disable the other private OpenRouter entries carry: this endpoint answers 400 'Reasoning is mandatory for this endpoint and cannot be disabled', so its extra_body carries the deny alone (probe-verified shape). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Quality seeded mid \u2014 the underlying model varies by OpenRouter's choice.",
@@ -1315,7 +1387,8 @@
         "reasoning": 3
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "quota_pool_id": "openrouter-free"
     },
     {
       "cached_input_usd_per_million": 0.018,
@@ -1345,7 +1418,11 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "openrouter:/api/v1/models",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12",
+      "quota_pool_id": "openrouter-paid"
     },
     {
       "cached_input_usd_per_million": 0.03,
@@ -1375,7 +1452,11 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "openrouter:/api/v1/models endpoint pricing \u2014 registered figure is the billed ceiling, confirmed by two probe billings 2026-11-12",
+      "price_confidence": "observed",
+      "price_verified_at": "2026-11-12",
+      "quota_pool_id": "openrouter-paid"
     },
     {
       "cached_input_usd_per_million": 0.016,
@@ -1405,7 +1486,11 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "openrouter:/api/v1/models",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12",
+      "quota_pool_id": "openrouter-paid"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -1469,7 +1554,11 @@
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
       "supports_vision": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "openrouter:/api/v1/models",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12",
+      "quota_pool_id": "openrouter-paid"
     },
     {
       "cached_input_usd_per_million": 0.17,
@@ -1500,7 +1589,11 @@
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
       "supports_vision": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "openrouter:/api/v1/models",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12",
+      "quota_pool_id": "openrouter-paid"
     },
     {
       "cached_input_usd_per_million": 0.01,
@@ -1530,7 +1623,11 @@
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "openrouter:/api/v1/models",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12",
+      "quota_pool_id": "openrouter-paid"
     },
     {
       "cached_input_usd_per_million": 0.15,
@@ -1561,7 +1658,11 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "openrouter:/api/v1/models",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12",
+      "quota_pool_id": "openrouter-paid"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1594,7 +1695,10 @@
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "siliconflow:/models listing (provider's own published list)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "cached_input_usd_per_million": 0.14,
@@ -1627,7 +1731,9 @@
       "reasoning": false,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "openrouter endpoint listing for siliconflow \u2014 SF's own page could not be surfaced; re-confirm on first SF invoice",
+      "price_confidence": "seeded"
     },
     {
       "cached_input_usd_per_million": 0.028,
@@ -1660,7 +1766,10 @@
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "siliconflow:/models listing (provider's own published list)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1689,7 +1798,10 @@
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "cached_input_usd_per_million": 0.015,
@@ -1718,7 +1830,10 @@
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1747,7 +1862,10 @@
       },
       "reasoning": false,
       "spend_alert_usd": 10.0,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "deepinfra:/v1/openai/models pricing fields",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1776,7 +1894,10 @@
       },
       "reasoning": false,
       "spend_alert_usd": 10.0,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "cached_input_usd_per_million": 0.05,
@@ -1806,7 +1927,10 @@
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "supports_vision": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled at list price)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1837,7 +1961,10 @@
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1868,7 +1995,10 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1899,7 +2029,10 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1930,7 +2063,10 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1962,7 +2098,10 @@
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
       "supports_vision": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1993,7 +2132,10 @@
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2024,7 +2166,10 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://router.huggingface.co/v1",
@@ -2055,7 +2200,10 @@
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "huggingface:catalog (:deepinfra backend rate; matches deepinfra:/v1/openai/models) + probe estimated_cost exact match",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://router.huggingface.co/v1",
@@ -2086,7 +2234,9 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "huggingface:catalog (:deepinfra backend list rate) \u2014 probe estimated_cost did NOT reconcile (billed lower); F-06, verify on first HF invoice",
+      "price_confidence": "seeded"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -2119,7 +2269,10 @@
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "mistral:docs pricing table",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -2152,7 +2305,10 @@
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "mistral:docs pricing table",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -2185,7 +2341,10 @@
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "mistral:docs pricing table",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "cached_input_usd_per_million": 0.3,
@@ -2216,7 +2375,10 @@
         "reasoning": 4
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "groq:/models pricing field",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -2246,7 +2408,10 @@
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "z.ai:docs.z.ai official pricing page",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -2276,7 +2441,10 @@
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "z.ai:docs.z.ai official pricing page",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.meta.ai/v1",
@@ -2308,7 +2476,11 @@
         "reasoning": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "meta:dev.meta.ai pricing page",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12",
+      "spend_alert_usd": 10.0
     },
     {
       "base_url": "https://api.meta.ai/v1",
@@ -2341,7 +2513,11 @@
         "reasoning": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "meta:dev.meta.ai pricing page",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12",
+      "spend_alert_usd": 10.0
     },
     {
       "base_url": "https://api.cerebras.ai/v1",
@@ -2379,7 +2555,10 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null
+      "verified_until": null,
+      "price_source": "cerebras:published pricing page (developer card)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-12"
     },
     {
       "base_url": "https://api.aionlabs.ai/v1",

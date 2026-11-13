@@ -1,11 +1,23 @@
 # Release v0.7.0 — Decision Package: Safety & Integrity (Cycle 1, R1)
 
 - **Date:** 2026-11-12 (build run, evening MST)
-- **Status:** **BUILT ON BRANCH — NOT DEPLOYED.** Branch
-  `feature/v0.7.0-safety-integrity`, draft PR (see PR description for the
-  number). Full suite **600 passed** locally (566 baseline + 34 new);
-  CI result recorded in the PR. Deploy waits for the owner's decision
-  at the standard gate (snapshot + verified backup first).
+- **Status:** **DEPLOYED 2026-11-12** (owner's order: "merge PR# and
+  deploy 0.7.0", given after the UnoRouter consent re-check the same
+  evening). PR #3 (`feature/v0.7.0-safety-integrity`) marked ready and
+  merged to main as `71dd2b2f5b43504b32a9ca76115e9fd62f3ddd1d`; full
+  suite **600 passed**; CI run #25 SUCCESS. Snapshot
+  `snapshots/pre-v070-20261112` + `.bak-20261112-prev070` backups taken
+  first. Image `192.168.0.28:5000/sovereign-router:v0.7.0`; gateway
+  recreated via `compose up -d`; registry md5
+  `96eaa3c99643e1016508cee16caf23de` identical across GitHub main,
+  build, and state. `/health` reports 0.7.0 / 81 models / all four
+  clients. Live J-1 proofs passed: `pin_blocked:disabled` (disabled
+  Gemma pin did not serve), `pin_blocked:sensitive_public_lane`
+  (sensitive turn kept off the public lane), sensitive×uncleared-
+  premium pin refused HTTP 429 (`pin_blocked:sensitive_not_cleared`),
+  eligible pin served, shadow == live on the disabled-pin case. Full
+  evidence in `CHANGELOG.md` [0.7.0]. Rollback remains available
+  (override → v0.6.1 image + `compose up -d`).
 - **Origin:** `docs/SOVEREIGN-ROUTER-NEXT-PLAN.md` §3 (release R1) and
   `docs/cycles/cycle-01-plan.md` aspects A, B, G, under ruling **J-1**
   (2026-11-12): pins are bound to the two hard boundaries — entry

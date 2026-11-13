@@ -1,11 +1,19 @@
 # Fix Package v0.6.1 — Decision Package: reasoning_effort control + Gemma shaping
 
 - **Date:** 2026-11-12 (build run ~22:40–23:00 MST)
-- **Status:** BUILT AND TESTED on branch `fix/v0.6.1-effort-and-gemma-shaping`
-  (commit `fa36f523`), held as draft PR #2. **NOT deployed. Production is
-  untouched** — VM103 still runs v0.6.0 with registry md5
-  `d859879dd9ce177a55818fc170629d0b`. The owner approved the BUILD
-  (2026-11-12 ~22:35 MST); the deploy decision is what this package asks for.
+- **Status:** **DEPLOYED 2026-11-12** (owner approved the deploy AND the
+  muse-spark-1.3 re-enable, 2026-11-12 ~22:58 MST). PR #2 merged to main
+  (`a50c1c0b`); re-enable commit `b781d569`; full suite 566 passed locally
+  and CI run #22 (`43376596679`) SUCCESS on main. VM103 runs v0.6.1
+  (image `192.168.0.28:5000/sovereign-router:v0.6.1`) with registry md5
+  `2a5cfdb4f158ed50149d7d780dfa62a9` byte-identical across GitHub main,
+  VM103 `build/src`, and VM103 `state` (81 models, 73 enabled). Snapshot
+  `pre-v061-20261112` precedes the deploy. Post-deploy smokes: hermes
+  unpinned 200 (free route); openclaw pinned muse-spark-1.3 **200, 81
+  completion tokens** (minimal-effort profile working) and pinned 1.1
+  200/197 tokens; hermes premium pin correctly 403 `lane_not_allowed`;
+  both Gemma entries confirmed still disabled via `/v1/shadow`. Full
+  evidence: `CHANGELOG.md` §[0.6.1].
 - **Origin:** the route-health differential diagnosis
   (`docs/cycles/route-health-investigation-protocol.md` §5–§6), which proved
   two of our disabled routes were partly our own fault.

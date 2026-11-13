@@ -388,13 +388,16 @@
       "completion_tokens_param": false,
       "context_tokens": 262144,
       "enabled": true,
+      "extra_body": {
+        "reasoning_effort": "minimal"
+      },
       "id": "meta/muse-spark-1.1",
       "input_usd_per_million": 1.25,
       "lane": "premium",
       "latency_p50_ms": 1000,
       "limits": {},
       "model": "muse-spark-1.1",
-      "notes": "Meta Model API, STANDARD tier only (contributor tier lets Meta train on traffic; 1.1 has no contributor variant). Quality: reasoning 5 (HLE #7, 62.1%); chat 5 (Meta's flagship assistant model); code/infra/long-context 4. context_tokens 262144 is a SEED \u2014 UNVERIFIED, confirm against Meta's docs in the probe battery before enabling. Documented team limits 3,000 RPM / 4M TPM (not enforced in limits until deploy decision). ENABLED 2026-11-12: the owner resolved the team billing issue at dev.meta.ai himself (Meta's $20 charge attempt was flagged as suspicious by his bank; he cleared it and completed setup \u2014 Muse's managed browser cannot reach the page: its organization policy blocks auth.meta.ai). Post-fix probes from VM103 with the production key: chat 200, exact-match content, finish=stop. Note the model's reasoning appetite: 190 of 202 completion tokens were reasoning on a trivial prompt \u2014 budget max_tokens accordingly. A second key the owner minted ('META SOVEREIGN ROUTER') never authenticated (invalid_api_key on repeated probes \u2014 presumed mangled copy); the router keeps the ORIGINAL key (meta.key), which works; the bad copy was shredded. Context 262144 remains a seed \u2014 still unverified against Meta's docs. Key file keys/meta.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway \u2014 as a premium entry this model is reachable in the spillway pass in normal cost order.",
+      "notes": "Meta Model API, STANDARD tier only (contributor tier lets Meta train on traffic; 1.1 has no contributor variant). Quality: reasoning 5 (HLE #7, 62.1%); chat 5 (Meta's flagship assistant model); code/infra/long-context 4. context_tokens 262144 is a SEED \u2014 UNVERIFIED, confirm against Meta's docs in the probe battery before enabling. Documented team limits 3,000 RPM / 4M TPM (not enforced in limits until deploy decision). ENABLED 2026-11-12: the owner resolved the team billing issue at dev.meta.ai himself (Meta's $20 charge attempt was flagged as suspicious by his bank; he cleared it and completed setup \u2014 Muse's managed browser cannot reach the page: its organization policy blocks auth.meta.ai). Post-fix probes from VM103 with the production key: chat 200, exact-match content, finish=stop. Note the model's reasoning appetite: 190 of 202 completion tokens were reasoning on a trivial prompt \u2014 budget max_tokens accordingly. A second key the owner minted ('META SOVEREIGN ROUTER') never authenticated (invalid_api_key on repeated probes \u2014 presumed mangled copy); the router keeps the ORIGINAL key (meta.key), which works; the bad copy was shredded. Context 262144 remains a seed \u2014 still unverified against Meta's docs. Key file keys/meta.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway \u2014 as a premium entry this model is reachable in the spillway pass in normal cost order. v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a76): extra_body reasoning_effort='minimal' \u2014 Meta defaults an omitted effort to 'high' and the gateway dropped client-sent effort entirely before v0.6.1, so the documented control was unexercisable. Direct probes from VM103 (2026-11-12): 'minimal' kept the correct answer on a reasoning-shaped prompt while cutting hidden reasoning burn vs the default (muse-spark-1.3: 85 vs 546 reasoning tokens; 1.1: 408 vs 1,027) and on a trivial prompt (1.3: 28 vs 256); 'low' did NOT restrain 1.3 on the trivial prompt (274 \u2248 default 256), so 'minimal' is the profile. Per upstream_body merge semantics the registry profile wins over a client-sent reasoning_effort on this entry.",
       "output_usd_per_million": 4.25,
       "probe": {
         "cadence": "weekly",
@@ -711,6 +714,13 @@
       "cached_input_usd_per_million": 0.0,
       "context_tokens": 262144,
       "enabled": false,
+      "extra_body": {
+        "google": {
+          "thinking_config": {
+            "thinking_level": "minimal"
+          }
+        }
+      },
       "id": "google/gemma-4-31b-it",
       "input_usd_per_million": 0.0,
       "lane": "public-only-free",
@@ -720,7 +730,7 @@
         "rpm": 10
       },
       "model": "gemma-4-31b-it",
-      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: Google's OpenAI-compatible endpoint returned HTTP 500 INTERNAL for this model on every deploy probe 2026-11-12 (three request shapes), although the morning catalog audit's ping had passed \u2014 Google-side instability, not a registry defect. RE-PROBE 2026-11-12 (expansion phase 2): four attempts \u2014 two 200s (114s and 64s, both finish=length with visible <thought> leakage and no clean final answer) followed by two 500 INTERNAL errors, the spaced pair over 3 minutes apart \u2014 still inconsistent, so the entry STAYS DISABLED. Google free tier = per-model quota bucket (real added capacity when it works) but 'used to improve our products: Yes' \u2014 public-only-free permanently. Re-probe before enabling. Quality seeded from the Gemini Flash-Lite sibling; the audit ping observed hidden reasoning tokens, so reasoning=true.",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). DISABLED AT DEPLOY: Google's OpenAI-compatible endpoint returned HTTP 500 INTERNAL for this model on every deploy probe 2026-11-12 (three request shapes), although the morning catalog audit's ping had passed \u2014 Google-side instability, not a registry defect. RE-PROBE 2026-11-12 (expansion phase 2): four attempts \u2014 two 200s (114s and 64s, both finish=length with visible <thought> leakage and no clean final answer) followed by two 500 INTERNAL errors, the spaced pair over 3 minutes apart \u2014 still inconsistent, so the entry STAYS DISABLED. Google free tier = per-model quota bucket (real added capacity when it works) but 'used to improve our products: Yes' \u2014 public-only-free permanently. Re-probe before enabling. Quality seeded from the Gemini Flash-Lite sibling; the audit ping observed hidden reasoning tokens, so reasoning=true. v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a75): extra_body google.thinking_config.thinking_level='minimal' \u2014 proven direct (probe G9): on Google's OpenAI-compatible endpoint Gemma inlines <thought> text into content; with this shape the same prompt returned exactly the clean answer with zero thought text. Do NOT send reasoning_effort to this entry \u2014 Google 400s on the field (probe G3) and gateway v0.6.1 strips it for provider google. Entry STAYS DISABLED: the HTTP 500 INTERNAL instability is provider-side (reproduced on canonical direct requests with zero gateway involvement); the disable stands on reliability, with weekly re-probes per the protocol.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -2272,13 +2282,16 @@
       "base_url": "https://api.meta.ai/v1",
       "cached_input_usd_per_million": 0.15,
       "context_tokens": 1048576,
+      "extra_body": {
+        "reasoning_effort": "minimal"
+      },
       "id": "meta/muse-spark-1.2",
       "input_usd_per_million": 1.25,
       "lane": "premium",
       "latency_p50_ms": 3000,
       "limits": {},
       "model": "muse-spark-1.2",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Version upgrade on the existing Meta pool. Price VERIFIED from Meta's own pricing page (dev.meta.ai/docs/pricing-rate-limits): muse-spark-1.1, 1.2 and 1.3 sit in ONE Standard-mode table at $1.25 in / $0.15 cached / $4.25 out. Standard tier only \u2014 the contributor variants are excluded (Meta may train on that traffic). PROBE 2026-11-12 (connector helper): 200, finish=stop, sane at max_tokens 2048 (8.3s) \u2014 with 1,032 reasoning tokens spent on a one-sentence answer; at 512 the content was null (all reasoning). Effective cost per completed answer runs well above the list rate and budgets below ~2048 return empty. Quality mirrored from muse-spark-1.1. Context 1,048,576 per Meta's docs as cited in model listings (the pricing page does not print context).",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Version upgrade on the existing Meta pool. Price VERIFIED from Meta's own pricing page (dev.meta.ai/docs/pricing-rate-limits): muse-spark-1.1, 1.2 and 1.3 sit in ONE Standard-mode table at $1.25 in / $0.15 cached / $4.25 out. Standard tier only \u2014 the contributor variants are excluded (Meta may train on that traffic). PROBE 2026-11-12 (connector helper): 200, finish=stop, sane at max_tokens 2048 (8.3s) \u2014 with 1,032 reasoning tokens spent on a one-sentence answer; at 512 the content was null (all reasoning). Effective cost per completed answer runs well above the list rate and budgets below ~2048 return empty. Quality mirrored from muse-spark-1.1. Context 1,048,576 per Meta's docs as cited in model listings (the pricing page does not print context). v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a76): extra_body reasoning_effort='minimal' \u2014 Meta defaults an omitted effort to 'high' and the gateway dropped client-sent effort entirely before v0.6.1, so the documented control was unexercisable. Direct probes from VM103 (2026-11-12): 'minimal' kept the correct answer on a reasoning-shaped prompt while cutting hidden reasoning burn vs the default (muse-spark-1.3: 85 vs 546 reasoning tokens; 1.1: 408 vs 1,027) and on a trivial prompt (1.3: 28 vs 256); 'low' did NOT restrain 1.3 on the trivial prompt (274 \u2248 default 256), so 'minimal' is the profile. Per upstream_body merge semantics the registry profile wins over a client-sent reasoning_effort on this entry.",
       "output_usd_per_million": 4.25,
       "probe": {
         "cadence": "weekly",
@@ -2302,13 +2315,16 @@
       "cached_input_usd_per_million": 0.15,
       "context_tokens": 1048576,
       "enabled": false,
+      "extra_body": {
+        "reasoning_effort": "minimal"
+      },
       "id": "meta/muse-spark-1.3",
       "input_usd_per_million": 1.25,
       "lane": "premium",
       "latency_p50_ms": 5000,
       "limits": {},
       "model": "muse-spark-1.3",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). DISABLED AT DEPLOY \u2014 on probe behavior, not price. Price VERIFIED from Meta's own pricing page (dev.meta.ai/docs/pricing-rate-limits): muse-spark-1.1, 1.2 and 1.3 sit in ONE Standard-mode table at $1.25 in / $0.15 cached / $4.25 out. Standard tier only \u2014 the contributor variants are excluded (Meta may train on that traffic). PROBES 2026-11-12 (connector helper): 200s but NO content at max_tokens 512 (510 reasoning tokens) and none even at 2048 (2,046 reasoning tokens, finish=length, 32.3s). Do not enable until a budget/latency profile is chosen for a model that spends >2048 tokens reasoning on a trivial prompt.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). DISABLED AT DEPLOY \u2014 on probe behavior, not price. Price VERIFIED from Meta's own pricing page (dev.meta.ai/docs/pricing-rate-limits): muse-spark-1.1, 1.2 and 1.3 sit in ONE Standard-mode table at $1.25 in / $0.15 cached / $4.25 out. Standard tier only \u2014 the contributor variants are excluded (Meta may train on that traffic). PROBES 2026-11-12 (connector helper): 200s but NO content at max_tokens 512 (510 reasoning tokens) and none even at 2048 (2,046 reasoning tokens, finish=length, 32.3s). Do not enable until a budget/latency profile is chosen for a model that spends >2048 tokens reasoning on a trivial prompt. v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a76): extra_body reasoning_effort='minimal' \u2014 Meta defaults an omitted effort to 'high' and the gateway dropped client-sent effort entirely before v0.6.1, so the documented control was unexercisable. Direct probes from VM103 (2026-11-12): 'minimal' kept the correct answer on a reasoning-shaped prompt while cutting hidden reasoning burn vs the default (muse-spark-1.3: 85 vs 546 reasoning tokens; 1.1: 408 vs 1,027) and on a trivial prompt (1.3: 28 vs 256); 'low' did NOT restrain 1.3 on the trivial prompt (274 \u2248 default 256), so 'minimal' is the profile. Per upstream_body merge semantics the registry profile wins over a client-sent reasoning_effort on this entry. Entry STAYS DISABLED in the fix package \u2014 re-enable at this effort profile is the owner's deploy decision.",
       "output_usd_per_million": 4.25,
       "probe": {
         "cadence": "weekly",
@@ -2503,6 +2519,13 @@
       "cached_input_usd_per_million": 0.0,
       "context_tokens": 262144,
       "enabled": false,
+      "extra_body": {
+        "google": {
+          "thinking_config": {
+            "thinking_level": "minimal"
+          }
+        }
+      },
       "id": "google/gemma-4-26b-it",
       "input_usd_per_million": 0.0,
       "lane": "public-only-free",
@@ -2512,7 +2535,7 @@
         "rpm": 10
       },
       "model": "gemma-4-26b-a4b-it",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). DISABLED AT DEPLOY: probes inconsistent \u2014 one 200 (35s, finish=length, visible <thought> leakage, no clean final answer) and a 500 INTERNAL on the spaced re-probe; the same Google Gemma instability pattern as gemma-4-31b-it. Gemma 4 is free of charge on Google's own pricing page (no paid tier exists), so the $0 lane price is source-verified; the route itself is not reliable enough to enable. Re-probe before enabling. Google free tier = per-model quota bucket (real added capacity) but 'used to improve our products: Yes' \u2014 public-only-free permanently.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). DISABLED AT DEPLOY: probes inconsistent \u2014 one 200 (35s, finish=length, visible <thought> leakage, no clean final answer) and a 500 INTERNAL on the spaced re-probe; the same Google Gemma instability pattern as gemma-4-31b-it. Gemma 4 is free of charge on Google's own pricing page (no paid tier exists), so the $0 lane price is source-verified; the route itself is not reliable enough to enable. Re-probe before enabling. Google free tier = per-model quota bucket (real added capacity) but 'used to improve our products: Yes' \u2014 public-only-free permanently. v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a75): extra_body google.thinking_config.thinking_level='minimal' \u2014 proven direct (probe G9): on Google's OpenAI-compatible endpoint Gemma inlines <thought> text into content; with this shape the same prompt returned exactly the clean answer with zero thought text. Do NOT send reasoning_effort to this entry \u2014 Google 400s on the field (probe G3) and gateway v0.6.1 strips it for provider google. Entry STAYS DISABLED: the HTTP 500 INTERNAL instability is provider-side (reproduced on canonical direct requests with zero gateway involvement); the disable stands on reliability, with weekly re-probes per the protocol.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",

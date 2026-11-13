@@ -497,7 +497,7 @@ def test_registry_and_version_shape_v056():
     sys.path.insert(0, str(SRC))
     import gateway
     from registry import load_registry
-    assert gateway.VERSION == "0.6.1"  # v0.6.1: reasoning_effort allowlist + poison-field guard + muse-spark/Gemma shaping (fix package, 2026-11-12); v0.6.0: provider expansion (22 models after the HF/Cerebras deletion); v0.5.7 was warn-only + dead-lane
+    assert gateway.VERSION == "0.7.0"  # v0.7.0: J-1 pin hardening + stream commit guard + registry invariants/provenance (Cycle 1 R1, 2026-11-12); v0.6.1: reasoning_effort allowlist + poison-field guard + muse-spark/Gemma shaping (fix package, 2026-11-12); v0.6.0: provider expansion (22 models after the HF/Cerebras deletion); v0.5.7 was warn-only + dead-lane
     entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
     assert len(entries) == 81  # +2 HF (2026-11-09), +3 providers (2026-11-12), +5 staged (2026-11-12), -1 HF/Cerebras deleted (2026-11-12), +20 free-catalog expansion (2026-11-12), +39 expansion phase 2 (2026-11-12)
     # 2026-11-12 additions: Cerebras + Novita enabled, both sensitive-excluded;

@@ -411,9 +411,12 @@ def test_free20_entry_lane_enabled_context(entry_id):
 
 
 def test_free20_openrouter_limits_seed_shared_pool_rpd():
+    # v0.7.0: the shared-pool shape gained the pool's 20 RPM ceiling
+    # alongside the 1,000 RPD — both are account-pool facts (NEW-01),
+    # so every :free pool member carries both, identically.
     for entry_id, (_lane, _en, _ctx) in FREE20_ENTRIES.items():
         if entry_id.startswith("openrouter/"):
-            assert BY_ID[entry_id].limits == {"rpd": 1000}, entry_id
+            assert BY_ID[entry_id].limits == {"rpd": 1000, "rpm": 20}, entry_id
 
 
 def test_free_router_is_private_with_deny_only_extra_body():

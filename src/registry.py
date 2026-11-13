@@ -102,6 +102,21 @@ class ModelEntry:
     reasoning: bool = False
     enabled: bool = True
     notes: str = ""
+    # Price provenance (v0.7.0, Cycle 1 aspects B/C): every entry carrying
+    # a non-zero price records where the price came from, when it was last
+    # confirmed against that source, and how much to trust it:
+    #   verified -- read from the provider's own published source
+    #   observed -- confirmed by what probes were actually billed
+    #   seeded   -- carried from a spec table / another provider's listing,
+    #               not yet confirmed against the provider's own source
+    price_source: Optional[str] = None
+    price_verified_at: Optional[str] = None
+    price_confidence: Optional[str] = None
+    # Shared-quota pool membership (v0.7.0): entries whose provider limits
+    # are really one account-level pool (e.g. OpenRouter :free) name the
+    # pool so selection and accounting can treat the pool, not the entry,
+    # as the scarce resource. None = the entry's own limits are its own.
+    quota_pool_id: Optional[str] = None
 
     # -- derived helpers -------------------------------------------------
     @property
@@ -147,9 +162,21 @@ class Registry:
     entries: list[ModelEntry]
 
     def get(self, entry_id: str) -> Optional[ModelEntry]:
+        """Resolve an entry by registry id or by upstream model string.
+
+        Two passes, so the result NEVER depends on registry file order
+        (Cycle 1 aspect B.3 / failure F-02): an exact id match anywhere in
+        the registry wins over a model-string match anywhere. A model
+        string resolves only when exactly one entry carries it; an
+        ambiguous model string (two routes to the same upstream model)
+        returns None rather than whichever entry happens to be first.
+        """
         for e in self.entries:
-            if e.id == entry_id or e.model == entry_id:
+            if e.id == entry_id:
                 return e
+        matches = [e for e in self.entries if e.model == entry_id]
+        if len(matches) == 1:
+            return matches[0]
         return None
 
     def by_provider(self, provider: str) -> list[ModelEntry]:
@@ -185,4 +212,12 @@ def load_registry(path: str | Path) -> Registry:
     ids = [e.id for e in entries]
     if len(ids) != len(set(ids)):
         raise ValueError("duplicate registry entry ids")
+    pairs = [(e.provider, e.model) for e in entries]
+    if len(pairs) != len(set(pairs)):
+        dup = next(p for p in set(pairs) if pairs.count(p) > 1)
+        raise ValueError(
+            f"duplicate (provider, model) pair in registry: {dup} — two "
+            "entries for one upstream route make resolution and "
+            "accounting ambiguous"
+        )
     return Registry(entries=entries)

@@ -153,17 +153,28 @@ def test_entry_profile_wins_over_client_sent_effort(rec):
 # ----------------------------------------------------------------------
 # (2) the poison guard: Google never sees the field
 # ----------------------------------------------------------------------
-def test_reasoning_effort_never_reaches_gemma_upstream(rec):
-    # Pinned to the (disabled) Gemma entry: the current pin path still
-    # force-inserts it — exactly the latent route the guard must make
-    # safe. The body must carry the Gemma thinking shape and must NOT
-    # carry the field Google 400s on.
-    tc, sent = rec
-    r = tc.post("/v1/chat/completions",
-                json=chat_body("what is the capital of France",
-                               model="google/gemma-4-31b-it",
-                               reasoning_effort="low"),
-                headers=auth("openclaw"))
+def test_reasoning_effort_never_reaches_gemma_upstream(tmp_path):
+    # v0.7.0 (J-1): this test originally pinned the DISABLED Gemma
+    # entry and relied on the pin force-insert resurrecting it — the
+    # latent route J-1 closed (a pin for a disabled entry no longer
+    # serves it; see tests/test_pin_hardening.py). The shaping property
+    # itself still matters for the day the weekly re-probe re-enables
+    # Gemma, so the test now runs against a variant registry with the
+    # entry enabled: the body must carry the Gemma thinking shape and
+    # must NOT carry the field Google 400s on.
+    data = json.loads(PROD_REGISTRY.read_text())
+    for m in data["models"]:
+        if m["id"] == "google/gemma-4-31b-it":
+            m["enabled"] = True
+    variant = tmp_path / "registry-gemma-enabled.json"
+    variant.write_text(json.dumps(data))
+    app, sent = build_recording_app(tmp_path / "v", registry_path=variant)
+    with TestClient(app) as tc:
+        r = tc.post("/v1/chat/completions",
+                    json=chat_body("what is the capital of France",
+                                   model="google/gemma-4-31b-it",
+                                   reasoning_effort="low"),
+                    headers=auth("openclaw"))
     assert r.status_code == 200
     assert r.headers["X-Sovereign-Model"] == "google/gemma-4-31b-it"
     bodies = bodies_for(sent, "gemma-4-31b-it")

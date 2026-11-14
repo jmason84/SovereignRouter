@@ -32,7 +32,7 @@ Post-0.6.0 registry changes, 2026-11-12 (gateway code unchanged):
 - **Removed** `huggingface/gpt-oss-120b-cerebras` (owner's order): the HF passthrough ignored reasoning controls and leaked deliberation (2026-11-11); the direct `cerebras/gpt-oss-120b` route replaces it. Standing rule recorded in `docs/ROUTING-PRINCIPLES.md`: Cerebras is called direct, never via HF.
 - Registry now 22 models, 21 enabled (only `siliconflow/deepseek-v4-pro` disabled, a deliberate duplicate).
 
-## [0.8.3] — 2026-11-13 (built 2026-11-13; NOT yet deployed)
+## [0.8.3] — 2026-11-13 (DEPLOYED 2026-11-13 21:33:54 MST)
 
 **True-cost ledger** (owner's order, 2026-11-13: "ADJUST THE LEDGER TO
 THE ACTUAL AMOUNT" — reversing his 2026-11-12 ruling that the
@@ -92,6 +92,37 @@ F-12.
 - **History is not rewritten.** Upstream cache data was never stored
   for past turns, so pre-v0.8.3 route rows remain ceiling estimates;
   dollars are actuals only from this deploy onward.
+- **DEPLOY RECORD (2026-11-13):** PR #8 merged to main as
+  `a240bc4cf8bd6f02d1972fb15c3e1af1bd9615dd`; CI run 43556738063
+  SUCCESS (pytest, Python 3.12); suite 654. Snapshot
+  `snapshots/pre-v083-20261113`. Image
+  `192.168.0.28:5000/sovereign-router:v0.8.3`
+  (sha256:0e0b0ed786fd1334b588913b93cf33a2548930264e3b3658798403015591f010);
+  gateway recreated 21:33:54 MST (cutover epoch 1794630834);
+  /health version 0.8.3, 81 models, clients
+  [crm, hermes, n8n, openclaw], sidecar ok, alert chain ok;
+  prod :6070 still v0.2.1. **Registry changed:** new md5
+  `a915a4d1c0d5237534feba2d562358a0` byte-identical across GitHub
+  main, VM103 build/src and VM103 state (10001:10001, 644).
+  Smokes all pass (non-streaming exact echo; streaming 12 chunks
+  finish=stop; tool call well-formed). **Live true-cost proof:**
+  pinned openclaw session on `deepseek/deepseek-v4-pro`, ~20.4k
+  context ×5 turns — turn 1 cold (cached 0, $0.02731872); warm
+  turns cached 20,352–20,480 (~99.4% hits) with recorded cost
+  equal to the hand-computed (in−cached)×$1.32 + cached×$0.044 +
+  out×$3.96 per 1M on every turn (e.g. in 20,559 / cached 20,480 /
+  out 52 → $0.00121132). Traffic watch: 63 rows since cutover, all
+  200, no `stream_bound_timeout`; genuine fleet rows began
+  recording cached_tokens > 0 within minutes (Hermes on
+  openrouter/nemotron-3-ultra-free: 4,234 / 9,314 / 45,091
+  cached). **Dashboard:** exporter v1.2 adds
+  `sovereign_premium_spend_since_truecost_usd`; the Overview
+  premium panel now shows ACTUAL dollars since the cutover
+  (first read: openclaw $0.032772, the proof session exactly) and
+  the pre-fix MTD ceiling totals moved into the READ BEFORE
+  annotation panel as static historical text. Rollback: image →
+  v0.8.2 AND restore state/registry.json from the pre-v083
+  snapshot, then compose up -d gateway.
 - Tests: 636 → 654. Rollback: image swap only — the registry changes
   are value-only (no new keys); the v0.8.2 loader was verified loading
   the new registry (81 entries) in this build.

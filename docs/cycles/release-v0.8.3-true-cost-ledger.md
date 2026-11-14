@@ -1,10 +1,20 @@
 # Release v0.8.3 — Decision Package: True-Cost Ledger
 
-- **Status:** BUILT, not deployed. Branch `fix/v0.8.3-true-cost-ledger`
-  in `~/workspace/sr-build6`, based on main `09579cdf` (v0.8.2 merge
-  tree). No GitHub push (waits for the owner's egress-approval tap),
-  no production contact beyond the read-only censuses and the
-  throwaway-instance probe in §4.
+- **Status:** DEPLOYED 2026-11-13 21:33:54 MST (cutover epoch
+  1794630834). PR #8 (branch `fix/v0.8.3-true-cost-ledger`) merged
+  to main as `a240bc4cf8bd6f02d1972fb15c3e1af1bd9615dd`; CI run
+  43556738063 SUCCESS; suite 654. Snapshot
+  `snapshots/pre-v083-20261113`; image
+  `192.168.0.28:5000/sovereign-router:v0.8.3`
+  (sha256:0e0b0ed786fd…); /health 0.8.3, 81 models, clients
+  [crm, hermes, n8n, openclaw]. Registry md5 now
+  `a915a4d1c0d5237534feba2d562358a0` (GitHub main == VM103 build ==
+  VM103 state). Production true-cost proof: pinned V4 Pro session,
+  recorded cost == hand-computed on every warm turn (cached
+  20,352–20,480 of ~20.5k input); fleet rows recording
+  cached_tokens > 0 from the first minutes. Rollback: image →
+  v0.8.2 AND restore state/registry.json from the pre-v083
+  snapshot, then compose up -d gateway.
 - **Trigger:** the owner's order of 2026-11-13 (~17:48 MST):
   **"ADJUST THE LEDGER TO THE ACTUAL AMOUNT"** — issued after he
   challenged the new Grafana dashboard's premium MTD panel

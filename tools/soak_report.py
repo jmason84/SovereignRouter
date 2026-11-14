@@ -51,6 +51,19 @@ def main() -> int:
         n = len(part)
         cost = sum(r.get("cost_usd", 0.0) for r in part)
         free = sum(1 for r in part if r.get("lane") == "private-free" or r.get("cost_usd", 0) == 0)
+        # Token totals (v0.8.3, owner's order 2026-11-13): a request-
+        # count free share hides where the fleet's mass actually goes —
+        # cache-heavy agent sessions are a minority of requests and the
+        # large majority of tokens. Tokens = input + output; cached
+        # tokens are a SUBSET of input (priced cheaper, not additional
+        # volume), reported separately below, never added in.
+        def _tokens(r):
+            return (r.get("input_tokens", 0) or 0) + (r.get("output_tokens", 0) or 0)
+        tokens = sum(_tokens(r) for r in part)
+        free_tokens = sum(_tokens(r) for r in part
+                          if r.get("lane") == "private-free"
+                          or r.get("cost_usd", 0) == 0)
+        cached_tokens = sum(r.get("cached_tokens", 0) or 0 for r in part)
         esc = sum(1 for r in part if r.get("escalated"))
         failed = sum(1 for r in part
                      if (r.get("status") or 200) >= 400 and r.get("status") not in (401, 403))
@@ -66,6 +79,16 @@ def main() -> int:
         if tgt:
             print(f"- Cost vs daily target ${tgt:.2f}: {'OVER' if cost > tgt else 'within'}")
         print(f"- Free share: {free / n:.0%}  (measure 2)")
+        if tokens:
+            print(f"- Tokens: {tokens:,} total; free-lane {free_tokens:,} "
+                  f"({free_tokens / tokens:.1%} of tokens vs "
+                  f"{free / n:.1%} of requests)")
+            print(f"  - Cached input tokens: {cached_tokens:,} "
+                  f"(subset of input; priced at cached rates from "
+                  f"v0.8.3 — pre-v0.8.3 rows read 0: unrecorded, "
+                  f"not uncached)")
+        else:
+            print("- Tokens: 0 total")
         print(f"- Escalations: {esc} ({esc / n:.1%}, target <8%)")
         print(f"- Failed (non-auth 4xx/5xx): {failed} ({failed / n:.1%}, target <1%)")
         p50, p95 = pct(routing_ms, 0.5), pct(routing_ms, 0.95)

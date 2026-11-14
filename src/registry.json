@@ -212,7 +212,7 @@
       "price_verified_at": "2026-11-12"
     },
     {
-      "cached_input_usd_per_million": null,
+      "cached_input_usd_per_million": 0.014,
       "context_tokens": 131072,
       "id": "ollama/gpt-oss-120b",
       "input_usd_per_million": 0.15,
@@ -222,7 +222,7 @@
         "tpd": 10000000
       },
       "model": "gpt-oss:120b",
-      "notes": "Spec: $0.15/$0.60 per 1M, quality 4, spend alert $5/month (no cap). Daily token limit matches the Ollama Cloud plan behaviour observed 2026-10-31 (400k/day exhausted by 17 Hermes turns); rpd/rpm to be set from the plan page at deploy time. 2026-11-09 CORRECTION: the 400k/day figure was a router-side conservative seed, NOT an Ollama limit \u2014 the owner's Ollama console shows 50 requests / $0.07 total for Nov 1-9 with gpt-oss:120b under free usage. The seed caused the 05:11 self-throttle during the 2026-11-09 DeepInfra outage. Raised to 10M/day (effectively unseeded); a real Ollama ceiling will now surface as upstream errors + lane_dead alerts instead of a silent self-skip.",
+      "notes": "Spec: $0.15/$0.60 per 1M, quality 4, spend alert $5/month (no cap). Daily token limit matches the Ollama Cloud plan behaviour observed 2026-10-31 (400k/day exhausted by 17 Hermes turns); rpd/rpm to be set from the plan page at deploy time. 2026-11-09 CORRECTION: the 400k/day figure was a router-side conservative seed, NOT an Ollama limit \u2014 the owner's Ollama console shows 50 requests / $0.07 total for Nov 1-9 with gpt-oss:120b under free usage. The seed caused the 05:11 self-throttle during the 2026-11-09 DeepInfra outage. Raised to 10M/day (effectively unseeded); a real Ollama ceiling will now surface as upstream errors + lane_dead alerts instead of a silent self-skip. PRICE VERIFIED 2026-11-13 (v0.8.3): Ollama's own pricing table lists gpt-oss:120b at $0.15 in / $0.014 cached / $0.60 out \u2014 the groq-parity seed's in/out were exact; the cached rate is now recorded.",
       "output_usd_per_million": 0.6,
       "probe": {
         "cadence": "weekly",
@@ -241,8 +241,9 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "verified_until": null,
-      "price_source": "spec v0.5.3 seed at groq parity; ollama console showed free-tier usage only as of 2026-11-09 \u2014 unverified against ollama's price list",
-      "price_confidence": "seeded"
+      "price_source": "ollama:ollama.com/pricing model pricing table (read 2026-11-13) \u2014 gpt-oss:120b $0.15 in / $0.014 cached / $0.60 out per 1M",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.26,
@@ -281,7 +282,7 @@
       "price_verified_at": "2026-11-12"
     },
     {
-      "cached_input_usd_per_million": null,
+      "cached_input_usd_per_million": 0.5,
       "completion_tokens_param": true,
       "context_tokens": 262144,
       "id": "premium/gpt-5.5",
@@ -289,7 +290,7 @@
       "lane": "premium",
       "latency_p50_ms": 2000,
       "model": "gpt-5.5",
-      "notes": "Premium lane placeholder carried from v0.2.1 production (gpt-5.5 was 82 of the 104 premium requests in the live audit; claude-sonnet-4-6 took the rest and can be added as a second premium entry before Phase 3). PRICING IS A PLACEHOLDER \u2014 confirm against the provider price list before Phase 3; the premium monthly alert ($20 proposed) lives on the OpenClaw client policy. Only level 5 or explicit premium, only for clients with premium permission.",
+      "notes": "Premium lane placeholder carried from v0.2.1 production (gpt-5.5 was 82 of the 104 premium requests in the live audit; claude-sonnet-4-6 took the rest and can be added as a second premium entry before Phase 3). PRICE VERIFIED 2026-11-13 (v0.8.3): OpenAI's own GPT-5.5 model page lists $5.00 in / $0.50 cached / $30.00 out per 1M \u2014 the carried placeholder figures were exact, and the cached rate is now recorded. NOT modelled: OpenAI prices >272K-input sessions at 2x input / 1.5x output for the full session, so very-long premium turns can still understate; the premium monthly alert ($20 proposed) lives on the OpenClaw client policy. Only level 5 or explicit premium, only for clients with premium permission.",
       "output_usd_per_million": 30.0,
       "probe": {
         "cadence": "weekly",
@@ -309,8 +310,9 @@
       "spend_alert_usd": 20.0,
       "supports_vision": true,
       "verified_until": null,
-      "price_source": "PLACEHOLDER carried from v0.2.1 (per entry notes) \u2014 unverified against OpenAI's price list",
-      "price_confidence": "seeded"
+      "price_source": "openai:developers.openai.com/api/docs/models/gpt-5.5 (read 2026-11-13) \u2014 Input $5.00 / Cached input $0.50 / Output $30.00 per 1M",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-13"
     },
     {
       "base_url": "https://api.deepseek.com",
@@ -341,9 +343,10 @@
       },
       "reasoning": true,
       "verified_until": null,
-      "price_source": "deepseek published peak/off-peak pricing as recorded at add; no dated verification in the record",
-      "price_confidence": "seeded",
-      "spend_alert_usd": 10.0
+      "price_source": "deepseek:api-docs.deepseek.com/quick_start/pricing (read 2026-11-13) \u2014 peak accounting: $1.32 cache-miss / $0.044 cache-hit / $3.96 out per 1M; off-peak exactly half",
+      "price_confidence": "verified",
+      "spend_alert_usd": 10.0,
+      "price_verified_at": "2026-11-13"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -374,9 +377,10 @@
       },
       "reasoning": true,
       "verified_until": null,
-      "price_source": "parity with the verified siliconflow/glm-5.3 list price; z.ai direct price not separately recorded",
-      "price_confidence": "seeded",
-      "spend_alert_usd": 10.0
+      "price_source": "z.ai:docs.z.ai/guides/overview/pricing (read 2026-11-13) \u2014 GLM-5.3 $1.40 in / $0.26 cached / $4.40 out per 1M",
+      "price_confidence": "verified",
+      "spend_alert_usd": 10.0,
+      "price_verified_at": "2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.135,
@@ -410,9 +414,10 @@
       "reasoning": true,
       "spillway_sensitive_excluded": true,
       "verified_until": null,
-      "price_source": "siliconflow model page suggests $1.50/$3.135 vs probe read $1.00/$1.50 \u2014 unsettled; entry ships disabled pending firsthand price confirmation",
-      "price_confidence": "seeded",
-      "spend_alert_usd": 10.0
+      "price_source": "siliconflow:/models listing (provider's own published list, re-read 2026-11-13) \u2014 DeepSeek-V4-Pro $1.50162 in / $0.135 cached / $3.135 out per 1M",
+      "price_confidence": "verified",
+      "spend_alert_usd": 10.0,
+      "price_verified_at": "2026-11-13"
     },
     {
       "base_url": "https://api.meta.ai/v1",
@@ -1701,10 +1706,10 @@
       "price_verified_at": "2026-11-12"
     },
     {
-      "cached_input_usd_per_million": 0.14,
+      "cached_input_usd_per_million": 0.135,
       "context_tokens": 163840,
       "id": "siliconflow/deepseek-v3.2",
-      "input_usd_per_million": 0.259,
+      "input_usd_per_million": 0.27,
       "lane": "paid",
       "latency_p50_ms": 3000,
       "limits": {
@@ -1712,8 +1717,8 @@
         "tpm": 40000
       },
       "model": "deepseek-ai/DeepSeek-V3.2",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cleanest SiliconFlow probe of the batch (200 in 6.3s, zero reasoning tokens). Price: $0.259 in / $0.14 cached / $0.80 out from OpenRouter's live SiliconFlow endpoint listing \u2014 SF's own page text for this model could not be surfaced in this pass, so treat the seed as endpoint-sourced and re-confirm on the first SF invoice (some aggregators quote $0.27/$0.42, which matches neither). NON-SENSITIVE ONLY (spillway_sensitive_excluded): SF's data posture graded UNCLEAR. Limits are SF's L0 ceilings (1,000 RPM / 40,000 TPM).",
-      "output_usd_per_million": 0.8,
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cleanest SiliconFlow probe of the batch (200 in 6.3s, zero reasoning tokens). Price: $0.259 in / $0.14 cached / $0.80 out from OpenRouter's live SiliconFlow endpoint listing \u2014 SF's own page text for this model could not be surfaced in this pass, so treat the seed as endpoint-sourced and re-confirm on the first SF invoice (some aggregators quote $0.27/$0.42, which matches neither). NON-SENSITIVE ONLY (spillway_sensitive_excluded): SF's data posture graded UNCLEAR. Limits are SF's L0 ceilings (1,000 RPM / 40,000 TPM). PRICE CORRECTION 2026-11-13 (v0.8.3, F-04 pattern): SiliconFlow's own models listing gives $0.27 in / $0.135 cached / $0.42 out \u2014 the OpenRouter endpoint seed ($0.259/$0.14/$0.80) overstated output ~2x. Corrected to the provider's own published figures.",
+      "output_usd_per_million": 0.42,
       "probe": {
         "cadence": "weekly",
         "kind": "chat",
@@ -1732,8 +1737,9 @@
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
       "verified_until": null,
-      "price_source": "openrouter endpoint listing for siliconflow \u2014 SF's own page could not be surfaced; re-confirm on first SF invoice",
-      "price_confidence": "seeded"
+      "price_source": "siliconflow:/models listing (provider's own published list, read 2026-11-13) \u2014 DeepSeek-V3.2 $0.27 in / $0.135 cached / $0.42 out per 1M",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.028,
@@ -2312,7 +2318,7 @@
     },
     {
       "base_url": "https://api.mistral.ai/v1",
-      "cached_input_usd_per_million": null,
+      "cached_input_usd_per_million": 0.15,
       "context_tokens": 262144,
       "id": "mistral/mistral-medium",
       "input_usd_per_million": 1.5,
@@ -2323,7 +2329,7 @@
         "tpm": 500000
       },
       "model": "mistral-medium-latest",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Mistral's medium flagship class. Price ($1.50 in / $7.50 out) from Mistral's own Mistral Medium 3.5 announcement on mistral.ai \u2014 the model does NOT appear in the docs pricing table fetched 2026-11-12, and no cached-input rate is published in either source (cached left null). The -latest alias resolves to Medium 3.5. PROBE 2026-11-12: 200 in 1.21s, sane. NON-SENSITIVE ONLY (spillway_sensitive_excluded), same basis as the existing Mistral entries. Paid from the existing $10 prepaid (no new purchase). Limits mirror the existing entries' conservative seeds.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Mistral's medium flagship class. Price ($1.50 in / $7.50 out) from Mistral's own Mistral Medium 3.5 announcement on mistral.ai \u2014 the model does NOT appear in the docs pricing table fetched 2026-11-12, and no cached-input rate is published in either source (cached left null). The -latest alias resolves to Medium 3.5. PROBE 2026-11-12: 200 in 1.21s, sane. NON-SENSITIVE ONLY (spillway_sensitive_excluded), same basis as the existing Mistral entries. Paid from the existing $10 prepaid (no new purchase). Limits mirror the existing entries' conservative seeds. CACHED RATE ADDED 2026-11-13 (v0.8.3): Mistral's current API price sheet publishes a cached-input rate for Medium 3.5 ($0.15 = 10% of input); the 2026-11-12 sources read for this entry carried none.",
       "output_usd_per_million": 7.5,
       "probe": {
         "cadence": "weekly",
@@ -2342,9 +2348,9 @@
       "reasoning": false,
       "spillway_sensitive_excluded": true,
       "verified_until": null,
-      "price_source": "mistral:docs pricing table",
+      "price_source": "mistral:mistral.ai API price sheet (Mistral Medium 3.5: $1.50 in / $0.15 cached / $7.50 out per 1M; cached input billed at 10% of the standard input rate per Mistral's pricing/docs \u2014 read 2026-11-13)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.3,

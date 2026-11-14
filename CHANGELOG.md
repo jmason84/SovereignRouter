@@ -32,6 +32,70 @@ Post-0.6.0 registry changes, 2026-11-12 (gateway code unchanged):
 - **Removed** `huggingface/gpt-oss-120b-cerebras` (owner's order): the HF passthrough ignored reasoning controls and leaked deliberation (2026-11-11); the direct `cerebras/gpt-oss-120b` route replaces it. Standing rule recorded in `docs/ROUTING-PRINCIPLES.md`: Cerebras is called direct, never via HF.
 - Registry now 22 models, 21 enabled (only `siliconflow/deepseek-v4-pro` disabled, a deliberate duplicate).
 
+## [0.8.3] — 2026-11-13 (built 2026-11-13; NOT yet deployed)
+
+**True-cost ledger** (owner's order, 2026-11-13: "ADJUST THE LEDGER TO
+THE ACTUAL AMOUNT" — reversing his 2026-11-12 ruling that the
+cache-pricing fix was "NOT NECESSARY"). Decision package:
+`docs/cycles/release-v0.8.3-true-cost-ledger.md`. Failure-log entry
+F-12.
+
+- **Cached-token parsing, all shapes, both paths.** The gateway now
+  reads cached-input counts from every upstream usage shape —
+  OpenAI-style `prompt_tokens_details.cached_tokens`, DeepSeek
+  `prompt_cache_hit_tokens`, Anthropic `cache_read_input_tokens`
+  (aggregator shape, and the native shape where input_tokens excludes
+  cache reads), Google `usageMetadata.cachedContentTokenCount` — via
+  one shared parser used by the JSON path and, for the first time, the
+  streaming path (whose finalize previously hard-coded
+  cached_tokens=0). Parsed counts land on the route row and the quota
+  usage event and are priced by `estimate_cost` at the entry's
+  cached-input rate. Absent/garbage usage degrades to cached=0,
+  exactly the old behaviour; parsing can never break a response.
+  Before this fix, cache-heavy turns (300–530k contexts resent per
+  turn, ~90%+ cache hits at ~1/10 price) were priced as full-price
+  misses — the phantom-dollar overstatement proven against the
+  provider consoles on 2026-11-12 (DeepSeek 30-day actual $9.34 vs
+  the ledger's $109.32 for V4 Pro on Nov 11 alone).
+- **Registry: cached rates verified from primary sources**
+  (2026-11-13 reads). Added: `premium/gpt-5.5` $0.50 (OpenAI's own
+  model page — the carried "placeholder" price set was exact and is
+  now graded verified), `ollama/gpt-oss-120b` $0.014 (Ollama's pricing
+  table), `mistral/mistral-medium` $0.15 (Mistral's API price sheet).
+  Confirmed and upgraded seeded → verified: `deepseek/deepseek-v4-pro`
+  $0.044 (DeepSeek pricing page, peak accounting),
+  `zai/glm-5.3` $0.26 (Z.ai pricing page),
+  `siliconflow/deepseek-v4-pro` $0.135 (SiliconFlow listing).
+  **Price correction** (F-04 pattern): `siliconflow/deepseek-v3.2`
+  $0.259/$0.14/$0.80 → **$0.27/$0.135/$0.42** per SiliconFlow's own
+  listing. Entries whose providers publish no cached rate keep
+  cached=null — cached tokens price at the full input rate, never
+  assumed free (Cerebras, three DeepInfra models, Novita gpt-oss-120b,
+  both Hugging Face pass-throughs, SiliconFlow Qwen3-32B). New
+  registry invariant: a cached rate must lie in [0, input] and
+  inherits the entry's provenance grading.
+- **Soak report:** per-day token totals and free share BY TOKENS
+  alongside free share by requests (owner's order, 2026-11-13).
+  Census-verified against production routes: Nov 12 = 57,556,861
+  tokens, free-lane 80.9% of tokens vs 74.4% of requests; Nov 13 =
+  84.1% of tokens vs 70.4% of requests.
+- **Reconciliation probe** (throwaway v0.8.3 gateway on VM103:6085,
+  torn down after): repeated ~31.3k-token context ×6 turns against
+  DeepSeek direct (JSON + streaming arms). Provider reported 99.8%
+  cache hits on warm turns; the gateway's parsed cached_tokens
+  matched the provider-reported hit count on **8/8 turns exactly**,
+  and ledger cost equalled the hand-computed console-style cost on
+  every turn (session ledger $0.053186 = hand total at the registry's
+  peak-rate basis; the probe ran on a Saturday, so DeepSeek's actual
+  off-peak deduction is half that — the recorded peak-accounting
+  convention, flagged in the package).
+- **History is not rewritten.** Upstream cache data was never stored
+  for past turns, so pre-v0.8.3 route rows remain ceiling estimates;
+  dollars are actuals only from this deploy onward.
+- Tests: 636 → 654. Rollback: image swap only — the registry changes
+  are value-only (no new keys); the v0.8.2 loader was verified loading
+  the new registry (81 entries) in this build.
+
 ## [0.8.2] — 2026-11-13 (built 2026-11-13; NOT yet deployed)
 
 Fix package for failure **F-11** (Hermes executive-ops stream aborts on

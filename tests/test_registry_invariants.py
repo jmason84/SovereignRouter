@@ -141,6 +141,31 @@ def test_price_provenance_on_every_priced_entry():
                 f"{e.id}: verified/observed prices carry the confirmation date"
 
 
+def test_cached_price_bounds_and_provenance():
+    # v0.8.3 (true-cost ledger): a cached-input price is a real price —
+    # it needs the same provenance discipline as in/out (the v0.7.0
+    # battery above covers graded source + dated verification for the
+    # entry as a whole) AND it must sit inside [0, input]: a cached
+    # rate above the fresh-input rate would charge MORE for cheaper
+    # tokens and invert the ledger fix. (A provider publishing such a
+    # rate would need a source-backed exception recorded here, not a
+    # silent registry value.)
+    for e in REG.entries:
+        cached = e.cached_input_usd_per_million
+        if cached is None:
+            continue
+        assert cached >= 0, f"{e.id}: cached price must be >= 0"
+        if e.input_usd_per_million > 0:
+            assert cached <= e.input_usd_per_million, \
+                f"{e.id}: cached rate {cached} exceeds input rate " \
+                f"{e.input_usd_per_million}"
+        else:
+            # $0 entries (free lanes): a cached price must also be $0 —
+            # a priced cache on an unpriced model breaks lane posture.
+            assert cached == 0, \
+                f"{e.id}: unpriced entry must not carry a cached price"
+
+
 def test_premium_entries_have_spend_alert_armed():
     for e in REG.entries:
         if e.lane == "premium":

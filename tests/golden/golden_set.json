@@ -1,0 +1,582 @@
+{
+ "version": 1,
+ "composed": "2026-11-13",
+ "basis": "Cycle 1 aspect F census mix in miniature (infra/chat/code/reasoning/long-context + ~15% tool turns + sensitive-marker routing assertions). All prompts synthetic; no production prompt text. Shadow-level verifiers only (decision assertions) \u2014 answer-level verifiers belong to the live replay sample, which is designed but report-only in v1. Baseline dispositions are recorded per-item (known_violation / boundary notes) in the v0.9.0 decision package \u2014 expectations were NOT loosened to hide classifier findings.",
+ "items": [
+  {
+   "id": "g01-infra-restart",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "restart the nginx container on the staging host and confirm it comes back healthy"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g02-infra-oom",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "debug why the docker compose service for the worker keeps getting OOM-killed and restart-looping since the last deploy"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g03-infra-disk",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "check disk usage on the media server and prune docker images older than 30 days"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g04-infra-migrate",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "migrate the postgres container to the new host, then update the connection string in the compose file"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g05-infra-logs",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "tail the gateway logs and find why the nightly cron job failed"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g06-infra-n8n",
+   "client": "n8n",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "my workflow's HTTP request node has returned 502 since yesterday's deploy; diagnose the upstream service and check its health endpoint"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g07-chat-email",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "draft a short email to a client explaining that Thursday's shoot moves to Friday morning"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "known_violation": "baseline 2026-11-13: sidecar/rules classified an email-draft prompt as 'code'"
+  },
+  {
+   "id": "g08-chat-press",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a press-release style paragraph announcing a community robotics workshop for high-school students"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "known_violation": "baseline 2026-11-13: classified a press-release writing prompt as 'infra'"
+  },
+  {
+   "id": "g09-chat-summary",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "summarize these meeting notes into three bullets: we agreed to ship the beta on Monday, Priya owns the changelog, and the pricing page waits for legal review"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g10-chat-tone",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "rewrite this social post in a warmer tone: 'Our fall schedule is now live. Sign up on the website.'"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g11-chat-reminder",
+   "client": "n8n",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "draft a friendly payment reminder message for an invoice that is ten days overdue"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g12-code-function",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a python function that removes duplicates from a list while preserving order, with a docstring"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g13-code-debug",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "debug this javascript and explain the bug:\n```js\nconst total = items.reduce((a, b) => a + b.price, 0);\nconsole.log(totals);\n```"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g14-code-refactor",
+   "client": "hermes",
+   "note": "boundary item: shell scripting classifies either way; both accepted",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "refactor this bash one-liner into a proper script with error handling: tar czf backup.tgz /srv/data && scp backup.tgz backup-host:/srv/backups/"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "code",
+     "infra"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g15-reasoning-puzzle",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Three boxes are labeled apples, oranges, and mixed, but every label is wrong. You may pick one fruit from one box. Reason step by step about how to relabel all three boxes correctly."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "known_violation": "baseline 2026-11-13: classified a logic puzzle as 'infra'"
+  },
+  {
+   "id": "g16-reasoning-plan",
+   "client": "openclaw",
+   "note": "L5/internal policy probe: ops-vocabulary text is data-classed internal; at L5 the spec allows paid lanes only. First choice must be a paid entry.",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "A release depends on a schema migration, which depends on a backup verification, which depends on storage provisioning. Think carefully and lay out the safe execution order and what could go wrong at each step."
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "internal",
+    "first_lane_in": [
+     "paid"
+    ]
+   }
+  },
+  {
+   "id": "g17-long-log",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Read this operations log dump and tell me the first ERROR line and what preceded it."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 65000,
+   "known_violation": "F-10: sidecar fusion overrides the rules' >60k long-context signal (sidecar sees only 1,500 chars); baseline 2026-11-13 classified both padded items 'chat'"
+  },
+  {
+   "id": "g18-long-runbook",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Summarize this runbook into the five steps that matter during an outage."
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 25000
+  },
+  {
+   "id": "g19-long-extract",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "From this long project archive, extract every date on which a deployment is mentioned."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 65000,
+   "known_violation": "F-10: sidecar fusion overrides the rules' >60k long-context signal (sidecar sees only 1,500 chars); baseline 2026-11-13 classified both padded items 'chat'"
+  },
+  {
+   "id": "g20-tool-write",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "save this note to the project file: kickoff moved to Monday 9am"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "write_file",
+       "description": "Write content to a file.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         },
+         "content": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path",
+         "content"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g21-tool-browser",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "open the analytics dashboard and click the settings tab"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "click_element",
+       "description": "Click a page element by CSS selector.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "selector": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "selector"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g22-tool-webhook",
+   "client": "n8n",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "call the status webhook and then post the summary to the team channel"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "http_request",
+       "description": "Make an HTTP request.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "url": {
+          "type": "string"
+         },
+         "method": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "url"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g23-sensitive-key",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "here is the staging key sk-GOLDENFAKE00000000000000 \u2014 log it in the vault and confirm the rotation steps"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g24-sensitive-pem",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "I pasted a private key block starting with -----BEGIN PRIVATE KEY----- into the notes; explain how to move it into proper secret storage"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  }
+ ]
+}

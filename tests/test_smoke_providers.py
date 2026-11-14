@@ -465,7 +465,7 @@ PHASE2_ENTRIES = {
     "openrouter/claude-haiku-5.5": ("paid", True, 1000000, (0.10, 0.50)),
     "openrouter/kimi-k2.6": ("paid", False, 262144, (0.65, 3.41)),
     "siliconflow/qwen3-32b": ("paid", True, 131072, (0.14, 0.57)),
-    "siliconflow/deepseek-v3.2": ("paid", True, 163840, (0.259, 0.80)),
+    "siliconflow/deepseek-v3.2": ("paid", True, 163840, (0.27, 0.42)),
     "siliconflow/deepseek-v4-flash": ("paid", True, 1048576, (0.13, 0.28)),
     "deepinfra/gpt-oss-120b": ("paid", True, 131072, (0.037, 0.17)),
     "deepinfra/deepseek-v4-flash-0731": ("paid", True, 1048576, (0.06, 0.18)),

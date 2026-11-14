@@ -5,8 +5,13 @@ Extends the v0.3/v0.4 schema per spec ("Model registry v2"):
   * ``lane``: private-free | public-only-free | paid | premium
   * ``quality``: map of task class -> score 1..5
     (chat, infra, code, reasoning, long-context)
-  * ``cached_input_usd_per_million``: cached-input price (DeepInfra bills
-    cached input at 20% of the normal rate).
+  * ``cached_input_usd_per_million``: cached-input price per 1M tokens
+    (e.g. DeepInfra bills cached input at 20% of the normal rate).
+    v0.8.3: the gateway parses cached-token counts from every upstream
+    usage shape and ``estimate_cost`` applies this rate; ``None`` means
+    the provider publishes no cached-input rate for the model, and
+    cached tokens then price at the full input rate (never assumed
+    free, never assumed discounted).
   * ``latency_p50_ms``
   * ``spend_alert_usd``: monthly alert level for paid entries. This is an
     alert, never a cap (spec decision 2026-10-31: spending is not capped).

@@ -111,11 +111,20 @@ F-12.
   turns cached 20,352–20,480 (~99.4% hits) with recorded cost
   equal to the hand-computed (in−cached)×$1.32 + cached×$0.044 +
   out×$3.96 per 1M on every turn (e.g. in 20,559 / cached 20,480 /
-  out 52 → $0.00121132). Traffic watch: 63 rows since cutover, all
-  200, no `stream_bound_timeout`; genuine fleet rows began
-  recording cached_tokens > 0 within minutes (Hermes on
-  openrouter/nemotron-3-ultra-free: 4,234 / 9,314 / 45,091
-  cached). **Dashboard:** exporter v1.2 adds
+  out 52 → $0.00121132). Traffic watch (CORRECTED 2026-11-13 —
+  the watch summary first circulated in the deploy session
+  misstated this window's counts; the figures here are re-derived
+  from routes.jsonl): 17 rows in the post-cutover window (6
+  deploy smokes, 5 proof turns, 6 genuine OpenClaw turns), ALL
+  200, no `stream_bound_timeout`; the only signals were the
+  proof session's own repeat_within_60s ×5; attempt ledger 17
+  served + 7 failed congested (OpenRouter free-pool 429s absorbed
+  by failover — every client row still 200). Genuine fleet rows
+  recorded cached_tokens > 0 within minutes: OpenClaw on
+  openrouter/nemotron-3-ultra-free (13,152 / 17,536 cached) and
+  groq/gpt-oss-120b (17,152 cached of 19,913 in → $0.000568). An
+  evening lull followed (no rows after 21:38 MST; gateway
+  verified healthy). **Dashboard:** exporter v1.2 adds
   `sovereign_premium_spend_since_truecost_usd`; the Overview
   premium panel now shows ACTUAL dollars since the cutover
   (first read: openclaw $0.032772, the proof session exactly) and

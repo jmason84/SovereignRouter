@@ -409,6 +409,32 @@ class QuotaStore:
             return out
 
     # ------------------------------------------------------------------
+    # stream-abort cooldowns (v0.8.2, F-11)
+    # ------------------------------------------------------------------
+    # A streaming attempt that aborts mid-stream (transport drop, or
+    # the gateway's first-chunk / stall bounds) puts its entry on a
+    # bounded cooldown so the client's automatic retry — a NEW request
+    # — does not re-pick the same stalling entry (the F-11 incident:
+    # three consecutive 502s on zai/glm-4.5-flash because v0.8.0's
+    # ledger recorded the failures but selection never read them).
+    # Persisted in the meta table: durable across gateway restarts,
+    # self-healing by timestamp comparison, no schema change.
+    def set_stream_cooldown(self, model_id: str, until_ts: float) -> None:
+        self.set_meta(f"stream_cooldown:{model_id}", str(until_ts))
+
+    def stream_cooldown_until(self, model_id: str) -> Optional[float]:
+        v = self.get_meta(f"stream_cooldown:{model_id}")
+        return float(v) if v else None
+
+    def clear_stream_cooldown(self, model_id: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM meta WHERE key=?",
+                (f"stream_cooldown:{model_id}",),
+            )
+            self._conn.commit()
+
+    # ------------------------------------------------------------------
     # alerts (de-duplicated per day by the governor's dedup key)
     # ------------------------------------------------------------------
     def add_alert(self, kind: str, scope: str, dedup_key: str, message: str,

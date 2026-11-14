@@ -32,6 +32,62 @@ Post-0.6.0 registry changes, 2026-11-12 (gateway code unchanged):
 - **Removed** `huggingface/gpt-oss-120b-cerebras` (owner's order): the HF passthrough ignored reasoning controls and leaked deliberation (2026-11-11); the direct `cerebras/gpt-oss-120b` route replaces it. Standing rule recorded in `docs/ROUTING-PRINCIPLES.md`: Cerebras is called direct, never via HF.
 - Registry now 22 models, 21 enabled (only `siliconflow/deepseek-v4-pro` disabled, a deliberate duplicate).
 
+## [0.8.2] — 2026-11-13 (built 2026-11-13; NOT yet deployed)
+
+Fix package for failure **F-11** (Hermes executive-ops stream aborts on
+`zai/glm-4.5-flash`, 2026-11-13 16:26–16:33 MST): three consecutive
+router 502s at 121–152 s upstream latency. A stalled upstream stream
+hung against the gateway's flat 120 s read timeout; partial output had
+committed, so in-request failover was impossible by design (ADD-06);
+and Hermes' automatic retries — new requests — re-picked the SAME
+entry all three times, because v0.8.0's attempt ledger records
+failures but selection never read them (J-2 observe-only). Decision
+package: `docs/cycles/release-v0.8.2-decision.md`. **Code-only
+change; no registry change** (the F-11 differential probes completed
+every shape on the entry — see the package — so no quality adjustment
+was justified; rollback is an image swap only).
+
+- **Streaming time bounds.** Streaming upstream reads are driven
+  per-line with two configurable bounds in place of reliance on the
+  flat 120 s read timeout: time-to-first-chunk **45 s** and
+  inter-chunk stall **60 s** (`SOVEREIGN_STREAM_FIRST_CHUNK_TIMEOUT_S`
+  / `SOVEREIGN_STREAM_STALL_TIMEOUT_S`; the non-200 error-body read is
+  bounded by the first-chunk value too). A bound expiry enters the
+  existing transport-error handler, so the ADD-06 commit guard
+  (post-commit: terminate with the typed error event, route signal
+  `stream_aborted_after_commit:<entry>`) and pre-commit failover apply
+  unchanged; a new route signal `stream_bound_timeout:<entry>` marks
+  bound-fired aborts. Non-streaming calls are untouched.
+- **Stream-abort entry cooldown (the incident fix).** Any streaming
+  abort — transport drop or bound expiry, committed or not — cools
+  the entry for **600 s** (`SOVEREIGN_STREAM_ABORT_COOLDOWN_S`),
+  persisted as an expiry timestamp in the quota store's meta table
+  (durable across restarts, self-healing, no schema change).
+  `build_candidates` skips a cooling entry with reason
+  `cooldown_stream_abort` (checked last, after every other gate), and
+  sticky reuse inherits the skip with the precise reason instead of
+  the generic `sticky_no_longer_eligible`. **Only-candidate
+  exception:** if every otherwise-eligible entry is cooling, the
+  cooled set serves, annotated `cooldown_bypassed_only_candidate` —
+  a cooldown never manufactures a zero-candidate 429. Explicit pins
+  still override the cooldown, per J-1 (pins override everything
+  softer than the two hard boundaries). This is a bounded memory for
+  ONE proven failure class, not general demotion enforcement: J-2's
+  observe-only posture stands for all other classes.
+- **`truncated_tool_call` ledger class** (carried R3 item, F-09's
+  open remainder). When a completion's `finish_reason` is `length`
+  and it carried tool calls, the attempt row now records failure
+  class `truncated_tool_call` (scope: model) instead of masquerading
+  as a clean serve — JSON and streaming tool paths both. The
+  attempt's outcome stays `served` (the response was received); the
+  class also feeds the observe-only `would_demote` annotation.
+- **Tests:** 627 → 636 (9 new in `tests/test_stream_resilience.py`:
+  stall aborts inside the bound, first-chunk timeout fails over
+  pre-commit, abort sets the cooldown, next selection skips and
+  serves the sibling, sticky reuse respects the cooldown,
+  only-candidate still serves, cooldown expiry, and
+  `truncated_tool_call` on both paths plus a clean-serve control).
+
 ## [0.8.1] — 2026-11-13 (deployed 2026-11-13)
 
 Fix package for failure **F-09** (route-health investigation, `docs/cycles/route-health-investigation-protocol.md` §7): the Hermes write_file stream stalls were ours-config — the gateway's 2048 default output budget bound every client that omits `max_tokens`, Hermes omits it on every turn, and tool-call payloads truncated mid-stream at exactly 2048 (finish=length) against a model whose published completion ceiling is 460,800. Decision package: `docs/cycles/fix-package-v0.8.1-decision.md`. **Code-only change; no registry change.**

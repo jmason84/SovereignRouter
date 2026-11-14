@@ -91,7 +91,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.8.1"
+VERSION = "0.9.0"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -160,6 +160,29 @@ def _default_max_tokens(body: dict[str, Any]) -> int:
     if body.get("tools") or body.get("tool_choice") is not None:
         return TOOL_DEFAULT_MAX_TOKENS
     return DEFAULT_MAX_TOKENS
+
+
+def _selection_quality(entry: ModelEntry, task_class: str,
+                       has_tools: bool) -> int:
+    """The quality selection ranks and floors on (v0.9.0, Cycle 1
+    aspect F / NEXT plan §2d — the tooling dimension).
+
+    For a tool-bearing request, an entry with a MEASURED tooling score
+    is ranked on that score: tool competence is what the turn actually
+    exercises, and tonight's incident record (2026-11-13) is three
+    production tool-call defects on models that chat/code quality had
+    ranked as peers. An entry with NO tooling score is unmeasured, and
+    the fallback rule is strict: it ranks on exactly the input it
+    ranked on before the dimension existed — quality_for(task_class),
+    the request's classified class — so adding the dimension never
+    silently re-ranks an unmeasured entry. Non-tool requests are
+    untouched. The binary supports_tools gate is unchanged and still
+    applies first (build_candidates)."""
+    if has_tools:
+        measured = entry.tooling_quality()
+        if measured is not None:
+            return measured
+    return entry.quality_for(task_class)
 FAILOVER_STATUSES = {401, 403, 408, 413, 429, 500, 502, 503, 504}
 # Escalation reason recorded on every turn the paid spillway serves
 # (v0.5.5 free-first / paid-spillway waterfall, owner ruling 2026-11-07).
@@ -488,7 +511,8 @@ def create_app(config: Optional[GatewayConfig] = None,
                     skip("sensitive_not_cleared"); continue
             if has_tools and not entry.supports_tools:
                 skip("tools_unsupported"); continue
-            if entry.quality_for(task_class) < required_quality:
+            if _selection_quality(entry, task_class, has_tools) \
+                    < required_quality:
                 skip("quality_below_required"); continue
             # Fit = the *input* fits; max_tokens is clamped to the
             # model's remaining room at call time, so only a minimal
@@ -509,7 +533,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         def sort_key(e: ModelEntry) -> tuple[float, int, int]:
             est_out = max_tokens // 2
             return (e.estimate_cost(est_tokens, est_out),
-                    -e.quality_for(task_class),
+                    -_selection_quality(e, task_class, has_tools),
                     e.latency_p50_ms or 99_999)
 
         candidates.sort(key=sort_key)
@@ -962,7 +986,8 @@ def create_app(config: Optional[GatewayConfig] = None,
             if candidates:
                 skipped = skipped2 + [{"model": "-", "reason": "level5_fallback_quality4"}]
         if steering.cheapest_quality4_only and len(candidates) > 1:
-            exact = [c for c in candidates if c.quality_for(task_class) == 4]
+            exact = [c for c in candidates
+                     if _selection_quality(c, task_class, bool(tools)) == 4]
             if exact:
                 candidates = exact
         candidates, pin_blocked = apply_pin(
@@ -1012,7 +1037,7 @@ def create_app(config: Optional[GatewayConfig] = None,
                 if first else None),
             "candidates": [
                 {"model": c.id, "lane": c.lane, "provider": c.provider,
-                 "quality": c.quality_for(task_class),
+                 "quality": _selection_quality(c, task_class, bool(tools)),
                  "estimated_cost_usd": c.estimate_cost(est_tokens, max_tokens // 2)}
                 for c in candidates],
             "skipped": skipped,
@@ -1156,7 +1181,8 @@ def create_app(config: Optional[GatewayConfig] = None,
                 skipped = skipped2 + [{"model": "-", "reason": "level5_fallback_quality4"}]
         # Governor: above target, level 4 is held to the cheapest q4.
         if steering.cheapest_quality4_only and len(candidates) > 1:
-            exact = [c for c in candidates if c.quality_for(task_class) == 4]
+            exact = [c for c in candidates
+                     if _selection_quality(c, task_class, bool(tools)) == 4]
             if exact:
                 for c in candidates:
                     if c not in exact:
@@ -1451,16 +1477,18 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             # model is already quality 4 — retry the next candidate at
             # >= current quality instead of serving a known-invalid
             # answer; a different model rarely fails the same way.
-            target_q = entry.quality_for(task_class) + 1
+            entry_q = _selection_quality(entry, task_class, bool(tools))
+            target_q = entry_q + 1
             esc_idx = next(
                 (j for j in range(idx + 1, len(candidates))
-                 if candidates[j].quality_for(task_class) >= target_q),
+                 if _selection_quality(candidates[j], task_class,
+                                       bool(tools)) >= target_q),
                 None)
             if esc_idx is None:
                 esc_idx = next(
                     (j for j in range(idx + 1, len(candidates))
-                     if candidates[j].quality_for(task_class)
-                     >= entry.quality_for(task_class)),
+                     if _selection_quality(candidates[j], task_class,
+                                           bool(tools)) >= entry_q),
                     None)
             if esc_idx is not None:
                 escalated = True
@@ -1659,10 +1687,13 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         failures = validate_response(
                             assembled, tools=tools or None, json_mode=False)
                         if failures and not escalated:
-                            target_q = entry.quality_for(task_class) + 1
+                            entry_q = _selection_quality(
+                                entry, task_class, bool(tools))
+                            target_q = entry_q + 1
                             esc_idx = next(
                                 (j for j in range(idx + 1, len(candidates))
-                                 if candidates[j].quality_for(task_class) >= target_q),
+                                 if _selection_quality(candidates[j], task_class,
+                                                       bool(tools)) >= target_q),
                                 None)
                             if esc_idx is None:
                                 # Same fallback as the JSON path: next
@@ -1670,8 +1701,10 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                 # serving a known-invalid tool call.
                                 esc_idx = next(
                                     (j for j in range(idx + 1, len(candidates))
-                                     if candidates[j].quality_for(task_class)
-                                     >= entry.quality_for(task_class)),
+                                     if _selection_quality(candidates[j],
+                                                           task_class,
+                                                           bool(tools))
+                                     >= entry_q),
                                     None)
                             if esc_idx is None and failures:
                                 record.signals.append(

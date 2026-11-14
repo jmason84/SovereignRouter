@@ -3,3 +3,4 @@ src/.venv/
 .pytest_cache/
 *.pyc
 state/
+.work-battery/

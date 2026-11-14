@@ -4,7 +4,12 @@ Extends the v0.3/v0.4 schema per spec ("Model registry v2"):
 
   * ``lane``: private-free | public-only-free | paid | premium
   * ``quality``: map of task class -> score 1..5
-    (chat, infra, code, reasoning, long-context)
+    (chat, infra, code, reasoning, long-context — plus ``tooling``,
+    the measured-only sixth dimension added in v0.9.0: a tooling score
+    exists on an entry ONLY when the tooling battery measured it;
+    entries without one are unmeasured and selection falls back for
+    them exactly as before — see ``ModelEntry.tooling_quality`` and
+    the gateway's ``_selection_quality``)
   * ``cached_input_usd_per_million``: cached-input price (DeepInfra bills
     cached input at 20% of the normal rate).
   * ``latency_p50_ms``
@@ -61,7 +66,13 @@ from typing import Any, Optional
 
 LANES = ("private-free", "public-only-free", "paid", "premium")
 FREE_LANES = ("private-free", "public-only-free")
-TASK_CLASSES = ("chat", "infra", "code", "reasoning", "long-context")
+TASK_CLASSES = ("chat", "infra", "code", "reasoning", "long-context",
+                "tooling")
+# The five classes every entry is hand-rated on at enrollment. `tooling`
+# is deliberately NOT one of them: it is measured-only (v0.9.0, Cycle 1
+# aspect F / NEXT plan §2d) — seeded exclusively by the tooling battery,
+# never hand-entered and never inherited from another class.
+BASE_TASK_CLASSES = ("chat", "infra", "code", "reasoning", "long-context")
 
 # Default OpenAI-compatible base URLs per provider. An entry may override
 # with its own ``base_url`` (e.g. a self-hosted endpoint).
@@ -117,6 +128,12 @@ class ModelEntry:
     # pool so selection and accounting can treat the pool, not the entry,
     # as the scarce resource. None = the entry's own limits are its own.
     quota_pool_id: Optional[str] = None
+    # Tooling-score provenance (v0.9.0): set exactly when quality carries
+    # a `tooling` score — names the battery run that measured it (e.g.
+    # "tooling-battery:2026-11-13"). A tooling score without provenance
+    # is a registry invariant violation (aspect B battery): scores are
+    # derived by the battery's rubric, never hand-entered.
+    tooling_source: Optional[str] = None
 
     # -- derived helpers -------------------------------------------------
     @property
@@ -135,6 +152,20 @@ class ModelEntry:
         if self.quality:
             return min(int(v) for v in self.quality.values())
         return 1
+
+    def tooling_quality(self) -> Optional[int]:
+        """The MEASURED tooling score (v0.9.0), or None when this entry
+        has never been measured by the tooling battery.
+
+        Deliberately separate from quality_for(): quality_for's
+        min-known fallback would silently invent a tooling score from
+        other classes, which is exactly what the dimension exists to
+        prevent (NEXT plan §2d: a tooling score is earned by measured
+        tool-call evidence, never inherited). Callers that rank tool
+        turns must handle None explicitly — the gateway's fallback for
+        None is "rank exactly as before the dimension existed"."""
+        value = self.quality.get("tooling")
+        return int(value) if value is not None else None
 
     def is_verified(self, now: Optional[float] = None) -> bool:
         if not self.verified_until:

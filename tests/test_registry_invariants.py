@@ -180,9 +180,30 @@ def test_disabled_entries_carry_dated_notes():
 
 
 def test_quality_maps_complete():
+    # v0.9.0 amendment (aspect F, recorded in the release package): the
+    # five BASE classes stay complete on every entry; `tooling` is the
+    # measured-only sixth dimension — present exactly where the battery
+    # measured it, never required, never hand-filled for completeness.
+    from registry import BASE_TASK_CLASSES
     for e in REG.entries:
-        assert set(e.quality) == set(TASK_CLASSES), e.id
+        assert set(BASE_TASK_CLASSES) <= set(e.quality) <= set(TASK_CLASSES), \
+            e.id
         assert all(1 <= int(v) <= 5 for v in e.quality.values()), e.id
+
+
+def test_tooling_scores_carry_battery_provenance():
+    # A tooling score is derived by the battery's rubric from measured
+    # tool-call evidence — it must name its measuring run, and the
+    # provenance field must never appear without the score it vouches
+    # for (no hand-entered scores, no orphan provenance).
+    for e in REG.entries:
+        if "tooling" in e.quality:
+            assert e.tooling_source, \
+                f"{e.id}: tooling score without tooling_source provenance"
+            assert "tooling-battery:" in e.tooling_source, e.id
+        else:
+            assert not e.tooling_source, \
+                f"{e.id}: tooling_source set but no tooling score measured"
 
 
 def test_provider_posture_caveats_stay_in_notes():

@@ -497,7 +497,7 @@ def test_registry_and_version_shape_v056():
     sys.path.insert(0, str(SRC))
     import gateway
     from registry import load_registry
-    assert gateway.VERSION == "0.8.1"  # v0.8.1: tool-bearing default output budget 8192 when the client omits max_tokens (fix package F-09, 2026-11-13); v0.8.0: pool ledger + failure taxonomy + observe-only demotion (Cycle 1 R2, 2026-11-12); v0.6.1: reasoning_effort allowlist + poison-field guard + muse-spark/Gemma shaping (fix package, 2026-11-12); v0.6.0: provider expansion (22 models after the HF/Cerebras deletion); v0.5.7 was warn-only + dead-lane
+    assert gateway.VERSION == "0.9.0"  # v0.9.0: tooling quality dimension — measured-only sixth quality class; tool turns rank on it, unmeasured entries fall back to their classified-class quality (Cycle 1 R4, 2026-11-13); v0.8.1: tool-bearing default output budget 8192 when the client omits max_tokens (fix package F-09, 2026-11-13); v0.8.0: pool ledger + failure taxonomy + observe-only demotion (Cycle 1 R2, 2026-11-12); v0.6.1: reasoning_effort allowlist + poison-field guard + muse-spark/Gemma shaping (fix package, 2026-11-12); v0.6.0: provider expansion (22 models after the HF/Cerebras deletion); v0.5.7 was warn-only + dead-lane
     entries = {e.id: e for e in load_registry(SRC / "registry.json").entries}
     assert len(entries) == 81  # +2 HF (2026-11-09), +3 providers (2026-11-12), +5 staged (2026-11-12), -1 HF/Cerebras deleted (2026-11-12), +20 free-catalog expansion (2026-11-12), +39 expansion phase 2 (2026-11-12)
     # 2026-11-12 additions: Cerebras + Novita enabled, both sensitive-excluded;

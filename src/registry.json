@@ -27,13 +27,15 @@
         "code": 2,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-09"
+      "price_verified_at": "2026-11-09",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -47,7 +49,7 @@
         "tpm": 250000
       },
       "model": "openai/gpt-oss-120b",
-      "notes": "Spec: quality 4, small prompts only (8k tokens/min Groq free limit). 2026-11-09: owner moved Groq to the Developer (paid) plan \u2014 limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real.",
+      "notes": "Spec: quality 4, small prompts only (8k tokens/min Groq free limit). 2026-11-09: owner moved Groq to the Developer (paid) plan \u2014 limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real. 2026-11-13 (v0.9.0 battery): tooling 5 (T3 parallel calls 0.5 \u2014 one of two calls emitted) \u2014 TENSION with the 2026-11-13 production incident (1-token degenerate completion breaking tool JSON in an OpenClaw cron run): fresh synthetic turns do not reproduce the degeneracy seen mid-agent-run. Incident stands on production evidence.",
       "output_usd_per_million": 0.6,
       "probe": {
         "cadence": "weekly",
@@ -61,13 +63,15 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-09"
+      "price_verified_at": "2026-11-09",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -95,12 +99,14 @@
         "code": 3,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-09"
+      "price_verified_at": "2026-11-09",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -162,7 +168,7 @@
         "rpm": 20
       },
       "model": "dots-studio/dots-3-note-preview:free",
-      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md.",
+      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 shared OpenRouter free pool 429 congested on every pinned probe. The protocol S7 degenerate-fresh-call-args evidence stands alone; the entry remains enabled (route sound; the F-09 budget fault was the gateway's). Priority entry for the weekly re-probe.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -203,13 +209,15 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "spend_alert_usd": 10.0,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.014,
@@ -271,15 +279,17 @@
         "code": 5,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "siliconflow:/models listing (provider's own published list)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.5,
@@ -304,15 +314,17 @@
         "code": 5,
         "infra": 5,
         "long-context": 5,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 20.0,
       "supports_vision": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openai:developers.openai.com/api/docs/models/gpt-5.5 (read 2026-11-13) \u2014 Input $5.00 / Cached input $0.50 / Output $30.00 per 1M",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-13"
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.deepseek.com",
@@ -339,14 +351,16 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepseek:api-docs.deepseek.com/quick_start/pricing (read 2026-11-13) \u2014 peak accounting: $1.32 cache-miss / $0.044 cache-hit / $3.96 out per 1M; off-peak exactly half",
       "price_confidence": "verified",
       "spend_alert_usd": 10.0,
-      "price_verified_at": "2026-11-13"
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -373,14 +387,16 @@
         "code": 5,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "z.ai:docs.z.ai/guides/overview/pricing (read 2026-11-13) \u2014 GLM-5.3 $1.40 in / $0.26 cached / $4.40 out per 1M",
       "price_confidence": "verified",
       "spend_alert_usd": 10.0,
-      "price_verified_at": "2026-11-13"
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.135,
@@ -448,14 +464,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "meta:dev.meta.ai pricing page",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "spend_alert_usd": 10.0
+      "spend_alert_usd": 10.0,
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://router.huggingface.co/v1",
@@ -482,14 +500,16 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "huggingface:router pass-through at the deepinfra rate (deepinfra:/v1/openai/models); billing observed via probe estimated_cost 2026-11-09, rate re-confirmed 2026-11-12",
       "price_confidence": "observed",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cerebras.ai/v1",
@@ -523,14 +543,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "cerebras published developer-card rate as carried at add (2026-11-12); entry notes record no first-hand source read for this entry",
-      "price_confidence": "seeded"
+      "price_confidence": "seeded",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -557,14 +579,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "huggingface catalog listing of novita's rate (read 2026-11-09) \u2014 NOT verified against novita's own price list",
-      "price_confidence": "seeded"
+      "price_confidence": "seeded",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -591,10 +615,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -624,14 +650,16 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "mistral:docs pricing table",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -661,14 +689,16 @@
         "code": 5,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "mistral:docs pricing table",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -698,10 +728,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 5,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -814,7 +846,7 @@
       "latency_p50_ms": 4000,
       "limits": {},
       "model": "glm-4.5-flash",
-      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai official pricing page lists GLM-4.5-Flash as Free ($0 in/out/cached). Deploy probe 2026-11-12: plain chat 200 AND a well-formed tool call (finish=tool_calls) \u2014 tool-calling PROVEN, bettering the audit's caution from an older record. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Free-Flash throttling scope (per-model vs account) is UNVERIFIED \u2014 treat as soft capacity. $0 tier, weakest data posture \u2014 public-only-free, never sensitive.",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai official pricing page lists GLM-4.5-Flash as Free ($0 in/out/cached). Deploy probe 2026-11-12: plain chat 200 AND a well-formed tool call (finish=tool_calls) \u2014 tool-calling PROVEN, bettering the audit's caution from an older record. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Free-Flash throttling scope (per-model vs account) is UNVERIFIED \u2014 treat as soft capacity. $0 tier, weakest data posture \u2014 public-only-free, never sensitive. 2026-11-13 (v0.9.0 battery): tooling 5 on the synthetic set \u2014 TENSION with the 2026-11-13 production incident (semantic bad call + identical-retry fixation in a long BrowserOS session): the battery's fresh single-turn probes, incl. error recovery, did not reproduce the fixation. Incident stands on production evidence; the score measures the synthetic set only.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -828,10 +860,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -844,7 +878,7 @@
       "latency_p50_ms": 4000,
       "limits": {},
       "model": "glm-4.6v-flash",
-      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai's free VISION Flash (official pricing page: Free). Deploy probe 2026-11-12: plain chat 200 (text path; vision input not probed). First vision-capable entry in the free lane. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Throttle scope unverified, as for its siblings. Public-only-free \u2014 $0 tier posture, never sensitive.",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai's free VISION Flash (official pricing page: Free). Deploy probe 2026-11-12: plain chat 200 (text path; vision input not probed). First vision-capable entry in the free lane. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Throttle scope unverified, as for its siblings. Public-only-free \u2014 $0 tier posture, never sensitive. 2026-11-13 (v0.9.0 battery): tooling 2 on THIN evidence \u2014 exactly 3 components (T3 one-call-only, T5 failed gateway validation, envelope 0.5); its own 429s starved the other tasks. Treat as provisional; priority re-probe entry.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -858,10 +892,12 @@
         "code": 2,
         "infra": 2,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 2
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -888,9 +924,11 @@
         "code": 3,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -917,9 +955,11 @@
         "code": 3,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -976,10 +1016,12 @@
         "code": 2,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -1241,7 +1283,7 @@
         "rpm": 20
       },
       "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
-      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probes 2026-11-12: plain chat 200, but the data_collection=deny probe returned 404 'No endpoints found matching your data policy' \u2014 no deny-honouring endpoint exists for this model, so it is PUBLIC-ONLY-free, never private (the \u00a75.2 conditional resolved negative). 550B-class, the free lane's strongest weights when the shared pool has room. QUALITY RAISE 2026-11-12 (expansion phase 2, owner's routing philosophy \u2014 the best free model for a class carries that class's top free score): chat 4->5, reasoning 4->5. As the free bench's strongest model (550B, 1M ctx) it now leads chat and reasoning among $0 routes; long-context was already 5.",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probes 2026-11-12: plain chat 200, but the data_collection=deny probe returned 404 'No endpoints found matching your data policy' \u2014 no deny-honouring endpoint exists for this model, so it is PUBLIC-ONLY-free, never private (the \u00a75.2 conditional resolved negative). 550B-class, the free lane's strongest weights when the shared pool has room. QUALITY RAISE 2026-11-12 (expansion phase 2, owner's routing philosophy \u2014 the best free model for a class carries that class's top free score): chat 4->5, reasoning 4->5. As the free bench's strongest model (550B, 1M ctx) it now leads chat and reasoning among $0 routes; long-context was already 5. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 the shared OpenRouter free pool answered 429 congested to every pinned probe. The 2026-11-12 production incident (invalid-JSON tool envelope x2) is therefore neither corroborated nor contradicted by the battery; it stands alone. Priority entry for the weekly re-probe.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -1418,16 +1460,18 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.03,
@@ -1452,16 +1496,18 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models endpoint pricing \u2014 registered figure is the billed ceiling, confirmed by two probe billings 2026-11-12",
       "price_confidence": "observed",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.016,
@@ -1486,16 +1532,18 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -1524,11 +1572,13 @@
         "code": 3,
         "infra": 3,
         "long-context": 5,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
       "supports_vision": true,
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.025,
@@ -1553,17 +1603,19 @@
         "code": 3,
         "infra": 3,
         "long-context": 5,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
       "supports_vision": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.17,
@@ -1588,17 +1640,19 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
       "supports_vision": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.01,
@@ -1623,16 +1677,18 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.15,
@@ -1695,15 +1751,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "siliconflow:/models listing (provider's own published list)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.135,
@@ -1731,15 +1789,17 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "siliconflow:/models listing (provider's own published list, read 2026-11-13) \u2014 DeepSeek-V3.2 $0.27 in / $0.135 cached / $0.42 out per 1M",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-13"
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.028,
@@ -1767,15 +1827,17 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "siliconflow:/models listing (provider's own published list)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1800,14 +1862,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.015,
@@ -1832,14 +1896,16 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1864,14 +1930,16 @@
         "code": 2,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 1
+        "reasoning": 1,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 10.0,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models pricing fields",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1882,7 +1950,7 @@
       "latency_p50_ms": 500,
       "limits": {},
       "model": "mistralai/Mistral-Small-24B-Instruct-2501",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cheap EU small model ($0.05/$0.08). Price from DeepInfra's own /v1/models pricing fields, reconciled against the probe's estimated_cost. PROBE 2026-11-12: 200 in 0.39s, sane. Limitations: 32,768 context (smallest in the expansion) and a tokenizer that counted the trivial probe prompt at ~7x the tokens other providers did \u2014 negligible at this price, real for long prompts.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cheap EU small model ($0.05/$0.08). Price from DeepInfra's own /v1/models pricing fields, reconciled against the probe's estimated_cost. PROBE 2026-11-12: 200 in 0.39s, sane. Limitations: 32,768 context (smallest in the expansion) and a tokenizer that counted the trivial probe prompt at ~7x the tokens other providers did \u2014 negligible at this price, real for long prompts. 2026-11-13 (v0.9.0 battery): supports_tools set FALSE on direct upstream evidence \u2014 DeepInfra answers 'Tool calling is not supported for model: mistralai/Mistral-Small-24B-Instruct-2501' (400); the route serves chat only.",
       "output_usd_per_million": 0.08,
       "probe": {
         "cadence": "weekly",
@@ -1903,7 +1971,8 @@
       "verified_until": null,
       "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "supports_tools": false
     },
     {
       "cached_input_usd_per_million": 0.05,
@@ -1928,15 +1997,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "supports_vision": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled at list price)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1948,7 +2019,7 @@
       "latency_p50_ms": 700,
       "limits": {},
       "model": "meta-llama/llama-3.1-8b-instruct",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cheapest Novita route ($0.02/$0.05). Price dual-verified 2026-11-12 on two Novita sources with exact agreement: Novita's own API pricing fields and novita.ai/pricing. PROBE 2026-11-12: 200 in 0.64s, sane. Hard limitation: 16,384 context (Novita's listing) \u2014 trivial turns only. NON-SENSITIVE ONLY (spillway_sensitive_excluded): third-party compute host, data posture unverified \u2014 same basis as novita/gpt-oss-120b.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cheapest Novita route ($0.02/$0.05). Price dual-verified 2026-11-12 on two Novita sources with exact agreement: Novita's own API pricing fields and novita.ai/pricing. PROBE 2026-11-12: 200 in 0.64s, sane. Hard limitation: 16,384 context (Novita's listing) \u2014 trivial turns only. NON-SENSITIVE ONLY (spillway_sensitive_excluded): third-party compute host, data posture unverified \u2014 same basis as novita/gpt-oss-120b. 2026-11-13 (v0.9.0 battery): supports_tools set FALSE on direct upstream evidence \u2014 Novita answers tool-bearing requests with 400 'model features function calling not support'; the route serves chat only.",
       "output_usd_per_million": 0.05,
       "probe": {
         "cadence": "weekly",
@@ -1970,7 +2041,8 @@
       "verified_until": null,
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "supports_tools": false
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1996,15 +2068,17 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2030,15 +2104,17 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2064,15 +2140,17 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2098,16 +2176,18 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
       "supports_vision": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2133,15 +2213,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2167,15 +2249,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://router.huggingface.co/v1",
@@ -2201,15 +2285,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "huggingface:catalog (:deepinfra backend rate; matches deepinfra:/v1/openai/models) + probe estimated_cost exact match",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://router.huggingface.co/v1",
@@ -2235,14 +2321,16 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "huggingface:catalog (:deepinfra backend list rate) \u2014 probe estimated_cost did NOT reconcile (billed lower); F-06, verify on first HF invoice",
-      "price_confidence": "seeded"
+      "price_confidence": "seeded",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -2271,14 +2359,16 @@
         "code": 3,
         "infra": 2,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "mistral:docs pricing table",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -2307,14 +2397,16 @@
         "code": 2,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 5
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "mistral:docs pricing table",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -2343,14 +2435,16 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "mistral:mistral.ai API price sheet (Mistral Medium 3.5: $1.50 in / $0.15 cached / $7.50 out per 1M; cached input billed at 10% of the standard input rate per Mistral's pricing/docs \u2014 read 2026-11-13)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-13"
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.3,
@@ -2378,13 +2472,15 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "groq:/models pricing field",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -2410,14 +2506,16 @@
         "code": 5,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "z.ai:docs.z.ai official pricing page",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -2443,14 +2541,16 @@
         "code": 4,
         "infra": 3,
         "long-context": 5,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "z.ai:docs.z.ai official pricing page",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.meta.ai/v1",
@@ -2479,14 +2579,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "meta:dev.meta.ai pricing page",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "spend_alert_usd": 10.0
+      "spend_alert_usd": 10.0,
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.meta.ai/v1",
@@ -2516,14 +2618,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "meta:dev.meta.ai pricing page",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "spend_alert_usd": 10.0
+      "spend_alert_usd": 10.0,
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cerebras.ai/v1",
@@ -2556,15 +2660,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "cerebras:published pricing page (developer card)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.aionlabs.ai/v1",
@@ -2662,10 +2768,12 @@
         "code": 3,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://integrate.api.nvidia.com/v1",
@@ -2693,11 +2801,13 @@
         "code": 2,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "supports_vision": true,
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",

@@ -55,13 +55,18 @@ def test_sticky_switches_when_model_rate_limited(tmp_path):
     # $0.037 route to the same weights ahead of Groq's metered one —
     # it is the first server now. The FAIL marker below keys on the
     # shared upstream string "openai/gpt-oss-120b", so the failure
-    # injection is unchanged.
+    # injection is unchanged. v0.9.0 (2026-11-13): the tooling battery
+    # measured deepinfra/llama-3.1-8b-turbo at tooling 5; for this
+    # tool-bearing loop it now clears the quality floor its hand
+    # ratings failed and wins on price — the premise needs the
+    # gpt-oss route first, so it joins the disable list below.
     from fastapi.testclient import TestClient
     app = build_app(tmp_path, registry_path=registry_variant(
         tmp_path, disable=("openrouter/north-mini-code-free",
                            "openrouter/dots-3-note-preview-free",
                            "openrouter/free-router",
-                           "deepinfra/deepseek-v4-flash")))
+                           "deepinfra/deepseek-v4-flash",
+                           "deepinfra/llama-3.1-8b-turbo")))
     client = TestClient(app)
     r = client.post("/v1/chat/completions",
                     json={"model": "auto", "messages": _loop_messages(0),
@@ -141,5 +146,8 @@ def test_streaming_bad_tool_call_escalates(client, app):
     rec = app.state.telemetry.recent(0)[-1]
     assert rec.escalated is True
     # cheapest stronger paid route; the 0731 checkpoint since
-    # expansion phase 2 (2026-11-12)
-    assert rec.model == "deepinfra/deepseek-v4-flash-0731"
+    # expansion phase 2 (2026-11-12). v0.9.0 (2026-11-13): the
+    # escalation filter reads the measured tooling dimension for
+    # tool-bearing requests — deepinfra/llama-3.1-8b-turbo (tooling
+    # 5, $0.02/$0.04) is now the cheapest qualifying route.
+    assert rec.model == "deepinfra/llama-3.1-8b-turbo"

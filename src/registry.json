@@ -168,7 +168,7 @@
         "rpm": 20
       },
       "model": "dots-studio/dots-3-note-preview:free",
-      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 shared OpenRouter free pool 429 congested on every pinned probe. The protocol S7 degenerate-fresh-call-args evidence stands alone; the entry remains enabled (route sound; the F-09 budget fault was the gateway's). Priority entry for the weekly re-probe.",
+      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 shared OpenRouter free pool 429 congested on every pinned probe. The protocol S7 degenerate-fresh-call-args evidence stands alone; the entry remains enabled (route sound; the F-09 budget fault was the gateway's). Priority entry for the weekly re-probe. RETIREMENT DATE (flagged 2026-11-15, batch-1 source mining via ClawLabsAI's provider data): OpenRouter publishes a 2026-12-31 retirement date for this preview \u2014 expect the route to die on that date; the weekly re-probe cadence applies.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -1173,10 +1173,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1252,7 +1254,7 @@
         "rpm": 20
       },
       "model": "liquid/lfm-2.5-2.6b:free",
-      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Tiny 2.6B \u2014 grunt work only, quality seeded low. Public-only-free.",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Tiny 2.6B \u2014 grunt work only, quality seeded low. Public-only-free. DISABLED 2026-11-15 (consolidated free-model update, Jordan's ruling): the upstream model liquid/lfm-2.5-2.6b:free was deleted from the OpenRouter catalog (verified in the 2026-11-15 OpenRouter assessment) \u2014 the route is dead and selection would burn attempts on it. Entry retained disabled, never deleted, in case the model returns.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -1269,7 +1271,8 @@
         "reasoning": 1
       },
       "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "quota_pool_id": "openrouter-free",
+      "enabled": false
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -2847,6 +2850,232 @@
         "reasoning": 3
       },
       "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1048576,
+      "enabled": false,
+      "id": "openrouter/ling-3.2-flash-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1300,
+      "limits": {
+        "rpd": 1000,
+        "rpm": 20
+      },
+      "model": "inclusionai/ling-3.2-flash:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), shipped disabled pending one more clean weekly re-probe; enable only if latency stays sane. The only genuinely new model in the 2026-11-15 OpenRouter catalog refresh (created 2026-11-13; Ant Group InclusionAI). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Probes 2026-11-15: assessment run \u2014 chat 200 but 38.25s and an ~11-minute battery wall; consolidated-package re-probe the same day \u2014 chat 200 in 1.30s and 2.27s (latency normalized on simple chat) with genuine upstream usage on every response. Tooling battery (R4 task set, direct-call administration, report-only \u2014 the registry score write belongs to the v0.9.0 battery patch): assessment run scored 4 (T2 malformed-JSON on the 160-line payload, T5 passed); re-run: composite 1.0, tooling score 5 (measured=True); t1_exact_args=1.0, t2_large_payload=1.0, t3_parallel_calls=1.0, t4_follow_through=n/e, t5_error_recovery=1.0, v_envelope=1.0; envelope 6 valid / 0 invalid; wall 315.7s; model echoes ['inclusionai/ling-3.2-flash:free']. Reasoning-first model: at max_tokens 32 a trivial reply burned the whole budget on reasoning tokens (finish=length, empty content) \u2014 entry carries reasoning:true and callers must give output headroom. Quality figures are SEEDS. Public-only-free.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 2,
+        "long-context": 4,
+        "reasoning": 3,
+        "tooling": 5
+      },
+      "quota_pool_id": "openrouter-free",
+      "reasoning": true,
+      "verified_until": "2026-12-15",
+      "tooling_source": "tooling-battery:2026-11-15"
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1048576,
+      "enabled": false,
+      "id": "openrouter/particle-1-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 800,
+      "limits": {
+        "rpd": 1000,
+        "rpm": 20
+      },
+      "model": "particle-ai/particle-1:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), shipped disabled: provenance is UNKNOWN (model created 2026-10-28; first appeared in OpenRouter's zero-price list between the 2026-11-12 and 2026-11-15 catalog pulls) and the 2026-11-15 assessment's instruction was to revisit only if it survives a catalog cycle. SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Probes 2026-11-15: chat 200 in 0.72s, tool probe 200 in 0.81s with exact get_weather {\"city\": \"Denver\"} arguments, genuine upstream usage on every response. Tooling battery (R4 task set, direct-call administration, report-only): composite 0.833, tooling score 4 (measured=True); t1_exact_args=1.0, t2_large_payload=0.0, t3_parallel_calls=1.0, t4_follow_through=1.0, t5_error_recovery=1.0, v_envelope=1.0; envelope 7 valid / 0 invalid; wall 18.8s; model echoes ['particle-ai/particle-1:free']. Quality figures are SEEDS, deliberately conservative for an unprovenanced model. Public-only-free.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 2,
+        "infra": 2,
+        "long-context": 3,
+        "reasoning": 2,
+        "tooling": 4
+      },
+      "quota_pool_id": "openrouter-free",
+      "reasoning": true,
+      "verified_until": "2026-12-15",
+      "tooling_source": "tooling-battery:2026-11-15"
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1000000,
+      "enabled": false,
+      "id": "unorouter/gemini-3.5-flash-lite",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 2300,
+      "limits": {
+        "rpm": 1
+      },
+      "model": "gemini-3.5-flash-lite:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. Probes 2026-11-12: chat PASS (200, 2.3s) and tool probe PASS (valid get_weather arguments) \u2014 the strongest all-round UnoRouter candidate; a spot re-check the same night returned 200 but took 60.2s, so treat latency as best-effort. UnoRouter-reported 24h uptime 82%. Consent status: NONE required \u2014 served without consent; catalog flags consent_required false / trains_or_retains true. Quality figures are SEEDS.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 4,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 131072,
+      "enabled": false,
+      "id": "unorouter/mistral-small-3.2",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 400,
+      "limits": {
+        "rpm": 1
+      },
+      "model": "mistral-small-3.2:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. Probes 2026-11-12: chat PASS (200, 0.4s \u2014 fastest of the set), ~100% UnoRouter-reported 24h uptime; spot re-check 200 in 0.64s. Tool-calling NOT probed on this route. Consent status: catalog posture flags unrecorded (null/null) \u2192 treated as trains-on-data; the public-only posture covers it. Quality figures are SEEDS.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "enabled": false,
+      "id": "unorouter/codestral-latest",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 600,
+      "limits": {
+        "rpm": 1
+      },
+      "model": "codestral-latest:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. Probes 2026-11-12: chat PASS (200, 0.6s), 100% UnoRouter-reported 24h uptime. Code-specialist diversity the free bench otherwise lacks. Tool-calling not separately probed. Consent status: NONE required \u2014 catalog flags consent_required false / trains_or_retains true. Quality figures are SEEDS.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 3,
+        "code": 4,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "enabled": false,
+      "id": "unorouter/qwen3.5-397b-a17b",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "limits": {
+        "rpm": 1
+      },
+      "model": "qwen3.5-397b-a17b:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. Probes 2026-11-12: chat PARTIAL \u2014 at max_tokens 128 the entire budget burned on hidden reasoning and content returned empty (finish=length); tool probe PASS at max_tokens 256 (valid arguments). Entry carries reasoning:true \u2014 callers must give generous output budgets. UnoRouter-reported 24h uptime 95%. Consent status: catalog posture flags unrecorded (null/null) \u2192 treated as trains-on-data. Quality figures are SEEDS.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 4,
+        "code": 4,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 4
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 200000,
+      "enabled": false,
+      "id": "unorouter/claude-haiku-4-5-20251001",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 2000,
+      "limits": {
+        "rpm": 1
+      },
+      "model": "claude-haiku-4-5-20251001:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. CHAT-ONLY \u2014 supports_tools=false is load-bearing. Probes 2026-11-12: chat PASS (200, 2.0s, usage_source anthropic) but the tool probe FAILED with HTTP 400: the free route is served at least sometimes via AWS Bedrock, which rejected the OpenAI-style tool request. UnoRouter-reported 24h uptime 51% \u2014 a diversity route, never a relied rung. Consent status: NONE required \u2014 catalog flags consent_required false / trains_or_retains true. Quality figures are SEEDS.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 4,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "supports_tools": false,
       "verified_until": null
     }
   ],

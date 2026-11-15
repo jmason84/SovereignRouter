@@ -120,6 +120,19 @@ Group S of the 2026-11-15 full golden replay. The owner approved the full
 fix set (F-13–F-17 as recommended, F-18 per the parent chat's framing)
 2026-11-15 03:19 MST. All six ship together as patch release **v0.9.1**.
 
+**Status: ALL SIX SHIPPED in v0.9.1** — deployed 2026-11-15 03:51 MST
+(PR #10; branch CI run 43704831192 SUCCESS; merged main `9fb48c7c`, main
+CI #53 run 43705294364 SUCCESS; suite 701 → 721; snapshot
+`pre-v091-20261115`; image sha256:38c6bc41…; live registry md5
+`d9a1f9994f6c4048fde7e7eba16c4488`). Live verification: sensitive smokes
+skip both wall entries (`sensitive_spillway_excluded`) and a body-pin to
+dots-3 drops `pin_blocked:sensitive_spillway_excluded`; the
+prose-credential smoke classified sensitive on the new detector alone
+while a password-policy smoke stayed internal; Aion skips `disabled`
+(pin drops `pin_blocked:disabled`); exactly one alert created since the
+recreate — the F-15 posture digest; golden replay: Group S clean, 82
+diffs all declared (`tests/golden/declared-changes-2026-11-15-v091.json`).
+
 | # | Failure | Evidence / disposition |
 |---|---|---|
 | F-13 | **Spend alerts computed on blended dollars:** `premium_monthly_spend` and `provider_spend` summed month-to-date ledger figures that blend ~13 days of pre-v0.8.3 cache-blind CEILING with post-cutover actuals, so November paged phantom spend (OpenClaw premium $20.22 vs $0.0849 actual; DeepInfra $20.56 vs ≈$7.5–9 true; DeepSeek $150.05 vs ≈$9–11 true). | Diagnosis A1–A3 (census at the 2026-11-13 21:33:54 MST cutover epoch 1794630834, cross-checked against the exporter's split series — exact match). **In v0.9.1:** the governor computes both alerts (and the projected-month slow-leak figure, same blended root) on the ACTUALS window — month start clipped at the cutover epoch for November 2026; from Dec 1 the window is the plain month by construction. Levels UNCHANGED ($20 premium / $10 provider — on actuals they are sound tripwires). Any November alert that still fires annotates the excluded pre-cutover ceiling share in its message. |

@@ -32,6 +32,84 @@ Post-0.6.0 registry changes, 2026-11-12 (gateway code unchanged):
 - **Removed** `huggingface/gpt-oss-120b-cerebras` (owner's order): the HF passthrough ignored reasoning controls and leaked deliberation (2026-11-11); the direct `cerebras/gpt-oss-120b` route replaces it. Standing rule recorded in `docs/ROUTING-PRINCIPLES.md`: Cerebras is called direct, never via HF.
 - Registry now 22 models, 21 enabled (only `siliconflow/deepseek-v4-pro` disabled, a deliberate duplicate).
 
+## [0.9.0] — 2026-11-15 (DEPLOYED 2026-11-15 01:58:08 MST)
+
+**Measured tooling dimension (Cycle 1 R4)** — owner's go 2026-11-14
+22:58 MST ("rebase, replay, then deploy if clean"); the first gate
+run halted at the push-approval timeout and the owner resumed it
+2026-11-15 01:43 MST. Decision package:
+`docs/cycles/release-v0.9.0-decision.md`. Battery:
+`docs/cycles/tooling-battery-2026-11-13.md`. Golden cross-check:
+`docs/cycles/golden-crosscheck-2026-11-14.md`.
+
+- **`quality.tooling`, written only by the battery.** Optional
+  per-entry tooling score (T1 exact-args / T2 160-line payload /
+  T3 parallel / T4 follow-through / T5 error-recovery); 54 of 73
+  enabled entries measured (50 scored 5, three scored 4, one
+  scored 2 provisional), `verified_until` 2026-12-13 on the 54.
+  Provenance is a registry invariant — no hand-entered scores.
+- **One selection helper at every ranking site.** Tool-classified
+  turns rank by the tooling score; the fallback rule is load-
+  bearing: an entry with no measured score ranks for tooling
+  exactly as it did before R4.
+- **`supports_tools` corrected to false** for
+  `novita/llama-3.1-8b` and `deepinfra/mistral-small-24b` on
+  verbatim upstream errors.
+- **Registry merged at the rebase:** v0.8.3's cached-input
+  pricing and R4's tooling fields both survive, proven
+  field-for-field in both directions against both parents. New
+  registry md5 `460b6df48f1d8217eb2c11622b70cb4f`, byte-identical
+  across GitHub main, VM103 build/src and VM103 state
+  (10001:10001, 644).
+- **Golden replay cross-check** (the check v0.8.2 owed R4): **0
+  new violations, exactly the 5 known** (g07/g08/g15 + g17/g19 =
+  F-10, still open); 19 diffs all declared — 16 belong to the
+  v0.8.2/v0.8.3 line (the baseline predates them), 3 are R4's
+  intended tooling effect (g20–g22: first choice
+  nemotron-3-ultra-free → cloudflare/llama-4-scout, tooling 5).
+  v0.8.2's `cooldown_stream_abort` produced no shadow diff.
+- **DEPLOY RECORD (2026-11-15):** branch rebased onto main
+  `9c5290f`; suite **681 passed** on the final tree (run twice).
+  PR #7's merge path was blocked — the push-files branch history
+  leaves the PR conflicted (`mergeable_state: dirty`) and no CI
+  fired on its synchronize / ready-for-review / reopen events —
+  so the resolved tree landed direct to main as `e7372a98` per
+  the v0.8.0 precedent (PR #4 → `9f811cb6`), byte-identical to
+  PR #7 head `3392c5ac`. **CI #43, run 43696746550, SUCCESS**
+  (pytest, Python 3.12) on main. PR #7 closed with an
+  explanation comment; the branch is retained as archive.
+  Image `192.168.0.28:5000/sovereign-router:v0.9.0`
+  (sha256:281ba4898ea832fc5b9ea0048ef4104f7d439fc189a2393c03e274d1f0b316f1);
+  gateway recreated 01:58:08 MST; /health version **0.9.0**,
+  81 models, clients [crm, hermes, n8n, openclaw], sidecar ok,
+  alert chain ok; prod :6070 still v0.2.1. Snapshot
+  `snapshots/pre-v090-20261114` (v0.8.3 image + pre-merge
+  registry, the pair rollback needs).
+- **Smokes all pass:** (a) tool-bearing request served by a
+  battery-5 entry (`google/gemini-3.1-flash-lite`, tooling 5)
+  with a well-formed tool call; (b) plain chat exact echo; (c)
+  **v0.8.3 regression check** — pinned `deepseek/deepseek-v4-pro`
+  session ×3: cold turn cached 0, warm turns cached 8,832 of
+  8,969 (98.5%), recorded cost equal to the hand-computed
+  cache-aware cost on every turn; (d) streaming 8 chunks,
+  finish=stop; (e) attempt ledger flowing (25 events in the
+  smoke window), zero `stream_bound_timeout`. A first (c)
+  attempt capped at 120 output tokens escalated two turns to
+  `meta/muse-spark-1.1` (`length_no_content` — the reasoning
+  model ate the cap; correct validation behavior, re-run at
+  2,000). **Traffic watch:** 76 rows in the first 20 minutes
+  post-cutover, ALL 200 (hermes 60, openclaw 9, n8n 7).
+- Tests: 654 → **681** (the +27 are the v0.8.2/v0.8.3 suites
+  pulled in at the rebase; R4's own were already in the 654).
+- **Rollback:** image → v0.8.3 AND restore `state/registry.json`
+  from the pre-v090 snapshot **together** (the v0.8.x loader
+  rejects the `tooling` key), then compose up -d gateway.
+- **NOT in this deploy:** re-probe cadence activation (owner
+  decision still open; `verified_until` expires 2026-12-13),
+  the F-10 classifier-fusion fix, and the ERNIE tooling-score
+  write (battery 4 measured 2026-11-15 — a follow-up registry
+  task, deliberately not folded into the gated tree).
+
 ## [0.8.3] — 2026-11-13 (DEPLOYED 2026-11-13 21:33:54 MST)
 
 **True-cost ledger** (owner's order, 2026-11-13: "ADJUST THE LEDGER TO

@@ -198,3 +198,47 @@ because the registry half is load-bearing this time.
   2026-11-13 16:55–18:25 UTC and the re-run window; raw battery
   JSON retained in VM103 `state/battery-runs/`.
 - F-10: `docs/IMPROVEMENT-LOOP.md` failure table.
+
+
+## 10. Deploy record (2026-11-15)
+
+DEPLOYED 2026-11-15 01:58:08 MST under the owner's go of
+2026-11-14 22:58 MST ("rebase, replay, then deploy if clean"),
+resumed 2026-11-15 01:43 MST after the first gate run halted at
+the GitHub push-approval timeout (steps 1–5 had completed clean;
+production untouched by the halt).
+
+- **Landing:** rebased tree (local `832e2c7` onto main `9c5290f`)
+  pushed to the branch as `3392c5ac`. PR #7's merge path proved
+  blocked — the push-files branch history leaves the PR
+  conflicted (`mergeable_state: dirty`) and no CI fired on its
+  synchronize / ready-for-review / reopen events — so the
+  resolved tree landed direct to main as **`e7372a98`** per the
+  v0.8.0 precedent (PR #4 → `9f811cb6`), byte-identical to PR #7
+  head. **CI #43, run 43696746550, SUCCESS** (pytest, Python
+  3.12) on main. PR #7 closed with an explanation comment;
+  branch retained as archive (owner rule: branches are history).
+- **Image:** `192.168.0.28:5000/sovereign-router:v0.9.0`,
+  sha256:281ba4898ea832fc5b9ea0048ef4104f7d439fc189a2393c03e274d1f0b316f1
+  (prebuilt from the identical tree). Gateway recreated
+  2026-11-15 08:58:08 UTC; /health version 0.9.0, 81 models,
+  clients [crm, hermes, n8n, openclaw], sidecar + alert chain ok.
+- **Registry:** md5 `460b6df48f1d8217eb2c11622b70cb4f`
+  byte-identical across GitHub main, VM103 build/src and VM103
+  state (10001:10001, 644). Snapshot `pre-v090-20261114`
+  (v0.8.3 image + pre-merge registry) precedes the deploy.
+- **Tests:** 681 passed on the final tree (run twice).
+  **Golden replay:** 0 new / 5 known violations, 19 declared
+  diffs (`docs/cycles/golden-crosscheck-2026-11-14.md`).
+- **Smokes:** tooling request served by a battery-5 entry with a
+  well-formed tool call; plain chat exact echo; streaming clean
+  (8 chunks, finish=stop); pinned DeepSeek V4 Pro ×3 — warm
+  turns cached 8,832/8,969 with recorded cost equal to
+  hand-computed cache-aware cost on every turn (v0.8.3 true-cost
+  math intact); attempt ledger flowing; zero
+  `stream_bound_timeout`. Traffic watch: 76 rows in the first
+  20 minutes, ALL 200.
+- **Rollback (operative):** image → v0.8.3 AND restore
+  `state/registry.json` from `snapshots/pre-v090-20261114`
+  together, then `compose up -d gateway`. (§8's text predates
+  v0.8.3; this record supersedes its image reference.)

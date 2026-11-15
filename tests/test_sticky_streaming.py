@@ -135,7 +135,8 @@ def test_streaming_tool_call_buffered_and_valid(client):
 def test_streaming_bad_tool_call_escalates(client, app):
     with client.stream("POST", "/v1/chat/completions",
                        json=chat_body("USE_TOOL BADTOOL_STREAM call the function",
-                                      stream=True, tools=TOOLS),
+                                      stream=True, tools=TOOLS,
+                                      model="groq/gpt-oss-120b"),
                        headers=auth("hermes")) as r:
         assert r.status_code == 200
         body = "".join(r.iter_text())
@@ -145,9 +146,14 @@ def test_streaming_bad_tool_call_escalates(client, app):
     assert '"command"' in body.replace('\\"', '"')
     rec = app.state.telemetry.recent(0)[-1]
     assert rec.escalated is True
-    # cheapest stronger paid route; the 0731 checkpoint since
-    # expansion phase 2 (2026-11-12). v0.9.0 (2026-11-13): the
-    # escalation filter reads the measured tooling dimension for
-    # tool-bearing requests — deepinfra/llama-3.1-8b-turbo (tooling
-    # 5, $0.02/$0.04) is now the cheapest qualifying route.
-    assert rec.model == "deepinfra/llama-3.1-8b-turbo"
+    # cheapest stronger route; the 0731 checkpoint since expansion
+    # phase 2 (2026-11-12). v0.9.0 (2026-11-13): the escalation
+    # filter reads the measured tooling dimension for tool-bearing
+    # requests — deepinfra/llama-3.1-8b-turbo (tooling 5,
+    # $0.02/$0.04) was then the cheapest qualifying route.
+    # 2026-11-15 battery completion: openrouter/free-router measured
+    # tooling 5 at $0 — it is now the cheapest qualifying route, and
+    # the first server is pinned (groq/gpt-oss-120b, a scripted-bad
+    # FREE_MODELS entry) because auto-selection's first pick for a
+    # tool turn moved off the scripted set with the new rankings.
+    assert rec.model == "openrouter/free-router"

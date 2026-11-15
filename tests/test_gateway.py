@@ -188,8 +188,16 @@ def test_empty_answer_escalates_to_stronger_model(client):
 
 
 def test_bad_tool_call_escalates(client):
+    # pinned first server: the fake upstream emits bad args only for
+    # its scripted FREE_MODELS set, and auto-selection's first pick
+    # for a tool turn is ranking-dependent — since the 2026-11-15
+    # battery measured 11 more entries, the tooling ranking's first
+    # pick is no longer a scripted-bad model, so the first server is
+    # pinned (same device as the test above) and the property under
+    # test — bad call in, escalation out — is unchanged.
     r = client.post("/v1/chat/completions",
-                    json=chat_body("use the function BADTOOL", tools=TOOLS),
+                    json=chat_body("use the function BADTOOL", tools=TOOLS,
+                                   model="groq/gpt-oss-120b"),
                     headers=auth("hermes"))
     assert r.status_code == 200
     # free models emit bad args; whoever finally answers must not be a
@@ -199,7 +207,8 @@ def test_bad_tool_call_escalates(client):
 
 def test_unknown_tool_escalates(client):
     r = client.post("/v1/chat/completions",
-                    json=chat_body("use the function UNKNOWNTOOL", tools=TOOLS),
+                    json=chat_body("use the function UNKNOWNTOOL",
+                                   tools=TOOLS, model="groq/gpt-oss-120b"),
                     headers=auth("hermes"))
     assert r.status_code == 200
     assert r.headers["X-Sovereign-Escalated"] == "true"

@@ -142,11 +142,13 @@
         "code": 4,
         "infra": 3,
         "long-context": 2,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
       "reasoning": true,
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -182,10 +184,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.018,
@@ -1078,10 +1082,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 5
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1109,11 +1115,13 @@
         "code": 2,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1206,10 +1214,12 @@
         "code": 2,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 4
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1237,10 +1247,12 @@
         "code": 1,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 1
+        "reasoning": 1,
+        "tooling": 5
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1300,11 +1312,13 @@
         "code": 4,
         "infra": 4,
         "long-context": 5,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1398,10 +1412,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1434,11 +1450,13 @@
         "code": 3,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-15",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "cached_input_usd_per_million": 0.018,
@@ -2705,10 +2723,12 @@
         "code": 2,
         "infra": 2,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 3
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-15",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "base_url": "https://api.aionlabs.ai/v1",
@@ -2740,10 +2760,12 @@
         "code": 2,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-15",
+      "tooling_source": "tooling-battery:2026-11-15"
     },
     {
       "base_url": "https://integrate.api.nvidia.com/v1",

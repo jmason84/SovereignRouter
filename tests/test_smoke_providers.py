@@ -63,6 +63,17 @@ GLM-5.3 price) and lowered openrouter/north-mini-code-free's chat /
 long-context quality on Article Engine failure evidence (16
 malformed-JSON drafts reconciled 1:1 to it) — drafting-class shadow
 selection must now exclude it while L1 simple chat still reaches it.
+
+The consolidated free-model update (2026-11-15, owner's order;
+registry 88 entries, 72 enabled) added seven routes DISABLED —
+openrouter/ling-3.2-flash-free, openrouter/particle-1-free and five
+unorouter routes, all public-only-free, staged for the owner's
+enable ruling — and disabled openrouter/lfm-2.5-2.6b-free, whose
+upstream model id was deleted. The premise tables below carry the
+cohort as NOV15_DISABLED_IDS; the registry commit landed without
+updating them and CI went red on main until the 2026-11-15 fix
+restored the premises (the update itself had been validated with
+the invariant battery only).
 """
 
 from __future__ import annotations
@@ -109,7 +120,19 @@ PUBLIC_FREE_IDS = ("zai/glm-4.7-flash", "google/gemini-3.5-flash-lite",
                    "google/gemini-3.1-flash-lite",
                    "aion/aion-3.5-mini", "aion/aion-2.0",
                    "nvidia/nemotron-3.5-lightning",
-                   "nvidia/nemotron-3-nano-omni")
+                   "nvidia/nemotron-3-nano-omni",
+                   # consolidated free-model update 2026-11-15 — all
+                   # seven added DISABLED (staged for the owner's
+                   # enable ruling); they are public-lane entries, so
+                   # they belong in this list, and the shadow tests
+                   # below expect the "disabled" skip for them.
+                   "openrouter/ling-3.2-flash-free",
+                   "openrouter/particle-1-free",
+                   "unorouter/claude-haiku-4-5-20251001",
+                   "unorouter/codestral-latest",
+                   "unorouter/gemini-3.5-flash-lite",
+                   "unorouter/mistral-small-3.2",
+                   "unorouter/qwen3.5-397b-a17b")
 # The five expansion routes that shipped DISABLED, each with a dated
 # probe-failure note in the registry (see module docstring).
 FREE20_DISABLED_IDS = ("google/gemma-4-31b-it", "cloudflare/glm-5.3-flash",
@@ -125,6 +148,19 @@ FREE20_DISABLED_IDS = ("google/gemma-4-31b-it", "cloudflare/glm-5.3-flash",
 # it is no longer in this set.
 EXPAND2_DISABLED_IDS = ("openrouter/kimi-k2.6",
                         "google/gemma-4-26b-it")
+# The 2026-11-15 consolidated free-model update: seven routes added
+# DISABLED (staged for the owner's enable ruling — enabling any of
+# them is a separate decision, not a test edit), plus
+# openrouter/lfm-2.5-2.6b-free, disabled the same day because its
+# upstream model id was deleted (registry note carries the evidence).
+NOV15_DISABLED_IDS = ("openrouter/lfm-2.5-2.6b-free",
+                      "openrouter/ling-3.2-flash-free",
+                      "openrouter/particle-1-free",
+                      "unorouter/claude-haiku-4-5-20251001",
+                      "unorouter/codestral-latest",
+                      "unorouter/gemini-3.5-flash-lite",
+                      "unorouter/mistral-small-3.2",
+                      "unorouter/qwen3.5-397b-a17b")
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -197,9 +233,11 @@ def test_entry_raw_json_required_keys(entry):
 
 
 def test_registry_counts_and_unique_ids():
-    assert len(REG.entries) == 81
-    assert len(BY_ID) == 81  # ids unique (loader also enforces)
-    assert sum(1 for e in REG.entries if e.enabled) == 73
+    assert len(REG.entries) == 88
+    assert len(BY_ID) == 88  # ids unique (loader also enforces)
+    # 73 enabled at 81 entries; 2026-11-15 added 7 disabled routes
+    # and disabled lfm-2.5-2.6b-free (upstream deleted): 88 - 16 = 72.
+    assert sum(1 for e in REG.entries if e.enabled) == 72
 
 
 def test_registry_get_by_id_is_exact_for_every_entry():
@@ -224,7 +262,8 @@ def test_disabled_entries_are_exactly_the_known_set():
     # muse-spark-1.3 left this set only via the owner's explicit
     # 2026-11-12 re-enable decision, recorded in its registry note)
     assert disabled == {"siliconflow/deepseek-v4-pro"} | \
-        set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS)
+        set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS) | \
+        set(NOV15_DISABLED_IDS)
     # the siliconflow entry is a duplicate ROUTE, not a distinct
     # model: DeepSeek V4 Pro is still reachable via the direct entry
     assert BY_ID["siliconflow/deepseek-v4-pro"].model == \
@@ -387,7 +426,8 @@ FREE20_ENTRIES = {
     "openrouter/ernie-5.5-flash-free": ("public-only-free", True, 1024000),
     "openrouter/flint-free": ("public-only-free", True, 262144),
     "openrouter/lfm-3-1.7b-free": ("public-only-free", True, 262144),
-    "openrouter/lfm-2.5-2.6b-free": ("public-only-free", True, 65536),
+    # disabled 2026-11-15: the upstream model id was deleted
+    "openrouter/lfm-2.5-2.6b-free": ("public-only-free", False, 65536),
     "openrouter/nemotron-3-ultra-free": ("public-only-free", True, 1000000),
     "openrouter/gemma-4-31b-free": ("public-only-free", False, 262144),
     "openrouter/gemma-4-26b-free": ("public-only-free", False, 262144),
@@ -753,7 +793,13 @@ def test_shadow_sensitive_never_selects_public_or_excluded(tmp_path):
     assert not (set(candidate_ids) & set(SENSITIVE_EXCLUDED_IDS))
     skipped = {(s["model"], s["reason"]) for s in d["skipped"]}
     for entry_id in PUBLIC_FREE_IDS:
-        assert (entry_id, "sensitive_public_lane") in skipped
+        # selection checks `enabled` before the lane rule, so a
+        # disabled public entry (lfm-2.5 + the 2026-11-15 staged adds)
+        # reports "disabled"; every enabled public entry must report
+        # the sensitive lane exclusion itself
+        reason = "sensitive_public_lane" \
+            if BY_ID[entry_id].enabled else "disabled"
+        assert (entry_id, reason) in skipped
     for entry_id in SENSITIVE_EXCLUDED_IDS:
         # selection checks `enabled` before the exclusion flag, so the
         # one disabled entry reports "disabled"; every enabled flagged
@@ -784,11 +830,16 @@ def test_shadow_public_client_can_select_public_only_free(tmp_path):
     for entry_id in PUBLIC_FREE_IDS:
         if entry_id in candidate_ids:
             continue
+        if not BY_ID[entry_id].enabled:
+            # disabled public entries (lfm-2.5 + the 2026-11-15
+            # staged adds) skip as "disabled", never as candidates
+            assert (entry_id, "disabled") in skipped, entry_id
+            continue
         assert (entry_id, "quality_below_required") in skipped, entry_id
         assert BY_ID[entry_id].quality_for("chat") < 3, entry_id
     # and the quality-eligible majority really are candidates
     eligible = {i for i in PUBLIC_FREE_IDS
-                if BY_ID[i].quality_for("chat") >= 3}
+                if BY_ID[i].enabled and BY_ID[i].quality_for("chat") >= 3}
     assert eligible <= candidate_ids
 
 
@@ -802,7 +853,11 @@ def test_shadow_crm_candidates_have_no_public_lane(tmp_path):
     assert all(c["lane"] != "public-only-free" for c in d["candidates"])
     skipped = {(s["model"], s["reason"]) for s in d["skipped"]}
     for entry_id in PUBLIC_FREE_IDS:
-        assert (entry_id, "lane_not_allowed") in skipped
+        # as in the sensitive test: `enabled` is checked before the
+        # lane rule, so disabled public entries report "disabled"
+        reason = "lane_not_allowed" \
+            if BY_ID[entry_id].enabled else "disabled"
+        assert (entry_id, reason) in skipped
 
 
 def test_public_client_auto_request_served_by_public_only_free(tmp_path):
@@ -841,7 +896,8 @@ PIN_CASES = {
     "openrouter/ernie-5.5-flash-free": "hermes",
     "openrouter/flint-free": "hermes",
     "openrouter/lfm-3-1.7b-free": "hermes",
-    "openrouter/lfm-2.5-2.6b-free": "hermes",
+    # openrouter/lfm-2.5-2.6b-free left this map 2026-11-15: disabled
+    # (upstream model id deleted) — a disabled route has no serve to pin
     "openrouter/nemotron-3-ultra-free": "hermes",
     "openrouter/nemotron-3.5-super-vl-free": "hermes",
     "openrouter/free-router": "hermes",

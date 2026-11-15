@@ -31,7 +31,12 @@ def test_starting_registry_matches_spec_table():
     # muse-spark-1.3 no-content probes, google gemma-4-26b-it
     # inconsistency); every paid price verified from the provider's
     # own published source.
-    assert len(reg.entries) == 81
+    # + 7 entries added DISABLED 2026-11-15 (consolidated free-model
+    # update: openrouter ling-3.2-flash-free + particle-1-free and
+    # five unorouter routes, staged for the owner's enable ruling);
+    # openrouter/lfm-2.5-2.6b-free was disabled the same day (its
+    # upstream model id was deleted) — no count change from a disable.
+    assert len(reg.entries) == 88
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4

@@ -32,6 +32,166 @@ Post-0.6.0 registry changes, 2026-11-12 (gateway code unchanged):
 - **Removed** `huggingface/gpt-oss-120b-cerebras` (owner's order): the HF passthrough ignored reasoning controls and leaked deliberation (2026-11-11); the direct `cerebras/gpt-oss-120b` route replaces it. Standing rule recorded in `docs/ROUTING-PRINCIPLES.md`: Cerebras is called direct, never via HF.
 - Registry now 22 models, 21 enabled (only `siliconflow/deepseek-v4-pro` disabled, a deliberate duplicate).
 
+## [0.8.3] — 2026-11-13 (DEPLOYED 2026-11-13 21:33:54 MST)
+
+**True-cost ledger** (owner's order, 2026-11-13: "ADJUST THE LEDGER TO
+THE ACTUAL AMOUNT" — reversing his 2026-11-12 ruling that the
+cache-pricing fix was "NOT NECESSARY"). Decision package:
+`docs/cycles/release-v0.8.3-true-cost-ledger.md`. Failure-log entry
+F-12.
+
+- **Cached-token parsing, all shapes, both paths.** The gateway now
+  reads cached-input counts from every upstream usage shape —
+  OpenAI-style `prompt_tokens_details.cached_tokens`, DeepSeek
+  `prompt_cache_hit_tokens`, Anthropic `cache_read_input_tokens`
+  (aggregator shape, and the native shape where input_tokens excludes
+  cache reads), Google `usageMetadata.cachedContentTokenCount` — via
+  one shared parser used by the JSON path and, for the first time, the
+  streaming path (whose finalize previously hard-coded
+  cached_tokens=0). Parsed counts land on the route row and the quota
+  usage event and are priced by `estimate_cost` at the entry's
+  cached-input rate. Absent/garbage usage degrades to cached=0,
+  exactly the old behaviour; parsing can never break a response.
+  Before this fix, cache-heavy turns (300–530k contexts resent per
+  turn, ~90%+ cache hits at ~1/10 price) were priced as full-price
+  misses — the phantom-dollar overstatement proven against the
+  provider consoles on 2026-11-12 (DeepSeek 30-day actual $9.34 vs
+  the ledger's $109.32 for V4 Pro on Nov 11 alone).
+- **Registry: cached rates verified from primary sources**
+  (2026-11-13 reads). Added: `premium/gpt-5.5` $0.50 (OpenAI's own
+  model page — the carried "placeholder" price set was exact and is
+  now graded verified), `ollama/gpt-oss-120b` $0.014 (Ollama's pricing
+  table), `mistral/mistral-medium` $0.15 (Mistral's API price sheet).
+  Confirmed and upgraded seeded → verified: `deepseek/deepseek-v4-pro`
+  $0.044 (DeepSeek pricing page, peak accounting),
+  `zai/glm-5.3` $0.26 (Z.ai pricing page),
+  `siliconflow/deepseek-v4-pro` $0.135 (SiliconFlow listing).
+  **Price correction** (F-04 pattern): `siliconflow/deepseek-v3.2`
+  $0.259/$0.14/$0.80 → **$0.27/$0.135/$0.42** per SiliconFlow's own
+  listing. Entries whose providers publish no cached rate keep
+  cached=null — cached tokens price at the full input rate, never
+  assumed free (Cerebras, three DeepInfra models, Novita gpt-oss-120b,
+  both Hugging Face pass-throughs, SiliconFlow Qwen3-32B). New
+  registry invariant: a cached rate must lie in [0, input] and
+  inherits the entry's provenance grading.
+- **Soak report:** per-day token totals and free share BY TOKENS
+  alongside free share by requests (owner's order, 2026-11-13).
+  Census-verified against production routes: Nov 12 = 57,556,861
+  tokens, free-lane 80.9% of tokens vs 74.4% of requests; Nov 13 =
+  84.1% of tokens vs 70.4% of requests.
+- **Reconciliation probe** (throwaway v0.8.3 gateway on VM103:6085,
+  torn down after): repeated ~31.3k-token context ×6 turns against
+  DeepSeek direct (JSON + streaming arms). Provider reported 99.8%
+  cache hits on warm turns; the gateway's parsed cached_tokens
+  matched the provider-reported hit count on **8/8 turns exactly**,
+  and ledger cost equalled the hand-computed console-style cost on
+  every turn (session ledger $0.053186 = hand total at the registry's
+  peak-rate basis; the probe ran on a Saturday, so DeepSeek's actual
+  off-peak deduction is half that — the recorded peak-accounting
+  convention, flagged in the package).
+- **History is not rewritten.** Upstream cache data was never stored
+  for past turns, so pre-v0.8.3 route rows remain ceiling estimates;
+  dollars are actuals only from this deploy onward.
+- **DEPLOY RECORD (2026-11-13):** PR #8 merged to main as
+  `a240bc4cf8bd6f02d1972fb15c3e1af1bd9615dd`; CI run 43556738063
+  SUCCESS (pytest, Python 3.12); suite 654. Snapshot
+  `snapshots/pre-v083-20261113`. Image
+  `192.168.0.28:5000/sovereign-router:v0.8.3`
+  (sha256:0e0b0ed786fd1334b588913b93cf33a2548930264e3b3658798403015591f010);
+  gateway recreated 21:33:54 MST (cutover epoch 1794630834);
+  /health version 0.8.3, 81 models, clients
+  [crm, hermes, n8n, openclaw], sidecar ok, alert chain ok;
+  prod :6070 still v0.2.1. **Registry changed:** new md5
+  `a915a4d1c0d5237534feba2d562358a0` byte-identical across GitHub
+  main, VM103 build/src and VM103 state (10001:10001, 644).
+  Smokes all pass (non-streaming exact echo; streaming 12 chunks
+  finish=stop; tool call well-formed). **Live true-cost proof:**
+  pinned openclaw session on `deepseek/deepseek-v4-pro`, ~20.4k
+  context ×5 turns — turn 1 cold (cached 0, $0.02731872); warm
+  turns cached 20,352–20,480 (~99.4% hits) with recorded cost
+  equal to the hand-computed (in−cached)×$1.32 + cached×$0.044 +
+  out×$3.96 per 1M on every turn (e.g. in 20,559 / cached 20,480 /
+  out 52 → $0.00121132). Traffic watch (CORRECTED 2026-11-13 —
+  the watch summary first circulated in the deploy session
+  misstated this window's counts; the figures here are re-derived
+  from routes.jsonl): 17 rows in the post-cutover window (6
+  deploy smokes, 5 proof turns, 6 genuine OpenClaw turns), ALL
+  200, no `stream_bound_timeout`; the only signals were the
+  proof session's own repeat_within_60s ×5; attempt ledger 17
+  served + 7 failed congested (OpenRouter free-pool 429s absorbed
+  by failover — every client row still 200). Genuine fleet rows
+  recorded cached_tokens > 0 within minutes: OpenClaw on
+  openrouter/nemotron-3-ultra-free (13,152 / 17,536 cached) and
+  groq/gpt-oss-120b (17,152 cached of 19,913 in → $0.000568). An
+  evening lull followed (no rows after 21:38 MST; gateway
+  verified healthy). **Dashboard:** exporter v1.2 adds
+  `sovereign_premium_spend_since_truecost_usd`; the Overview
+  premium panel now shows ACTUAL dollars since the cutover
+  (first read: openclaw $0.032772, the proof session exactly) and
+  the pre-fix MTD ceiling totals moved into the READ BEFORE
+  annotation panel as static historical text. Rollback: image →
+  v0.8.2 AND restore state/registry.json from the pre-v083
+  snapshot, then compose up -d gateway.
+- Tests: 636 → 654. Rollback: image swap only — the registry changes
+  are value-only (no new keys); the v0.8.2 loader was verified loading
+  the new registry (81 entries) in this build.
+
+## [0.8.2] — 2026-11-13 (built 2026-11-13; NOT yet deployed)
+
+Fix package for failure **F-11** (Hermes executive-ops stream aborts on
+`zai/glm-4.5-flash`, 2026-11-13 16:26–16:33 MST): three consecutive
+router 502s at 121–152 s upstream latency. A stalled upstream stream
+hung against the gateway's flat 120 s read timeout; partial output had
+committed, so in-request failover was impossible by design (ADD-06);
+and Hermes' automatic retries — new requests — re-picked the SAME
+entry all three times, because v0.8.0's attempt ledger records
+failures but selection never read them (J-2 observe-only). Decision
+package: `docs/cycles/release-v0.8.2-decision.md`. **Code-only
+change; no registry change** (the F-11 differential probes completed
+every shape on the entry — see the package — so no quality adjustment
+was justified; rollback is an image swap only).
+
+- **Streaming time bounds.** Streaming upstream reads are driven
+  per-line with two configurable bounds in place of reliance on the
+  flat 120 s read timeout: time-to-first-chunk **45 s** and
+  inter-chunk stall **60 s** (`SOVEREIGN_STREAM_FIRST_CHUNK_TIMEOUT_S`
+  / `SOVEREIGN_STREAM_STALL_TIMEOUT_S`; the non-200 error-body read is
+  bounded by the first-chunk value too). A bound expiry enters the
+  existing transport-error handler, so the ADD-06 commit guard
+  (post-commit: terminate with the typed error event, route signal
+  `stream_aborted_after_commit:<entry>`) and pre-commit failover apply
+  unchanged; a new route signal `stream_bound_timeout:<entry>` marks
+  bound-fired aborts. Non-streaming calls are untouched.
+- **Stream-abort entry cooldown (the incident fix).** Any streaming
+  abort — transport drop or bound expiry, committed or not — cools
+  the entry for **600 s** (`SOVEREIGN_STREAM_ABORT_COOLDOWN_S`),
+  persisted as an expiry timestamp in the quota store's meta table
+  (durable across restarts, self-healing, no schema change).
+  `build_candidates` skips a cooling entry with reason
+  `cooldown_stream_abort` (checked last, after every other gate), and
+  sticky reuse inherits the skip with the precise reason instead of
+  the generic `sticky_no_longer_eligible`. **Only-candidate
+  exception:** if every otherwise-eligible entry is cooling, the
+  cooled set serves, annotated `cooldown_bypassed_only_candidate` —
+  a cooldown never manufactures a zero-candidate 429. Explicit pins
+  still override the cooldown, per J-1 (pins override everything
+  softer than the two hard boundaries). This is a bounded memory for
+  ONE proven failure class, not general demotion enforcement: J-2's
+  observe-only posture stands for all other classes.
+- **`truncated_tool_call` ledger class** (carried R3 item, F-09's
+  open remainder). When a completion's `finish_reason` is `length`
+  and it carried tool calls, the attempt row now records failure
+  class `truncated_tool_call` (scope: model) instead of masquerading
+  as a clean serve — JSON and streaming tool paths both. The
+  attempt's outcome stays `served` (the response was received); the
+  class also feeds the observe-only `would_demote` annotation.
+- **Tests:** 627 → 636 (9 new in `tests/test_stream_resilience.py`:
+  stall aborts inside the bound, first-chunk timeout fails over
+  pre-commit, abort sets the cooldown, next selection skips and
+  serves the sibling, sticky reuse respects the cooldown,
+  only-candidate still serves, cooldown expiry, and
+  `truncated_tool_call` on both paths plus a clean-serve control).
+
 ## [0.8.1] — 2026-11-13 (deployed 2026-11-13)
 
 Fix package for failure **F-09** (route-health investigation, `docs/cycles/route-health-investigation-protocol.md` §7): the Hermes write_file stream stalls were ours-config — the gateway's 2048 default output budget bound every client that omits `max_tokens`, Hermes omits it on every turn, and tool-call payloads truncated mid-stream at exactly 2048 (finish=length) against a model whose published completion ceiling is 460,800. Decision package: `docs/cycles/fix-package-v0.8.1-decision.md`. **Code-only change; no registry change.**

@@ -60,6 +60,22 @@ returns an account-class upstream failure (401/402/403) or exhausts
 its daily token cap, so a dead cheap rung surfaces within one
 alert-chain poll instead of burning silently for hours.
 
+True-cost ledger (v0.8.3, owner order 2026-11-13 — "ADJUST THE LEDGER
+TO THE ACTUAL AMOUNT", reversing his 2026-11-12 ruling that this fix
+was not necessary): the gateway parses cached-input token counts from
+every upstream usage shape (OpenAI prompt_tokens_details, DeepSeek
+prompt_cache_hit_tokens, Anthropic cache_read_input_tokens, Google
+usageMetadata.cachedContentTokenCount) on BOTH the JSON and streaming
+paths, records them on the route row and usage event, and prices them
+at the entry's cached_input_usd_per_million rate (falling back to the
+full input rate where the provider publishes no cached rate). Before
+this, cached_tokens was 0 on effectively every row and cache-heavy
+turns were priced as full-price misses — the phantom-dollar
+overstatement proven against the provider consoles on 2026-11-12
+(DeepSeek's 30-day actual $9.34 vs the ledger's $109.32 for V4 Pro on
+2026-11-11 alone). History is NOT rewritten: pre-v0.8.3 route rows
+remain ceiling estimates; dollars are actuals only from this deploy.
+
 No startup patches: this is the v0.5 source tree (the v0.3.3 canary's
 PATCH_V033 mechanism is gone). Provider keys are read once at startup
 from mode-600 files in the state dir (``keys/<provider>.key``); they are
@@ -68,6 +84,7 @@ never in the registry, compose files, logs or this source tree.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -82,7 +99,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from classifier import REQUIRED_QUALITY, Classifier
 from clients import ALIASES, ClientPolicy, ClientStore, extract_bearer_key, load_clients
 from governor import EmergencyConfig, Governor
-from pools import DemotionTracker, classify_failure, pool_for
+from pools import (DemotionTracker, classify_failure,
+                   classify_truncated_tool_call, pool_for)
 from quota import AttemptEvent, QuotaStore, UsageEvent
 from registry import FREE_LANES, ModelEntry, Registry, load_registry
 from sensitivity import scan_messages
@@ -202,6 +220,29 @@ DEFAULT_MAX_TOKENS = 2048          # spec: max_tokens clamp, 2048 default
 # in the §7 fix proposal: it would lengthen every free-lane
 # generation, runaway ones included.)
 TOOL_DEFAULT_MAX_TOKENS = 8192
+# v0.8.2 (F-11) stream resilience bounds. The upstream client carries
+# one flat httpx read timeout (120 s): a stream that stalls mid-answer
+# hangs for the full two minutes before the transport gives up, and
+# the client-visible turn dies with it (2026-11-13: three consecutive
+# exec-ops 502s at 121–152 s upstream latency). Streaming calls get
+# two tighter, purpose-shaped bounds instead: how long the upstream
+# may take to produce its FIRST line, and how long it may go silent
+# BETWEEN lines once flowing. Both are enforced around the stream
+# iterator, so the ADD-06 commit guard sees them exactly like a
+# transport drop. Defaults are generous against every healthy lane's
+# observed time-to-first-chunk (seconds, incl. queued free tiers) and
+# exist to catch a wedged stream, not to discipline slow models.
+STREAM_FIRST_CHUNK_TIMEOUT_S = 45.0
+STREAM_STALL_TIMEOUT_S = 60.0
+# v0.8.2 (F-11) entry cooldown after a streaming abort: the attempt
+# ledger recorded failures in v0.8.0 but selection never read them
+# (J-2 observe-only), so a client's automatic retry — a new request —
+# re-picked the same stalling entry and aborted again. A stream abort
+# now cools the entry for this long; selection and sticky reuse skip
+# it (reason "cooldown_stream_abort") unless it is the only candidate.
+# Bounded and self-healing by construction: an expiry timestamp in
+# the quota store, no manual reset, no permanent state.
+STREAM_ABORT_COOLDOWN_S = 600.0
 MIN_OUTPUT_TOKENS = 64             # reserve used by the context-fit check
 TOKEN_ESTIMATE_FACTOR = 1.05       # carried from v0.3 (o200k_base x1.05)
 
@@ -258,6 +299,17 @@ class GatewayConfig:
     # v0.5.7 (owner ruling 2026-11-09): warn-only emergency — alert at
     # the daily level, NEVER switch the paid lanes off.
     emergency_warn_only: bool = os.environ.get("SOVEREIGN_EMERGENCY_WARN_ONLY") == "1"
+    # v0.8.2 (F-11) stream resilience knobs; defaults from the module
+    # constants above, overridable via the SOVEREIGN_ env pattern.
+    stream_first_chunk_timeout_s: float = float(
+        os.environ.get("SOVEREIGN_STREAM_FIRST_CHUNK_TIMEOUT_S",
+                       STREAM_FIRST_CHUNK_TIMEOUT_S))
+    stream_stall_timeout_s: float = float(
+        os.environ.get("SOVEREIGN_STREAM_STALL_TIMEOUT_S",
+                       STREAM_STALL_TIMEOUT_S))
+    stream_abort_cooldown_s: float = float(
+        os.environ.get("SOVEREIGN_STREAM_ABORT_COOLDOWN_S",
+                       STREAM_ABORT_COOLDOWN_S))
     provider_keys: dict[str, str] = field(default_factory=dict)  # tests/dev injection
 
     def resolved_registry_path(self) -> Path:
@@ -331,16 +383,99 @@ def _route_headers(entry: ModelEntry, level: int, task_class: str,
     }
 
 
+def _as_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _cached_tokens_from_usage(usage: dict[str, Any]) -> int:
+    """Cached-input token count from an upstream usage object, across
+    the shapes the fleet's providers actually return (v0.8.3 — the
+    true-cost ledger fix; before it, only the first two shapes were
+    read and only on the non-streaming path, so route rows carried
+    cached_tokens=0 on cache-served turns and every cache-heavy turn
+    was priced as a full-price miss):
+
+      * OpenAI-style: ``prompt_tokens_details.cached_tokens`` —
+        OpenAI, OpenRouter-normalised, Groq, DeepInfra, SiliconFlow,
+        Novita, Z.ai (the OpenAI-compatible majority).
+      * DeepSeek: ``prompt_cache_hit_tokens`` (its complement,
+        ``prompt_cache_miss_tokens``, sums with it to prompt_tokens;
+        the hit count is the cached count).
+      * Anthropic-style: ``cache_read_input_tokens`` (Anthropic models
+        reached via aggregators; see _usage_counts for the native
+        shape, where input_tokens excludes cache reads).
+      * Google: ``cachedContentTokenCount`` — inside a nested
+        ``usageMetadata`` object or at the usage level (Gemini-native
+        shape flowing through a pass-through).
+
+    Aggregators sometimes report the same cached tokens under two of
+    these names at once (e.g. OpenRouter sets both the OpenAI details
+    field and the Anthropic field for Claude routes), so the MAX of
+    the recognised fields is the count — never their sum. Absent or
+    unrecognised usage -> 0, exactly the pre-v0.8.3 behaviour; a
+    malformed usage object must never break a response.
+    """
+    if not isinstance(usage, dict):
+        return 0
+    candidates: list[int] = []
+    details = usage.get("prompt_tokens_details")
+    if isinstance(details, dict):
+        candidates.append(_as_int(details.get("cached_tokens")))
+    candidates.append(_as_int(usage.get("prompt_cache_hit_tokens")))
+    candidates.append(_as_int(usage.get("cache_read_input_tokens")))
+    meta = usage.get("usageMetadata")
+    if isinstance(meta, dict):
+        candidates.append(_as_int(meta.get("cachedContentTokenCount")))
+    candidates.append(_as_int(usage.get("cachedContentTokenCount")))
+    return max(candidates, default=0)
+
+
+def _usage_counts(usage: Any, est_input: int) -> tuple[int, int, int]:
+    """(input, output, cached) token counts from a usage object in any
+    supported shape. ``cached`` is always a subset of ``input`` in the
+    returned triple — the invariant estimate_cost prices against:
+
+      * OpenAI/DeepSeek shapes: prompt_tokens already includes the
+        cached count.
+      * Google native shape (usageMetadata): promptTokenCount
+        includes cachedContentTokenCount.
+      * Anthropic native shape: input_tokens EXCLUDES cache reads, so
+        reads (and cache creations, which the registry prices as
+        fresh input — it carries no cache-write rate) are folded
+        into the input total to restore the subset invariant.
+    """
+    if not isinstance(usage, dict):
+        return est_input, 0, 0
+    meta = usage.get("usageMetadata")
+    if not isinstance(meta, dict):
+        meta = {}
+    cached = _cached_tokens_from_usage(usage)
+    in_tok = _as_int(usage.get("prompt_tokens")) \
+        or _as_int(usage.get("promptTokenCount")) \
+        or _as_int(meta.get("promptTokenCount"))
+    if not in_tok:
+        native_in = _as_int(usage.get("input_tokens"))
+        if native_in:
+            in_tok = native_in + cached \
+                + _as_int(usage.get("cache_creation_input_tokens"))
+        else:
+            in_tok = est_input
+    out_tok = _as_int(usage.get("completion_tokens")) \
+        or _as_int(usage.get("candidatesTokenCount")) \
+        or _as_int(meta.get("candidatesTokenCount")) \
+        or _as_int(usage.get("output_tokens"))
+    if in_tok:
+        cached = min(cached, in_tok)
+    return in_tok, out_tok, cached
+
+
 def _usage_from_response(resp: dict[str, Any], est_input: int,
                          entry: ModelEntry) -> tuple[int, int, int, float]:
-    usage = resp.get("usage") or {}
-    in_tok = int(usage.get("prompt_tokens") or usage.get("input_tokens") or est_input)
-    out_tok = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
-    cached = 0
-    details = usage.get("prompt_tokens_details") or {}
-    if isinstance(details, dict):
-        cached = int(details.get("cached_tokens") or 0)
-    cached = cached or int(usage.get("cache_read_input_tokens") or 0)
+    usage = resp.get("usage") or resp.get("usageMetadata") or {}
+    in_tok, out_tok, cached = _usage_counts(usage, est_input)
     if out_tok == 0:
         msg = (resp.get("choices") or [{}])[0].get("message") or {}
         if isinstance(msg.get("content"), str):
@@ -371,6 +506,24 @@ def note_lane_dead(app: FastAPI, entry: ModelEntry, cause: str) -> None:
         "rate limit. The cascade is serving from the next rungs "
         "in cost order; fix or top up this provider to restore "
         "the cheap rung.")
+
+
+def note_stream_abort(app: FastAPI, entry: ModelEntry) -> None:
+    """v0.8.2 (F-11): a streaming abort cools the entry in the quota
+    store. Selection (build_candidates) and, through it, sticky reuse
+    skip a cooling entry with reason ``cooldown_stream_abort`` —
+    except when it is the only candidate, where it still serves (a
+    cooldown must never manufacture a zero-candidate 429). The
+    cooldown is a bounded failure memory for the ONE failure class
+    where the client-visible damage is proven (a client's retry
+    re-picking a stalling entry); it is not general demotion
+    enforcement — J-2's observe-only posture stands for every other
+    class, whose would_demote annotations remain advisory."""
+    try:
+        app.state.store.set_stream_cooldown(
+            entry.id, time.time() + app.state.cfg.stream_abort_cooldown_s)
+    except Exception:  # noqa: BLE001 — memory must not break serving
+        pass
 
 
 def create_app(config: Optional[GatewayConfig] = None,
@@ -447,6 +600,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     ) -> tuple[list[ModelEntry], list[dict[str, str]]]:
         skipped: list[dict[str, str]] = []
         candidates: list[ModelEntry] = []
+        cooled: list[ModelEntry] = []
         now = time.time()
         for entry in app.state.registry.entries:
             def skip(reason: str) -> None:
@@ -528,6 +682,14 @@ def create_app(config: Optional[GatewayConfig] = None,
                     note_lane_dead(app, entry,
                                    "daily token cap (TPD) exhausted")
                 skip(reason); continue
+            # v0.8.2 (F-11): stream-abort cooldown. Checked last, so a
+            # cooled entry in the list is one that passed EVERY other
+            # gate — which is what makes the only-candidate restore
+            # below sound: restoring it recreates no other violation.
+            cooldown_until = app.state.store.stream_cooldown_until(entry.id)
+            if cooldown_until is not None and cooldown_until > now:
+                cooled.append(entry)
+                skip("cooldown_stream_abort"); continue
             candidates.append(entry)
 
         def sort_key(e: ModelEntry) -> tuple[float, int, int]:
@@ -537,6 +699,17 @@ def create_app(config: Optional[GatewayConfig] = None,
                     e.latency_p50_ms or 99_999)
 
         candidates.sort(key=sort_key)
+        if not candidates and cooled:
+            # Only-candidate exception: every otherwise-eligible entry
+            # is cooling. Serve from the cooled set rather than
+            # manufacturing a zero-candidate 429 — a possibly-stalling
+            # model beats a certainly-failed turn, and its next abort
+            # simply refreshes the cooldown. The route row shows both
+            # the cooldown skip and this bypass annotation.
+            candidates = sorted(cooled, key=sort_key)
+            for e in candidates:
+                skipped.append({"model": e.id,
+                                "reason": "cooldown_bypassed_only_candidate"})
         return candidates, skipped
 
     def build_spillway_candidates(
@@ -1206,8 +1379,14 @@ def create_app(config: Optional[GatewayConfig] = None,
                 candidates.insert(0, match)
                 sticky_used = True
             else:
-                skipped.append({"model": sticky_entry.model_id,
-                                "reason": "sticky_no_longer_eligible"})
+                # v0.8.2: a cooling sticky entry is already annotated
+                # with its precise reason by build_candidates; the
+                # generic sticky reason would only duplicate it.
+                if not any(s["model"] == sticky_entry.model_id
+                           and s["reason"] == "cooldown_stream_abort"
+                           for s in skipped):
+                    skipped.append({"model": sticky_entry.model_id,
+                                    "reason": "sticky_no_longer_eligible"})
                 app.state.sticky.invalidate(conv_key)
         queue_ms = (time.perf_counter() - t_q0) * 1000
 
@@ -1333,7 +1512,8 @@ def _record_attempt(app: FastAPI, record: RouteRecord, client: ClientPolicy,
                     entry: ModelEntry, *, outcome: str,
                     status: Optional[int] = None, body_text: str = "",
                     headers: Any = None, transport: bool = False,
-                    units: float = 0.0) -> None:
+                    units: float = 0.0,
+                    truncated_tool_call: bool = False) -> None:
     """Write one attempt to the pool ledger (v0.8.0, aspect E).
 
     Every upstream attempt lands here exactly once: failures are
@@ -1352,6 +1532,13 @@ def _record_attempt(app: FastAPI, record: RouteRecord, client: ClientPolicy,
             failure = classify_failure(
                 entry=entry, status=status, body_text=body_text[:2000],
                 headers=headers, transport=transport)
+        elif truncated_tool_call:
+            # v0.8.2: the response WAS received (outcome stays
+            # "served"), but finish_reason=length cut it mid-tool-call
+            # — the F-09 ledger gap. The class rides the attempt row
+            # (and the observe-only demotion annotation) so the defect
+            # is countable instead of masquerading as a clean serve.
+            failure = classify_truncated_tool_call(entry)
         annotations = app.state.demotions.observe(
             entry=entry, failure=failure, now=time.time(), units=units)
         app.state.store.record_attempt(AttemptEvent(
@@ -1447,6 +1634,12 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             idx += 1
             continue
 
+        # v0.8.2: budget-truncated mid-tool-call (F-09 ledger gap).
+        _choice0 = (data.get("choices") or [{}])[0]
+        _msg0 = _choice0.get("message") or {}
+        truncated_tc = _choice0.get("finish_reason") == "length" \
+            and bool(_msg0.get("tool_calls"))
+
         failures = validate_response(data, tools=tools or None, json_mode=json_mode)
         if failures and not escalated:
             if "length_no_content" in failures and entry.reasoning \
@@ -1469,7 +1662,8 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                 _r_in, _r_out, _, _ = _usage_from_response(
                     data, est_tokens, entry)
                 _record_attempt(app, record, client, entry,
-                                outcome="served", units=_r_in + _r_out)
+                                outcome="served", units=_r_in + _r_out,
+                                truncated_tool_call=truncated_tc)
                 continue
             # Escalate once: next candidate at quality+1 (spec). Fallback
             # (found by live E2E, 2026-11-02): when no candidate reaches
@@ -1498,7 +1692,8 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                 _r_in, _r_out, _, _ = _usage_from_response(
                     data, est_tokens, entry)
                 _record_attempt(app, record, client, entry,
-                                outcome="served", units=_r_in + _r_out)
+                                outcome="served", units=_r_in + _r_out,
+                                truncated_tool_call=truncated_tc)
                 idx = esc_idx
                 continue
             # No stronger candidate: return the answer we have, logged.
@@ -1526,7 +1721,8 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             task_class=task_class, input_tokens=in_tok, output_tokens=out_tok,
             cached_tokens=cached, cost_usd=cost, estimated=False))
         _record_attempt(app, record, client, entry,
-                        outcome="served", units=in_tok + out_tok)
+                        outcome="served", units=in_tok + out_tok,
+                        truncated_tool_call=truncated_tc)
         app.state.sticky.set(conv_key, entry.id, level)
         app.state.governor.evaluate_alerts(
             app.state.clients.clients,
@@ -1626,7 +1822,9 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
             try:
                 async with http.stream("POST", url, json=payload, headers=hdrs) as resp:
                     if resp.status_code != 200:
-                        raw = await resp.aread()
+                        raw = await asyncio.wait_for(
+                            resp.aread(),
+                            timeout=cfg.stream_first_chunk_timeout_s)
                         skipped.append({"model": entry.id,
                                         "reason": f"upstream_{resp.status_code}"})
                         _record_attempt(
@@ -1647,7 +1845,26 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                     saw_content = False
                     usage_data: dict[str, Any] = {}
                     retry_candidate = False
-                    async for line in resp.aiter_lines():
+                    # v0.8.2 (F-11): the iteration is driven manually so
+                    # each read carries its own bound — the first line
+                    # gets the first-chunk bound, every later line the
+                    # inter-chunk stall bound — instead of the client-
+                    # wide flat 120 s read timeout, under which a
+                    # wedged stream hung ~2 minutes before aborting.
+                    # A bound expiry raises TimeoutError into the same
+                    # handler as a transport drop, so the ADD-06 commit
+                    # guard and pre-commit failover apply unchanged.
+                    line_iter = resp.aiter_lines().__aiter__()
+                    first_line = True
+                    while True:
+                        bound = cfg.stream_first_chunk_timeout_s \
+                            if first_line else cfg.stream_stall_timeout_s
+                        try:
+                            line = await asyncio.wait_for(
+                                line_iter.__anext__(), timeout=bound)
+                        except StopAsyncIteration:
+                            break
+                        first_line = False
                         if not line.startswith("data:"):
                             continue
                         payload_str = line[5:].strip()
@@ -1659,6 +1876,11 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                             continue
                         if isinstance(chunk.get("usage"), dict):
                             usage_data = chunk["usage"]
+                        if isinstance(chunk.get("usageMetadata"), dict):
+                            # Gemini-native stream shape: usage rides
+                            # at chunk level, not inside a usage object.
+                            usage_data = {**usage_data,
+                                          "usageMetadata": chunk["usageMetadata"]}
                         choice = (chunk.get("choices") or [{}])[0]
                         delta = choice.get("delta") or {}
                         is_tool = bool(delta.get("tool_calls"))
@@ -1684,6 +1906,10 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
 
                     if decided == "tool":
                         assembled = assembler.assembled_response()
+                        # v0.8.2: budget-truncated mid-tool-call (F-09
+                        # ledger gap) — classified on the attempt row.
+                        truncated_tc = assembler.finish_reason == "length" \
+                            and assembler.has_tool_calls
                         failures = validate_response(
                             assembled, tools=tools or None, json_mode=False)
                         if failures and not escalated:
@@ -1719,21 +1945,28 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                 idx = esc_idx
                                 retry_candidate = True
                         if retry_candidate:
+                            _r_in, _r_out, _ = _usage_counts(
+                                usage_data, est_tokens)
                             _record_attempt(
                                 app, record, client, entry,
                                 outcome="served",
-                                units=int(usage_data.get("prompt_tokens") or 0)
-                                + int(usage_data.get("completion_tokens") or 0))
+                                units=_r_in + _r_out,
+                                truncated_tool_call=truncated_tc)
                             continue
                         for sse_line in buffered:
                             yield sse_line
                         yield "data: [DONE]\n\n"
-                        in_tok = int(usage_data.get("prompt_tokens") or est_tokens)
-                        out_tok = int(usage_data.get("completion_tokens") or 0)
-                        cost = entry.estimate_cost(in_tok, out_tok)
+                        # v0.8.3: the streaming path prices cached
+                        # tokens too — before, it never passed them
+                        # and the finalize hard-coded cached_tokens=0.
+                        in_tok, out_tok, cached = _usage_counts(
+                            usage_data, est_tokens)
+                        cost = entry.estimate_cost(in_tok, out_tok, cached)
                         _finalize_stream(app, record, entry, client, conv_key,
                                          level, task_class, in_tok, out_tok, cost,
-                                         escalated or spillway_reason is not None)
+                                         escalated or spillway_reason is not None,
+                                         truncated_tool_call=truncated_tc,
+                                         cached_tokens=cached)
                         finalized = True
                         return
                     # text path finished (already committed live)
@@ -1745,22 +1978,35 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         record.signals.append(
                             "stream_text_log_only:" + ",".join(log_failures))
                     yield "data: [DONE]\n\n"
-                    in_tok = int(usage_data.get("prompt_tokens") or est_tokens)
-                    out_tok = int(usage_data.get("completion_tokens") or
-                                  max(1, content_chars // 4))
-                    cost = entry.estimate_cost(in_tok, out_tok)
+                    in_tok, out_tok, cached = _usage_counts(
+                        usage_data, est_tokens)
+                    if not out_tok:
+                        out_tok = max(1, content_chars // 4)
+                    cost = entry.estimate_cost(in_tok, out_tok, cached)
                     _finalize_stream(app, record, entry, client, conv_key,
                                      level, task_class, in_tok, out_tok, cost,
-                                     escalated or spillway_reason is not None)
+                                     escalated or spillway_reason is not None,
+                                     cached_tokens=cached)
                     finalized = True
                     return
-            except (httpx.TimeoutException, httpx.TransportError):
+            except (httpx.TimeoutException, httpx.TransportError,
+                    TimeoutError) as exc:
                 record.latency_upstream_ms += (time.perf_counter() - t_u0) * 1000
                 # v0.8.0: the attempt is recorded FIRST in this handler —
                 # when the v0.7.0 commit guard merges in, its post-commit
                 # return path must not bypass the ledger write.
                 _record_attempt(app, record, client, entry,
                                 outcome="failed", transport=True)
+                # v0.8.2 (F-11): EVERY streaming abort — transport drop
+                # or one of the new first-chunk / stall bounds firing
+                # (a bare TimeoutError, not httpx's) — cools the entry,
+                # committed or not, so the client's retry lands on a
+                # sibling instead of re-picking the stalling entry.
+                note_stream_abort(app, entry)
+                if isinstance(exc, TimeoutError) and not isinstance(
+                        exc, httpx.TimeoutException):
+                    record.signals.append(
+                        f"stream_bound_timeout:{entry.id}")
                 if committed:
                     # Commit guard (ADD-06, v0.7.0): visible output from
                     # this model is already with the client. Failing
@@ -1812,21 +2058,26 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
 def _finalize_stream(app: FastAPI, record: RouteRecord, entry: ModelEntry,
                      client: ClientPolicy, conv_key: str, level: int,
                      task_class: str, in_tok: int, out_tok: int, cost: float,
-                     escalated: bool) -> None:
+                     escalated: bool,
+                     truncated_tool_call: bool = False,
+                     cached_tokens: int = 0) -> None:
     record.model = entry.id
     record.lane = entry.lane
     record.escalated = escalated
     record.input_tokens, record.output_tokens = in_tok, out_tok
+    record.cached_tokens = cached_tokens
     record.cost_usd = cost
     record.status = 200
     record.latency_upstream_ms = round(record.latency_upstream_ms, 2)
     app.state.store.record_usage(UsageEvent(
         ts=time.time(), client_id=client.id, provider=entry.provider,
         model_id=entry.id, lane=entry.lane, level=level, task_class=task_class,
-        input_tokens=in_tok, output_tokens=out_tok, cached_tokens=0,
+        input_tokens=in_tok, output_tokens=out_tok,
+        cached_tokens=cached_tokens,
         cost_usd=cost, estimated=False))
     _record_attempt(app, record, client, entry,
-                    outcome="served", units=in_tok + out_tok)
+                    outcome="served", units=in_tok + out_tok,
+                    truncated_tool_call=truncated_tool_call)
     app.state.sticky.set(conv_key, entry.id, level)
     app.state.telemetry.write(record)
 

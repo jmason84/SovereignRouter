@@ -118,7 +118,15 @@ def _day_key(now: float) -> str:
 # ----------------------------------------------------------------------
 
 FAILURE_CLASSES = ("account_dead", "congested", "transient",
-                   "request_fault", "entry_missing")
+                   "request_fault", "entry_missing",
+                   # v0.8.2 (carried R3 item): a completion that hit the
+                   # output budget (finish_reason=length) while carrying
+                   # tool calls — the F-09 ledger gap, where a truncated
+                   # tool call used to log as a clean serve. Recorded on
+                   # the attempt row by the gateway (the response was
+                   # received, so this is not a transport/status class
+                   # and classify_failure never returns it).
+                   "truncated_tool_call")
 SCOPES = ("model", "pool", "account", "request")
 
 
@@ -196,6 +204,14 @@ def classify_failure(*, entry: ModelEntry, status: Optional[int],
                                  retry_after_s=retry)
     # 5xx and anything unmapped: transient, model scope.
     return ClassifiedFailure("transient", "model", entry.id)
+
+
+def classify_truncated_tool_call(entry: ModelEntry) -> ClassifiedFailure:
+    """The v0.8.2 truncated_tool_call class: finish_reason=length on a
+    completion that carried tool calls. Model scope — the entry's
+    output was cut by the budget mid-call; nothing about the pool or
+    the account is implicated."""
+    return ClassifiedFailure("truncated_tool_call", "model", entry.id)
 
 
 # ----------------------------------------------------------------------

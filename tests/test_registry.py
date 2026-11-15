@@ -140,13 +140,22 @@ def test_starting_registry_matches_spec_table():
         "openrouter/llama-4-maverick", "openrouter/claude-haiku-5.5",
         "openrouter/kimi-k2.6", "zai/glm-4.6", "zai/glm-5.3-flash",
     }
+    # v0.9.1 (F-16, owner's ruling 2026-11-15): the flag extends to
+    # the two OpenRouter FREE routes that sat inside the sensitive
+    # wall via private-free — the phase-2 "nothing else" premise is
+    # superseded by the F-16 pair, recorded here deliberately.
+    v091_flagged = {
+        "openrouter/dots-3-note-preview-free",
+        "openrouter/north-mini-code-free",
+    }
     assert all(not e.spillway_sensitive_excluded
                for e in reg.entries
                if e.provider not in ("siliconflow", "huggingface",
                                       "cerebras", "novita", "mistral")
-               and e.id not in phase2_flagged)
+               and e.id not in phase2_flagged
+               and e.id not in v091_flagged)
     assert all(by_id[i].spillway_sensitive_excluded
-               for i in phase2_flagged)
+               for i in phase2_flagged | v091_flagged)
 
     # every 2026-11-12 addition is live; nothing remains staged
     assert all(by_id[i].enabled for i in

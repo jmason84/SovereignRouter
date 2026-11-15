@@ -65,14 +65,63 @@ def test_steering_above_target(store):
     assert sum(1 for a in alerts if a["kind"] == "client_above_target") == 1
 
 
+def _seed_day(store: QuotaStore, client: str, days_ago: int, n: int,
+              hi_frac: float, *, lane="paid", usd=0.001, provider="deepinfra"):
+    """Seed `n` usage rows at midday of the day `days_ago` before today
+    (local), `hi_frac` of them at level 4."""
+    lt = time.localtime()
+    midnight = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+    if days_ago == 0:
+        ts = time.time() - 900  # inside today, safely before `now`
+    else:
+        ts = midnight - days_ago * DAY + 3600
+    hi_n = round(n * hi_frac)
+    for i in range(n):
+        store.record_usage(UsageEvent(
+            ts=ts + i, client_id=client, provider=provider, model_id="m",
+            lane=lane, level=4 if i < hi_n else 2, task_class="chat",
+            input_tokens=100, output_tokens=10, cached_tokens=0,
+            cost_usd=usd, estimated=False))
+
+
 def test_level_mix_alert(store):
+    # F-14 (v0.9.1): baseline-relative — 7 baseline days at 50% L4-5,
+    # today 250 requests at 90%: share exceeds baseline + 10 points.
     gov = Governor(store)
     now = time.time()
-    for i in range(25):
-        _spend(store, "hermes", 0.01, level=4 if i < 15 else 2, ago_s=120)
+    for back in range(1, 8):
+        _seed_day(store, "hermes", back, 100, 0.50)
+    _seed_day(store, "hermes", 0, 250, 0.90)
     gov.evaluate_alerts({"hermes": _policy()}, {}, now)
     kinds = [a["kind"] for a in store.alerts_since(now - 3600)]
     assert "level_mix" in kinds
+
+
+def test_level_mix_silent_at_baseline(store):
+    # Today matches the trailing baseline (both ~78%, Hermes' real
+    # operating point) — the pre-v0.9.1 static 40% threshold paged on
+    # exactly this; F-14 must not.
+    gov = Governor(store)
+    now = time.time()
+    for back in range(1, 8):
+        _seed_day(store, "hermes", back, 300, 0.78)
+    _seed_day(store, "hermes", 0, 300, 0.80)
+    gov.evaluate_alerts({"hermes": _policy()}, {}, now)
+    kinds = [a["kind"] for a in store.alerts_since(now - 3600)]
+    assert "level_mix" not in kinds
+
+
+def test_level_mix_silent_below_sample_floor(store):
+    # 100 requests at 100% L4-5 against a 0% baseline: a real signal
+    # in miniature, but below the n >= 200 floor it cannot fire.
+    gov = Governor(store)
+    now = time.time()
+    for back in range(1, 8):
+        _seed_day(store, "hermes", back, 100, 0.0)
+    _seed_day(store, "hermes", 0, 100, 1.0)
+    gov.evaluate_alerts({"hermes": _policy()}, {}, now)
+    kinds = [a["kind"] for a in store.alerts_since(now - 3600)]
+    assert "level_mix" not in kinds
 
 
 def test_runaway_fixed_threshold_first_14_days(store):
@@ -166,6 +215,98 @@ def test_emergency_warn_only_alerts_but_never_vetoes(store):
     alerts = [a for a in store.alerts_since(now - 3600)
               if a["kind"] == "emergency_paid_lane_switch"]
     assert len(alerts) == 1
+
+
+# ----------------------------------------------------------------------
+# F-13 (v0.9.1): spend alerts compute on the ACTUALS window — November
+# 2026's pre-cutover ledger slice is a ceiling, not spend. Cutover:
+# 2026-11-13 21:33:54 MST (epoch 1794630834). Seeds use local midday
+# timestamps so they sit on the same side of the cutover in any TZ the
+# suite runs in: Nov 10 is pre-cutover everywhere, Nov 14 post.
+# ----------------------------------------------------------------------
+_NOV10 = time.mktime((2026, 11, 10, 12, 0, 0, 0, 0, -1))
+_NOV14 = time.mktime((2026, 11, 14, 12, 0, 0, 0, 0, -1))
+_NOV15 = time.mktime((2026, 11, 15, 12, 0, 0, 0, 0, -1))
+
+
+def _seed_at(store: QuotaStore, ts: float, client: str, usd: float, *,
+             lane="paid", provider="deepinfra"):
+    store.record_usage(UsageEvent(
+        ts=ts, client_id=client, provider=provider, model_id="m",
+        lane=lane, level=2, task_class="chat", input_tokens=1000,
+        output_tokens=100, cached_tokens=0, cost_usd=usd, estimated=False))
+
+
+def test_premium_alert_ignores_pre_cutover_ceiling(store):
+    # The A1 shape: $25 of pre-cutover ceiling + $0.05 of actuals must
+    # NOT trip the $20 premium alert (actuals are $0.05).
+    gov = Governor(store)
+    _seed_at(store, _NOV10, "openclaw", 25.0, lane="premium", provider="openai")
+    _seed_at(store, _NOV14, "openclaw", 0.05, lane="premium", provider="openai")
+    pol = _policy("openclaw", 3.0, premium_monthly_alert_usd=20.0)
+    gov.evaluate_alerts({"openclaw": pol}, {}, _NOV15)
+    kinds = [a["kind"] for a in store.alerts_since(_NOV10 - 60)]
+    assert "premium_monthly_spend" not in kinds
+
+
+def test_premium_alert_fires_on_actuals_and_annotates_ceiling(store):
+    gov = Governor(store)
+    _seed_at(store, _NOV10, "openclaw", 25.0, lane="premium", provider="openai")
+    _seed_at(store, _NOV14, "openclaw", 21.0, lane="premium", provider="openai")
+    pol = _policy("openclaw", 3.0, premium_monthly_alert_usd=20.0)
+    gov.evaluate_alerts({"openclaw": pol}, {}, _NOV15)
+    alerts = [a for a in store.alerts_since(_NOV10 - 60)
+              if a["kind"] == "premium_monthly_spend"]
+    assert len(alerts) == 1
+    assert "$21.00" in alerts[0]["message"]
+    assert "Actuals basis (F-13)" in alerts[0]["message"]
+    assert "$25.00 pre-cutover" in alerts[0]["message"]
+
+
+def test_provider_spend_alert_ignores_pre_cutover_ceiling(store):
+    # The A3 shape: $150 ceiling + $0.06 actuals vs the $10 level.
+    gov = Governor(store)
+    _seed_at(store, _NOV10, "hermes", 150.0, provider="deepseek")
+    _seed_at(store, _NOV14, "hermes", 0.06, provider="deepseek")
+    gov.evaluate_alerts({"hermes": _policy()}, {"deepseek": 10.0}, _NOV15)
+    kinds = [a["kind"] for a in store.alerts_since(_NOV10 - 60)]
+    assert "provider_spend" not in kinds
+
+
+def test_provider_spend_alert_fires_on_actuals_and_annotates(store):
+    gov = Governor(store)
+    _seed_at(store, _NOV10, "hermes", 150.0, provider="deepseek")
+    _seed_at(store, _NOV14, "hermes", 11.0, provider="deepseek")
+    gov.evaluate_alerts({"hermes": _policy()}, {"deepseek": 10.0}, _NOV15)
+    alerts = [a for a in store.alerts_since(_NOV10 - 60)
+              if a["kind"] == "provider_spend"]
+    assert len(alerts) == 1
+    assert "$11.00" in alerts[0]["message"]
+    assert "Actuals basis (F-13)" in alerts[0]["message"]
+    assert "$150.00 pre-cutover" in alerts[0]["message"]
+
+
+# ----------------------------------------------------------------------
+# F-15 (v0.9.1): the sensitive posture digest replaces the daily
+# guaranteed-fire alert — one digest record per day, carrying the
+# trailing-24h sensitive serves and the cleared-set status.
+# ----------------------------------------------------------------------
+def test_sensitive_posture_digest_emitted_once_with_serves(store):
+    gov = Governor(store)
+    now = time.time()
+    store.record_usage(UsageEvent(
+        ts=now - 3600, client_id="hermes", provider="openrouter",
+        model_id="openrouter/dots-3-note-preview-free", lane="private-free",
+        level=4, task_class="infra", input_tokens=5000, output_tokens=10,
+        cached_tokens=0, cost_usd=0.0, estimated=False,
+        data_class="sensitive"))
+    gov.evaluate_alerts({"hermes": _policy()}, {}, now)
+    gov.evaluate_alerts({"hermes": _policy()}, {}, now)  # dedup: still one
+    digests = [a for a in store.alerts_since(now - 7200)
+               if a["kind"] == "sensitive_posture_digest"]
+    assert len(digests) == 1
+    assert "openrouter/dots-3-note-preview-free" in digests[0]["message"]
+    assert "NO provider is owner-cleared" in digests[0]["message"]
 
 
 def test_spend_trend_alert(store):

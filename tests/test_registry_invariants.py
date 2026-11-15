@@ -172,10 +172,19 @@ def test_premium_entries_have_spend_alert_armed():
             assert e.spend_alert_usd is not None and e.spend_alert_usd > 0, e.id
 
 
-def test_spillway_exclusion_only_on_paid_lanes():
+def test_spillway_exclusion_never_on_public_lane():
+    # Premise changed 2026-11-15 (v0.9.1, F-16): the invariant was
+    # "exclusion only on paid lanes" because the flag began as a
+    # spillway concept. F-16 extends it to two private-free entries
+    # (openrouter/dots-3-note-preview-free +
+    # openrouter/north-mini-code-free) — the mechanism drops a flagged
+    # entry for sensitive turns in EVERY pass, so a private-free flag
+    # is precisely how an entry leaves the wall's trusted side. What
+    # remains incoherent is flagging a PUBLIC-lane entry: the lane
+    # itself already bars sensitive turns, so the flag would be noise.
     for e in REG.entries:
         if e.spillway_sensitive_excluded:
-            assert e.lane in ("paid", "premium"), e.id
+            assert e.lane in ("paid", "premium", "private-free"), e.id
 
 
 def test_openrouter_pool_shape():

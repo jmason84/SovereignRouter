@@ -56,6 +56,10 @@ class UsageEvent:
     cached_tokens: int
     cost_usd: float
     estimated: bool = False
+    # v0.9.1 (F-15): the posture digest aggregates sensitive serves
+    # from the ledger, which requires the class on the row. Default
+    # matches the pre-v0.9.1 rows the migration backfills.
+    data_class: str = "internal"
 
 
 @dataclass
@@ -164,6 +168,16 @@ class QuotaStore:
         self._conn.row_factory = sqlite3.Row
         with self._lock:
             self._conn.executescript(_SCHEMA)
+            # v0.9.1 (F-15) migration: usage rows gain data_class so
+            # the sensitive posture digest can aggregate serves from
+            # the ledger. Pre-existing rows backfill to 'internal'
+            # (the column default) — their class was never recorded.
+            cols = {r[1] for r in self._conn.execute(
+                "PRAGMA table_info(usage_events)").fetchall()}
+            if "data_class" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE usage_events ADD COLUMN data_class "
+                    "TEXT NOT NULL DEFAULT 'internal'")
             self._conn.commit()
             # First-seen timestamp drives the governor's "first 14 days"
             # fixed-threshold window (spec: runaway alarm).
@@ -209,15 +223,31 @@ class QuotaStore:
             self._conn.execute(
                 "INSERT INTO usage_events(ts, client_id, provider, model_id,"
                 " lane, level, task_class, input_tokens, output_tokens,"
-                " cached_tokens, cost_usd, estimated)"
-                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                " cached_tokens, cost_usd, estimated, data_class)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     ev.ts, ev.client_id, ev.provider, ev.model_id, ev.lane,
                     ev.level, ev.task_class, ev.input_tokens, ev.output_tokens,
                     ev.cached_tokens, ev.cost_usd, 1 if ev.estimated else 0,
+                    ev.data_class,
                 ),
             )
             self._conn.commit()
+
+    def sensitive_serves(self, since: float, until: float) -> list[dict[str, Any]]:
+        """Sensitive-classified serves grouped by entry + lane
+        (v0.9.1, F-15 posture digest): count + ledger cost per group,
+        busiest first. Final (non-estimated) rows only."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT model_id, lane, COUNT(*) AS n, "
+                "COALESCE(SUM(cost_usd),0) AS s FROM usage_events "
+                "WHERE ts>=? AND ts<? AND data_class='sensitive' "
+                "AND estimated=0 GROUP BY model_id, lane ORDER BY n DESC",
+                (since, until),
+            ).fetchall()
+            return [{"model": r["model_id"], "lane": r["lane"],
+                     "requests": r["n"], "cost_usd": r["s"]} for r in rows]
 
     def _sum(self, where: str, params: tuple, since: float, until: float,
              paid_only: bool = False) -> float:

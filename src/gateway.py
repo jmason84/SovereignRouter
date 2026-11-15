@@ -109,7 +109,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -497,15 +497,47 @@ def _usage_from_response(resp: dict[str, Any], est_input: int,
 DEAD_LANE_STATUSES = {401, 402, 403}
 
 
-def note_lane_dead(app: FastAPI, entry: ModelEntry, cause: str) -> None:
+def note_lane_dead(app: FastAPI, entry: ModelEntry, cause: str,
+                   dedup_cause: Optional[str] = None) -> None:
+    # The dedup key carries `dedup_cause` when given: the F-17(a)
+    # TPD cause embeds live numbers (counted usage, the triggering
+    # estimate), and keying on them would mint a fresh "first alert
+    # of the day" for every distinct request — the alert is once per
+    # entry per day by design, so its key stays on the stable class.
     app.state.store.add_alert(
         "lane_dead", entry.provider,
-        f"lane_dead:{entry.provider}:{entry.id}:{cause}",
+        f"lane_dead:{entry.provider}:{entry.id}:{dedup_cause or cause}",
         f"Lane dead: {entry.id} (provider {entry.provider}) — "
         f"{cause}. This is an account/credit/cap failure, not a "
         "rate limit. The cascade is serving from the next rungs "
         "in cost order; fix or top up this provider to restore "
         "the cheap rung.")
+
+
+def note_sensitive_paid_serve(app: FastAPI, record: RouteRecord,
+                              client: ClientPolicy, entry: ModelEntry,
+                              cost: float) -> None:
+    """v0.9.1 (F-15): sensitive_no_cleared_provider fires on OUTCOMES,
+    not on the clearance list's emptiness. Pre-v0.9.1 the alert fired
+    pre-serve whenever no owner-cleared candidate sat in the free-first
+    set — a permanently-true condition (no provider is cleared), so it
+    paged on the first sensitive request of every day while describing
+    a paid fallthrough that usually never happened. Now it records
+    only the two outcomes that matter: a sensitive request actually
+    serving on a paid/premium lane (here), or finding no candidate at
+    all (the chat handler's 429 path). The standing posture — who
+    served sensitive traffic, and that the cleared set is empty — is
+    the governor's daily sensitive_posture_digest."""
+    if record.data_class != "sensitive" or entry.lane not in ("paid", "premium"):
+        return
+    app.state.store.add_alert(
+        "sensitive_no_cleared_provider", client.id,
+        f"sensitive_paid_serve:{client.id}",
+        f"Client {client.id}: sensitive request SERVED on the "
+        f"{entry.lane} lane via {entry.id} (${cost:.4f}) — no "
+        "owner-cleared provider exists, so the v0.5.5 spillway served "
+        "it uncleared as a last resort. (F-15: this alert fires on "
+        "the outcome, not on the empty clearance list.)")
 
 
 def note_stream_abort(app: FastAPI, entry: ModelEntry) -> None:
@@ -679,8 +711,25 @@ def create_app(config: Optional[GatewayConfig] = None,
                 entry.provider, entry.limits, est_tokens, now)
             if reason:
                 if reason == "rate_limited_tpd":
-                    note_lane_dead(app, entry,
-                                   "daily token cap (TPD) exhausted")
+                    # F-17(a) (v0.9.1): the cause must state what was
+                    # actually consumed vs the cap AND the estimate
+                    # that tripped it. The pre-v0.9.1 string asserted
+                    # "exhausted" even when usage was zero and a single
+                    # oversized request estimate alone exceeded the cap
+                    # (Aion, 2026-11-15: 0 / 20,000 used, estimate
+                    # 67,274).
+                    cap = int(entry.limits.get("tpd") or 0)
+                    day_start = time.mktime(time.strptime(
+                        time.strftime("%Y-%m-%d", time.localtime(now)),
+                        "%Y-%m-%d"))
+                    _, counted = app.state.store.window_usage(
+                        entry.provider, day_start, now + 1)
+                    note_lane_dead(
+                        app, entry,
+                        f"daily token cap (TPD): {counted:,} / {cap:,} "
+                        f"tokens used today; this request's estimate "
+                        f"{est_tokens:,} tokens exceeds the cap",
+                        dedup_cause="daily token cap (TPD)")
                 skip(reason); continue
             # v0.8.2 (F-11): stream-abort cooldown. Checked last, so a
             # cooled entry in the list is one that passed EVERY other
@@ -1010,7 +1059,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         # 15 min): record the heartbeat and surface pending alerts.
         app.state.store.record_poll(now)
         app.state.governor.evaluate_alerts(
-            app.state.clients.clients, provider_alert_levels(app.state.registry), now)
+            app.state.clients.clients, provider_alert_levels(app.state.registry), now,
+            sensitive_cleared_entries=sum(
+                1 for e in app.state.registry.entries if e.sensitive_cleared))
         day0 = time.mktime(time.strptime(
             time.strftime("%Y-%m-%d", time.localtime(now)), "%Y-%m-%d"))
         month0 = time.mktime(time.strptime(
@@ -1055,7 +1106,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         now = time.time()
         app.state.store.record_poll(now)
         app.state.governor.evaluate_alerts(
-            app.state.clients.clients, provider_alert_levels(app.state.registry), now)
+            app.state.clients.clients, provider_alert_levels(app.state.registry), now,
+            sensitive_cleared_entries=sum(
+                1 for e in app.state.registry.entries if e.sensitive_cleared))
         alerts = app.state.store.alerts_after(after)
         return {"alerts": alerts,
                 "last_id": alerts[-1]["id"] if alerts else after}
@@ -1390,19 +1443,13 @@ def create_app(config: Optional[GatewayConfig] = None,
                 app.state.sticky.invalidate(conv_key)
         queue_ms = (time.perf_counter() - t_q0) * 1000
 
-        if data_class == "sensitive":
-            cleared_available = any(
-                c.sensitive_cleared or c.provider in client.sensitive_cleared_providers
-                for c in candidates)
-            if not cleared_available:
-                app.state.store.add_alert(
-                    "sensitive_no_cleared_provider", client.id,
-                    f"sensitive_fallback:{client.id}",
-                    f"Client {client.id}: sensitive request had no "
-                    "cleared provider in free-first selection; under "
-                    "the v0.5.5 free-first / paid-spillway ruling "
-                    "(2026-11-07) it may fall through to a paid "
-                    "provider as a last resort.")
+        # v0.9.1 (F-15): NO alert is raised here anymore. The
+        # pre-v0.9.1 block paged sensitive_no_cleared_provider whenever
+        # the free-first set held no owner-cleared candidate — a
+        # permanently-true condition that fired daily while describing
+        # a fallthrough that usually never happened. The alert now
+        # fires on outcomes only: note_sensitive_paid_serve at serve
+        # time, and the zero-candidate 429 path below.
 
         record = RouteRecord(
             ts=time.time(), client=client.id, level=level, task_class=task_class,
@@ -1465,6 +1512,19 @@ def create_app(config: Optional[GatewayConfig] = None,
                 record.signals.append(f"paid_spillway:{spill_candidates[0].id}")
 
         if not candidates:
+            if data_class == "sensitive":
+                # F-15 (v0.9.1) outcome alert: a sensitive request
+                # that finds no candidate at all is a real event —
+                # the wall plus provider limits left nothing eligible.
+                app.state.store.add_alert(
+                    "sensitive_no_cleared_provider", client.id,
+                    f"sensitive_no_candidate:{client.id}",
+                    f"Client {client.id}: sensitive request found NO "
+                    "candidate at all (429) — the sensitive wall and "
+                    "provider limits left nothing eligible, and no "
+                    "owner-cleared provider exists. (F-15: this alert "
+                    "fires on the outcome, not on the empty clearance "
+                    "list.)")
             record.status = 429
             record.upstream_failure = True
             telemetry.write(record)
@@ -1482,7 +1542,7 @@ def create_app(config: Optional[GatewayConfig] = None,
             model_id=first.id, lane=first.lane, level=level,
             task_class=task_class, input_tokens=est_tokens,
             output_tokens=max_tokens // 2, cached_tokens=0,
-            cost_usd=est_cost, estimated=True))
+            cost_usd=est_cost, estimated=True, data_class=data_class))
 
         if stream:
             return await _stream_response(
@@ -1719,15 +1779,19 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             ts=time.time(), client_id=client.id, provider=entry.provider,
             model_id=entry.id, lane=entry.lane, level=level,
             task_class=task_class, input_tokens=in_tok, output_tokens=out_tok,
-            cached_tokens=cached, cost_usd=cost, estimated=False))
+            cached_tokens=cached, cost_usd=cost, estimated=False,
+            data_class=record.data_class))
         _record_attempt(app, record, client, entry,
                         outcome="served", units=in_tok + out_tok,
                         truncated_tool_call=truncated_tc)
+        note_sensitive_paid_serve(app, record, client, entry, cost)
         app.state.sticky.set(conv_key, entry.id, level)
         app.state.governor.evaluate_alerts(
             app.state.clients.clients,
             {e.provider: e.spend_alert_usd for e in app.state.registry.entries
-             if e.spend_alert_usd is not None})
+             if e.spend_alert_usd is not None},
+            sensitive_cleared_entries=sum(
+                1 for e in app.state.registry.entries if e.sensitive_cleared))
         telemetry.write(record)
         return JSONResponse(
             data, status_code=200,
@@ -2074,10 +2138,11 @@ def _finalize_stream(app: FastAPI, record: RouteRecord, entry: ModelEntry,
         model_id=entry.id, lane=entry.lane, level=level, task_class=task_class,
         input_tokens=in_tok, output_tokens=out_tok,
         cached_tokens=cached_tokens,
-        cost_usd=cost, estimated=False))
+        cost_usd=cost, estimated=False, data_class=record.data_class))
     _record_attempt(app, record, client, entry,
                     outcome="served", units=in_tok + out_tok,
                     truncated_tool_call=truncated_tool_call)
+    note_sensitive_paid_serve(app, record, client, entry, cost)
     app.state.sticky.set(conv_key, entry.id, level)
     app.state.telemetry.write(record)
 

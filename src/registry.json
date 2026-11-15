@@ -128,7 +128,7 @@
         "rpm": 20
       },
       "model": "cohere/north-mini-code:free",
-      "notes": "Spec: private-free only because data_collection=deny is enforced via extra_body on every call. About 1,000 requests/day shared across clients (rpd). Code quality seeded 4 (it is a code model); other classes at the spec's flat 3. 2026-11-04: reasoning disabled via extra_body - direct probes showed this endpoint's hidden reasoning expands to consume ANY budget (512-8192) on most code prompts, returning finish=length with zero content; OpenRouter ignores reasoning.max_tokens and effort caps for it but honours reasoning.enabled=false, after which it answers directly. QUALITY CORRECTION 2026-11-12 (expansion phase 2, owner's order): chat 3->2 and long-context 3->2. Evidence: the Launch AI Works Article Engine census (verified 2026-11-12) reconciled 16 malformed-JSON article-draft failures 1:1 to this model while a control model (nemotron) went 11/11 clean on the same node, and 2026-11-04 records show empty-length failures \u2014 it is demonstrably bad at structured long-form generation. Drafting-class work classifies as chat at L2+ (required quality floor 3) or as long-context for very long inputs, so the lowered scores remove it from auto-selection for drafting while L1 simple chat (floor 2) still reaches it and code (unchanged at 4 \u2014 its genuine strength) is untouched.",
+      "notes": "Spec: private-free only because data_collection=deny is enforced via extra_body on every call. About 1,000 requests/day shared across clients (rpd). Code quality seeded 4 (it is a code model); other classes at the spec's flat 3. 2026-11-04: reasoning disabled via extra_body - direct probes showed this endpoint's hidden reasoning expands to consume ANY budget (512-8192) on most code prompts, returning finish=length with zero content; OpenRouter ignores reasoning.max_tokens and effort caps for it but honours reasoning.enabled=false, after which it answers directly. QUALITY CORRECTION 2026-11-12 (expansion phase 2, owner's order): chat 3->2 and long-context 3->2. Evidence: the Launch AI Works Article Engine census (verified 2026-11-12) reconciled 16 malformed-JSON article-draft failures 1:1 to this model while a control model (nemotron) went 11/11 clean on the same node, and 2026-11-04 records show empty-length failures \u2014 it is demonstrably bad at structured long-form generation. Drafting-class work classifies as chat at L2+ (required quality floor 3) or as long-context for very long inputs, so the lowered scores remove it from auto-selection for drafting while L1 simple chat (floor 2) still reaches it and code (unchanged at 4 \u2014 its genuine strength) is untouched. SENSITIVE-WALL CORRECTION 2026-11-15 (v0.9.1, F-16, owner's ruling): spillway_sensitive_excluded set. This entry sat inside the sensitive wall via its private-free lane while 7 sibling OpenRouter entries were excluded; it served sensitive turns on 2026-11-15 (alert diagnosis A5). It is now dropped for sensitive turns in every pass, pins included. Non-sensitive routing is unchanged (the quality correction above stands); the lane stays private-free.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -148,7 +148,8 @@
       "reasoning": true,
       "verified_until": "2026-12-15",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-15",
+      "spillway_sensitive_excluded": true
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -170,7 +171,7 @@
         "rpm": 20
       },
       "model": "dots-studio/dots-3-note-preview:free",
-      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 shared OpenRouter free pool 429 congested on every pinned probe. The protocol S7 degenerate-fresh-call-args evidence stands alone; the entry remains enabled (route sound; the F-09 budget fault was the gateway's). Priority entry for the weekly re-probe. RETIREMENT DATE (flagged 2026-11-15, batch-1 source mining via ClawLabsAI's provider data): OpenRouter publishes a 2026-12-31 retirement date for this preview \u2014 expect the route to die on that date; the weekly re-probe cadence applies.",
+      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 shared OpenRouter free pool 429 congested on every pinned probe. The protocol S7 degenerate-fresh-call-args evidence stands alone; the entry remains enabled (route sound; the F-09 budget fault was the gateway's). Priority entry for the weekly re-probe. RETIREMENT DATE (flagged 2026-11-15, batch-1 source mining via ClawLabsAI's provider data): OpenRouter publishes a 2026-12-31 retirement date for this preview \u2014 expect the route to die on that date; the weekly re-probe cadence applies. SENSITIVE-WALL CORRECTION 2026-11-15 (v0.9.1, F-16, owner's ruling): spillway_sensitive_excluded set. This entry sat inside the sensitive wall via its private-free lane while 7 sibling OpenRouter entries were excluded; on 2026-11-15 it served a 348,543-token sensitive context (alert diagnosis A5). It is now dropped for sensitive turns in every pass, pins included \u2014 the same posture as its OpenRouter siblings. Non-sensitive routing is unchanged; the lane stays private-free.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -189,7 +190,8 @@
       },
       "verified_until": "2026-12-15",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-15",
+      "spillway_sensitive_excluded": true
     },
     {
       "cached_input_usd_per_million": 0.018,
@@ -2709,7 +2711,7 @@
         "tpd": 20000
       },
       "model": "aion-labs/aion-3.5-mini",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Aion's current mini system (multi-model, tuned for roleplay/storytelling). Lane price $0 under the free allowance; the underlying LIST price from Aion's own public /v1/models pricing fields is $0.70 in / $0.18 cached / $1.40 out per 1M \u2014 recorded for the day the allowance ends. Reasoning CANNOT be disabled on the 3.5 line (low/high/max only) \u2014 extra_body pins reasoning_effort=low (probe-verified shape: 200 in 9.5s, clean content, but 637 completion tokens on a trivial prompt even at low). Free tier is ACCOUNT-WIDE 15 RPM / 20,000 tokens/day \u2014 a thimble, shared by both Aion entries (limits carry the account figures). Google-style posture: public-only-free.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Aion's current mini system (multi-model, tuned for roleplay/storytelling). Lane price $0 under the free allowance; the underlying LIST price from Aion's own public /v1/models pricing fields is $0.70 in / $0.18 cached / $1.40 out per 1M \u2014 recorded for the day the allowance ends. Reasoning CANNOT be disabled on the 3.5 line (low/high/max only) \u2014 extra_body pins reasoning_effort=low (probe-verified shape: 200 in 9.5s, clean content, but 637 completion tokens on a trivial prompt even at low). Free tier is ACCOUNT-WIDE 15 RPM / 20,000 tokens/day \u2014 a thimble, shared by both Aion entries (limits carry the account figures). Google-style posture: public-only-free. DISABLED 2026-11-15 (v0.9.1, F-17, owner's ruling): the account-wide free allowance (15 RPM / 20,000 tokens/day, shared with aion/aion-2.0) is smaller than one ordinary fleet request \u2014 on 2026-11-15 a 67,274-token request tripped the TPD check at zero usage \u2014 so this rung could only ever serve small requests and generated ~350 skip evaluations/day of noise. Lifetime serves across both Aion entries: ~21 (2026-11-12 to 14). On 2026-11-13 the account absorbed 144 failed attempts (143x upstream 429 congested + 1 transient), every failure would_demote-stamped \u2014 preserved as Exhibit 1 of the J-2 review packet (docs/cycles/j2-review-packet.md). The 2026-11-15 tooling-battery score on this entry is preserved while disabled.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -2728,7 +2730,8 @@
       },
       "reasoning": true,
       "verified_until": "2026-12-15",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-15",
+      "enabled": false
     },
     {
       "base_url": "https://api.aionlabs.ai/v1",
@@ -2746,7 +2749,7 @@
         "tpd": 20000
       },
       "model": "aion-labs/aion-2.0",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Aion 2.0 (DeepSeek V3.2 variant tuned for roleplay/storytelling). Lane price $0 under the free allowance; underlying LIST price from Aion's own public /v1/models pricing fields: $0.80 in / $0.20 cached / $1.60 out per 1M. The 2.0 line accepts reasoning_effort 'none' \u2014 extra_body pins it (probe-verified: 200 in 0.75s, 5 completion tokens, clean direct answer). Free tier is ACCOUNT-WIDE 15 RPM / 20,000 tokens/day \u2014 a thimble, shared by both Aion entries (limits carry the account figures). Google-style posture: public-only-free.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Aion 2.0 (DeepSeek V3.2 variant tuned for roleplay/storytelling). Lane price $0 under the free allowance; underlying LIST price from Aion's own public /v1/models pricing fields: $0.80 in / $0.20 cached / $1.60 out per 1M. The 2.0 line accepts reasoning_effort 'none' \u2014 extra_body pins it (probe-verified: 200 in 0.75s, 5 completion tokens, clean direct answer). Free tier is ACCOUNT-WIDE 15 RPM / 20,000 tokens/day \u2014 a thimble, shared by both Aion entries (limits carry the account figures). Google-style posture: public-only-free. DISABLED 2026-11-15 (v0.9.1, F-17, owner's ruling): the account-wide free allowance (15 RPM / 20,000 tokens/day, shared with aion/aion-3.5-mini) is smaller than one ordinary fleet request \u2014 on 2026-11-15 a 67,274-token request tripped the TPD check at zero usage \u2014 so this rung could only ever serve small requests and generated ~350 skip evaluations/day of noise. Lifetime serves across both Aion entries: ~21 (2026-11-12 to 14). On 2026-11-13 the account absorbed 144 failed attempts (143x upstream 429 congested + 1 transient), every failure would_demote-stamped \u2014 preserved as Exhibit 1 of the J-2 review packet (docs/cycles/j2-review-packet.md). The 2026-11-15 tooling-battery score on this entry is preserved while disabled.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -2765,7 +2768,8 @@
       },
       "reasoning": true,
       "verified_until": "2026-12-15",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-15",
+      "enabled": false
     },
     {
       "base_url": "https://integrate.api.nvidia.com/v1",

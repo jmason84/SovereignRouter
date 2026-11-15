@@ -74,6 +74,16 @@ cohort as NOV15_DISABLED_IDS; the registry commit landed without
 updating them and CI went red on main until the 2026-11-15 fix
 restored the premises (the update itself had been validated with
 the invariant battery only).
+
+v0.9.1 (2026-11-15, owner's full-fix-set ruling): F-16 set
+spillway_sensitive_excluded on openrouter/dots-3-note-preview-free
+and openrouter/north-mini-code-free (they sat inside the sensitive
+wall via private-free while seven OpenRouter siblings were
+excluded; SENSITIVE_EXCLUDED_IDS below grows by those two), and
+F-17 disabled BOTH aion entries (20k tokens/day account cap is
+smaller than one ordinary fleet request; V091_DISABLED_IDS below;
+their tooling-battery scores stay on the disabled entries). Enabled
+count 72 -> 70.
 """
 
 from __future__ import annotations
@@ -161,6 +171,12 @@ NOV15_DISABLED_IDS = ("openrouter/lfm-2.5-2.6b-free",
                       "unorouter/gemini-3.5-flash-lite",
                       "unorouter/mistral-small-3.2",
                       "unorouter/qwen3.5-397b-a17b")
+# v0.9.1 (F-17, owner's ruling 2026-11-15): both Aion entries
+# disabled — the account-wide 20,000 tokens/day free allowance is
+# smaller than one ordinary fleet request, so the rung could only
+# serve small requests; each entry's registry note carries the
+# dated reason and its tooling-battery score is preserved.
+V091_DISABLED_IDS = ("aion/aion-3.5-mini", "aion/aion-2.0")
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -186,6 +202,11 @@ SENSITIVE_EXCLUDED_IDS = (
     "openrouter/llama-4-maverick", "openrouter/claude-haiku-5.5",
     "openrouter/kimi-k2.6",
     "zai/glm-4.6", "zai/glm-5.3-flash",
+    # v0.9.1 (F-16): the two OpenRouter free routes that sat inside
+    # the sensitive wall via private-free join their seven excluded
+    # OpenRouter siblings (owner's ruling 2026-11-15).
+    "openrouter/dots-3-note-preview-free",
+    "openrouter/north-mini-code-free",
 )
 ALL_PROVIDER_KEYS = {p: "fake" for p in {e.provider for e in REG.entries}}
 
@@ -237,7 +258,8 @@ def test_registry_counts_and_unique_ids():
     assert len(BY_ID) == 88  # ids unique (loader also enforces)
     # 73 enabled at 81 entries; 2026-11-15 added 7 disabled routes
     # and disabled lfm-2.5-2.6b-free (upstream deleted): 88 - 16 = 72.
-    assert sum(1 for e in REG.entries if e.enabled) == 72
+    # v0.9.1 (F-17) disabled both Aion entries: 88 - 18 = 70.
+    assert sum(1 for e in REG.entries if e.enabled) == 70
 
 
 def test_registry_get_by_id_is_exact_for_every_entry():
@@ -263,7 +285,7 @@ def test_disabled_entries_are_exactly_the_known_set():
     # 2026-11-12 re-enable decision, recorded in its registry note)
     assert disabled == {"siliconflow/deepseek-v4-pro"} | \
         set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS) | \
-        set(NOV15_DISABLED_IDS)
+        set(NOV15_DISABLED_IDS) | set(V091_DISABLED_IDS)
     # the siliconflow entry is a duplicate ROUTE, not a distinct
     # model: DeepSeek V4 Pro is still reachable via the direct entry
     assert BY_ID["siliconflow/deepseek-v4-pro"].model == \
@@ -530,8 +552,8 @@ PHASE2_ENTRIES = {
     "meta/muse-spark-1.2": ("premium", True, 1048576, (1.25, 4.25)),
     "meta/muse-spark-1.3": ("premium", True, 1048576, (1.25, 4.25)),
     "cerebras/qwen-3.8-27b": ("paid", True, 65536, (0.99, 1.49)),
-    "aion/aion-3.5-mini": ("public-only-free", True, 262144, (0.0, 0.0)),
-    "aion/aion-2.0": ("public-only-free", True, 131072, (0.0, 0.0)),
+    "aion/aion-3.5-mini": ("public-only-free", False, 262144, (0.0, 0.0)),  # v0.9.1 F-17: disabled
+    "aion/aion-2.0": ("public-only-free", False, 131072, (0.0, 0.0)),  # v0.9.1 F-17: disabled
     "nvidia/nemotron-3.5-lightning": ("public-only-free", True, 262144,
                                       (0.0, 0.0)),
     "nvidia/nemotron-3-nano-omni": ("public-only-free", True, 256000,
@@ -933,8 +955,8 @@ PIN_CASES = {
     "zai/glm-5.3-flash": "hermes",
     "meta/muse-spark-1.2": "openclaw",
     "cerebras/qwen-3.8-27b": "hermes",
-    "aion/aion-3.5-mini": "hermes",
-    "aion/aion-2.0": "hermes",
+    # aion/aion-3.5-mini + aion/aion-2.0 left this map 2026-11-15
+    # (v0.9.1, F-17): disabled — a disabled route has no serve to pin
     "nvidia/nemotron-3.5-lightning": "hermes",
     "nvidia/nemotron-3-nano-omni": "hermes",
     "google/gemini-3.1-flash-lite": "hermes",

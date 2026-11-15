@@ -5,6 +5,9 @@ provider key prefixes, cloud access keys, PEM private-key blocks, bearer
 tokens, password/secret assignments — NOT raw entropy. Plain hex hashes,
 UUIDs, container IDs and commit SHAs are explicitly EXCLUDED: they are
 normal infrastructure text for Hermes/OpenClaw and must not reroute.
+v0.9.1 (F-18) adds tight prose-stated assignments ("the database
+password … is <value>") after the 2026-11-15 golden replay showed that
+dialect classifying internal and first-routing to public lanes.
 
 A match raises the request to ``data_class=sensitive``. The match text
 itself is never logged or stored — only detector names are returned, and
@@ -51,13 +54,53 @@ _PREFIX_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 # password=/secret=/api_key= style assignments. The value is checked
-# against the exclusion shapes before it counts.
+# against the exclusion shapes before it counts. ``session`` joined the
+# noun list in v0.9.1 (F-18): a session-cookie value IS a credential
+# (golden g180), and identifier-shaped session values (UUID/hex) stay
+# excluded by the value checks below.
 _ASSIGNMENT_RE = re.compile(
     r"(?<![A-Za-z0-9])(password|passwd|pwd|secret|client_secret|api[_-]?key|"
-    r"access[_-]?token|auth[_-]?token)"
+    r"access[_-]?token|auth[_-]?token|session)"
     r"\s*[:=]\s*[\"']?([^\s\"',;]{4,})",
     re.IGNORECASE,
 )
+
+# Prose-stated credential assignments (v0.9.1, F-18). The golden replay
+# of 2026-11-15 (Group S) proved the shape-keyed detectors miss
+# credential VALUES stated in plain sentences — "the database password
+# for the reporting user is Hunter2-…", "the oauth client secret for
+# the test app: FAKE-…", "a user shared their account password in
+# chat: …" all classified internal and two first-routed PUBLIC. The
+# pattern is deliberately tight: a credential noun, a bounded filler
+# gap of at most 6 plain words, a separator (``:``, ``=`` or the word
+# ``is``), then a value token that must ALSO pass the token-shape gate
+# below — a plain lowercase English word ("never", "stored",
+# "required") is a sentence, not a credential.
+_PROSE_CREDENTIAL_RE = re.compile(
+    r"\b(?P<noun>client[\s_-]?secret|session[\s_-]?cookie|password|passwd|pwd|"
+    r"secret|cookie|api[\s_-]?key|access[\s_-]?token|auth[\s_-]?token)\b"
+    r"(?P<filler>(?:\s+[A-Za-z][A-Za-z\-']*){0,6}?)"
+    r"\s*(?P<sep>:|=|\bis\b)\s*[\"']?(?P<value>[^\s\"',;]{4,})",
+    re.IGNORECASE,
+)
+
+# Hyphenated English that follows credential nouns in ordinary prose
+# but is never a credential value.
+_PROSE_VALUE_STOPLIST = {"case-sensitive", "case-insensitive"}
+
+
+def _looks_like_credential_value(value: str) -> bool:
+    """Token-shape gate for prose captures: credential values are
+    token-like (a digit, a hyphen/underscore join, or mixed case).
+    A single plain lowercase word is prose, not a credential."""
+    v = value.strip().strip("\"'")
+    if v.lower() in _PROSE_VALUE_STOPLIST:
+        return False
+    if any(c.isdigit() for c in v):
+        return True
+    if "-" in v or "_" in v:
+        return True
+    return any(c.isupper() for c in v) and any(c.islower() for c in v)
 
 # Placeholder values that show up in docs/examples are not credentials.
 _PLACEHOLDERS = {
@@ -81,6 +124,11 @@ def _is_excluded_value(value: str) -> bool:
     # Angle-bracket / templated placeholders, e.g. <password>, ${SECRET}
     if v.startswith("<") or v.startswith("${") or v.startswith("{{"):
         return True
+    # Ellipsis-redacted displays, e.g. sk-… or abc...xyz, are how docs
+    # and UIs show a credential WITHOUT stating it (v0.9.1, F-18
+    # negative case: the extended battery's redacted fake-key turn).
+    if "…" in v or "..." in v:
+        return True
     return False
 
 
@@ -95,6 +143,18 @@ def scan_text(text: str) -> ScanResult:
     for m in _ASSIGNMENT_RE.finditer(text):
         if not _is_excluded_value(m.group(2)):
             hits.append("credential_assignment")
+            break
+    for m in _PROSE_CREDENTIAL_RE.finditer(text):
+        value = m.group("value")
+        # Idiom guard: "the secret to/of <topic> is <thing>" is an
+        # English figure of speech, not a credential statement.
+        if m.group("noun").lower() == "secret" \
+                and m.group("sep").lower() == "is":
+            filler_words = m.group("filler").split()
+            if filler_words and filler_words[0].lower() in ("to", "of"):
+                continue
+        if not _is_excluded_value(value) and _looks_like_credential_value(value):
+            hits.append("credential_prose_assignment")
             break
     return ScanResult(sensitive=bool(hits), detectors=sorted(set(hits)))
 

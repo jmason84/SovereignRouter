@@ -88,3 +88,67 @@ def test_scan_messages_multimodal():
     assert scan_messages(msgs).sensitive
     msgs2 = [{"role": "user", "content": "just a normal question"}]
     assert not scan_messages(msgs2).sensitive
+
+
+# ----------------------------------------------------------------------
+# prose-stated credential values (v0.9.1, F-18) — the golden replay
+# Group S regression set: values stated in plain sentences must flag;
+# mere discussion of credentials must NOT.
+# ----------------------------------------------------------------------
+def test_prose_db_password_flagged():
+    # golden g175, verbatim shape
+    r = scan_text("the database password for the reporting user is "
+                  "Hunter2-Fake-Example -- explain how to move it into "
+                  "the secret manager")
+    assert r.sensitive and "credential_prose_assignment" in r.detectors
+
+
+def test_prose_oauth_secret_flagged():
+    # golden g177, verbatim shape
+    r = scan_text("this is the oauth client secret for the test app: "
+                  "FAKE-SECRET-1234 -- where should this live instead "
+                  "of the repo")
+    assert r.sensitive and "credential_prose_assignment" in r.detectors
+
+
+def test_prose_shared_password_flagged():
+    # golden g179, verbatim shape
+    r = scan_text("a user shared their account password in chat: "
+                  "correct-horse-fake-staple -- what should support "
+                  "do next")
+    assert r.sensitive and "credential_prose_assignment" in r.detectors
+
+
+def test_prose_session_cookie_flagged():
+    # golden g180, verbatim shape
+    r = scan_text("here is a session cookie value "
+                  "session=FAKESESSIONVALUE000 -- explain why it must "
+                  "be treated as a credential")
+    assert r.sensitive
+
+
+def test_password_discussion_not_flagged():
+    # policy questions and valueless mentions are discussion, not
+    # disclosure — the word "password" alone never reroutes.
+    assert not scan_text(
+        "what should our password policy require for new accounts?").sensitive
+    assert not scan_text("the password is never emailed to users").sensitive
+    assert not scan_text("how do I reset my password on the portal?").sensitive
+    assert not scan_text(
+        "the password is case-sensitive and stored hashed").sensitive
+    assert not scan_text(
+        "password requirements: minimum 12 characters, one symbol").sensitive
+
+
+def test_redacted_placeholder_not_flagged():
+    # the extended battery's fake-key turn shape: a redacted display
+    # states that a credential EXISTS, not its value.
+    assert not scan_text("the api key is sk-… in the example config").sensitive
+    assert not scan_text("set password=... in the sample file").sensitive
+
+
+def test_secret_idiom_not_flagged():
+    assert not scan_text(
+        "the secret to good coffee is fresh-beans and hot water").sensitive
+    assert not scan_text(
+        "the secret of great bread is a long-rise dough").sensitive

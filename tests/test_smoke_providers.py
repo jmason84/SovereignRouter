@@ -84,6 +84,20 @@ F-17 disabled BOTH aion entries (20k tokens/day account cap is
 smaller than one ordinary fleet request; V091_DISABLED_IDS below;
 their tooling-battery scores stay on the disabled entries). Enabled
 count 72 -> 70.
+
+The nRouter build-in (2026-11-17, owner's order; registry 98
+entries, 70 enabled) added ten routes DISABLED — nrouter/gpt-5-nano,
+gpt-5-mini, gpt-4.1-mini, gpt-5.4-mini, mistral-small-2503,
+qwen3-32b, qwen3-coder-480b-a35b, deepseek-v4.1-flash,
+amazon-nova-lite-v1 and llama-3.3-70b-instruct, all paid lane,
+probe-proven (chat + tool call each) and staged for the owner's
+enable ruling. nRouter is an aggregator (CloudAct; zero-retention /
+no-training terms, but traffic passes to upstream clouds), so all
+ten ship flagged spillway_sensitive_excluded provider-wide;
+NROUTER_DISABLED_IDS below carries the cohort and
+SENSITIVE_EXCLUDED_IDS grows by the ten. As with the 2026-11-15
+update, the registry commit landed without updating these premises
+and CI went red on main until the same-day fix restored them.
 """
 
 from __future__ import annotations
@@ -177,6 +191,16 @@ NOV15_DISABLED_IDS = ("openrouter/lfm-2.5-2.6b-free",
 # serve small requests; each entry's registry note carries the
 # dated reason and its tooling-battery score is preserved.
 V091_DISABLED_IDS = ("aion/aion-3.5-mini", "aion/aion-2.0")
+# The 2026-11-17 nRouter build-in: ten routes added DISABLED
+# (probe-proven, paid lane, staged for the owner's enable ruling —
+# enabling any of them is a separate decision, not a test edit).
+NROUTER_DISABLED_IDS = ("nrouter/gpt-5-nano", "nrouter/gpt-5-mini",
+                        "nrouter/gpt-4.1-mini", "nrouter/gpt-5.4-mini",
+                        "nrouter/mistral-small-2503", "nrouter/qwen3-32b",
+                        "nrouter/qwen3-coder-480b-a35b",
+                        "nrouter/deepseek-v4.1-flash",
+                        "nrouter/amazon-nova-lite-v1",
+                        "nrouter/llama-3.3-70b-instruct")
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -207,6 +231,15 @@ SENSITIVE_EXCLUDED_IDS = (
     # OpenRouter siblings (owner's ruling 2026-11-15).
     "openrouter/dots-3-note-preview-free",
     "openrouter/north-mini-code-free",
+    # 2026-11-17: nRouter is an aggregator — all ten routes flagged
+    # provider-wide at build-in (owner's order; terms are
+    # zero-retention / no-training, but upstreams are third-party
+    # clouds and no route is owner-cleared for sensitive traffic).
+    "nrouter/gpt-5-nano", "nrouter/gpt-5-mini", "nrouter/gpt-4.1-mini",
+    "nrouter/gpt-5.4-mini", "nrouter/mistral-small-2503",
+    "nrouter/qwen3-32b", "nrouter/qwen3-coder-480b-a35b",
+    "nrouter/deepseek-v4.1-flash", "nrouter/amazon-nova-lite-v1",
+    "nrouter/llama-3.3-70b-instruct",
 )
 ALL_PROVIDER_KEYS = {p: "fake" for p in {e.provider for e in REG.entries}}
 
@@ -254,11 +287,12 @@ def test_entry_raw_json_required_keys(entry):
 
 
 def test_registry_counts_and_unique_ids():
-    assert len(REG.entries) == 88
-    assert len(BY_ID) == 88  # ids unique (loader also enforces)
+    assert len(REG.entries) == 98
+    assert len(BY_ID) == 98  # ids unique (loader also enforces)
     # 73 enabled at 81 entries; 2026-11-15 added 7 disabled routes
     # and disabled lfm-2.5-2.6b-free (upstream deleted): 88 - 16 = 72.
     # v0.9.1 (F-17) disabled both Aion entries: 88 - 18 = 70.
+    # 2026-11-17 added 10 nRouter routes, all disabled: 98 - 28 = 70.
     assert sum(1 for e in REG.entries if e.enabled) == 70
 
 
@@ -285,7 +319,8 @@ def test_disabled_entries_are_exactly_the_known_set():
     # 2026-11-12 re-enable decision, recorded in its registry note)
     assert disabled == {"siliconflow/deepseek-v4-pro"} | \
         set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS) | \
-        set(NOV15_DISABLED_IDS) | set(V091_DISABLED_IDS)
+        set(NOV15_DISABLED_IDS) | set(V091_DISABLED_IDS) | \
+        set(NROUTER_DISABLED_IDS)
     # the siliconflow entry is a duplicate ROUTE, not a distinct
     # model: DeepSeek V4 Pro is still reachable via the direct entry
     assert BY_ID["siliconflow/deepseek-v4-pro"].model == \

@@ -36,7 +36,11 @@ def test_starting_registry_matches_spec_table():
     # five unorouter routes, staged for the owner's enable ruling);
     # openrouter/lfm-2.5-2.6b-free was disabled the same day (its
     # upstream model id was deleted) — no count change from a disable.
-    assert len(reg.entries) == 88
+    # + 10 nRouter entries added DISABLED 2026-11-17 (owner's
+    # build-in order): probe-proven aggregator routes on the paid
+    # lane, flagged spillway_sensitive_excluded provider-wide,
+    # staged for the owner's enable ruling.
+    assert len(reg.entries) == 98
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
@@ -148,14 +152,26 @@ def test_starting_registry_matches_spec_table():
         "openrouter/dots-3-note-preview-free",
         "openrouter/north-mini-code-free",
     }
+    # 2026-11-17: the nRouter build-in flags the aggregator
+    # provider-wide (all ten routes, paid lane) on the same
+    # conservative grounds — the "nothing else" premise grows by
+    # this set, recorded here deliberately.
+    nrouter_flagged = {
+        "nrouter/gpt-5-nano", "nrouter/gpt-5-mini",
+        "nrouter/gpt-4.1-mini", "nrouter/gpt-5.4-mini",
+        "nrouter/mistral-small-2503", "nrouter/qwen3-32b",
+        "nrouter/qwen3-coder-480b-a35b", "nrouter/deepseek-v4.1-flash",
+        "nrouter/amazon-nova-lite-v1", "nrouter/llama-3.3-70b-instruct",
+    }
     assert all(not e.spillway_sensitive_excluded
                for e in reg.entries
                if e.provider not in ("siliconflow", "huggingface",
                                       "cerebras", "novita", "mistral")
                and e.id not in phase2_flagged
-               and e.id not in v091_flagged)
+               and e.id not in v091_flagged
+               and e.id not in nrouter_flagged)
     assert all(by_id[i].spillway_sensitive_excluded
-               for i in phase2_flagged | v091_flagged)
+               for i in phase2_flagged | v091_flagged | nrouter_flagged)
 
     # every 2026-11-12 addition is live; nothing remains staged
     assert all(by_id[i].enabled for i in

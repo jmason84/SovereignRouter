@@ -58,7 +58,7 @@ def _fail(entry, status, body="", headers=None, transport=False):
 
 def test_pool_derivation_covers_registry_exactly_once():
     pools = {e.id: pool_for(e) for e in REG.entries}
-    assert len(pools) == len(REG.entries) == 88
+    assert len(pools) == len(REG.entries) == 98
     assert all(p.id and p.unit in ("requests", "tokens", "neurons")
                for p in pools.values())
 

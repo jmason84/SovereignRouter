@@ -98,6 +98,30 @@ NROUTER_DISABLED_IDS below carries the cohort and
 SENSITIVE_EXCLUDED_IDS grows by the ten. As with the 2026-11-15
 update, the registry commit landed without updating these premises
 and CI went red on main until the same-day fix restored them.
+
+The ready-groups enable (2026-11-17, owner's ruling; registry 98
+entries, 87 enabled) enabled all seventeen staged routes in one
+pass: the ten nRouter routes, the five UnoRouter routes and the
+two OpenRouter adds (ling-3.2-flash-free, particle-1-free).
+NROUTER_DISABLED_IDS below is emptied (the cohort is live; the
+constant stays so the disabled-set union keeps its shape) and
+NOV15_DISABLED_IDS shrinks to openrouter/lfm-2.5-2.6b-free, the
+one 2026-11-15 change that was a disable rather than a staged add.
+The nRouter ten remain spillway_sensitive_excluded — enabling a
+route does not clear its provider for sensitive spillway. This
+time the premises moved in the same pass as the registry, per the
+2026-11-15/17 lesson.
+
+Same-day correction (2026-11-17): two of the seventeen failed
+their live pin-smokes twice, spaced — unorouter/qwen3.5-397b-a17b
+(upstream 403, then 429 with an empty length_no_content
+completion) and unorouter/claude-haiku-4-5-20251001 (upstream 503
+on both attempts) — and were RE-DISABLED the same day, per the
+standing rule that a route which cannot serve does not stay
+enabled. Enabled count 87 -> 85; both ids return to
+NOV15_DISABLED_IDS below, and each registry note carries the
+dated evidence. The other fifteen serves landed on-pin at 200
+(ling-3.2-flash-free on a spaced retry, after a shared-pool 429).
 """
 
 from __future__ import annotations
@@ -148,8 +172,14 @@ PUBLIC_FREE_IDS = ("zai/glm-4.7-flash", "google/gemini-3.5-flash-lite",
                    # consolidated free-model update 2026-11-15 — all
                    # seven added DISABLED (staged for the owner's
                    # enable ruling); they are public-lane entries, so
-                   # they belong in this list, and the shadow tests
-                   # below expect the "disabled" skip for them.
+                   # they belong in this list. ENABLED 2026-11-17 by
+                   # the owner's ready-groups ruling — the shadow
+                   # tests below now expect the lane/quality
+                   # treatment for them, not the "disabled" skip
+                   # (two UnoRouter routes were re-disabled the
+                   # same day on failed pin-smokes; the shadow
+                   # tests branch on each entry's live enabled flag,
+                   # so they read correctly either way).
                    "openrouter/ling-3.2-flash-free",
                    "openrouter/particle-1-free",
                    "unorouter/claude-haiku-4-5-20251001",
@@ -173,17 +203,17 @@ FREE20_DISABLED_IDS = ("google/gemma-4-31b-it", "cloudflare/glm-5.3-flash",
 EXPAND2_DISABLED_IDS = ("openrouter/kimi-k2.6",
                         "google/gemma-4-26b-it")
 # The 2026-11-15 consolidated free-model update: seven routes added
-# DISABLED (staged for the owner's enable ruling — enabling any of
-# them is a separate decision, not a test edit), plus
+# DISABLED (staged for the owner's enable ruling), plus
 # openrouter/lfm-2.5-2.6b-free, disabled the same day because its
 # upstream model id was deleted (registry note carries the evidence).
+# 2026-11-17 (owner's ready-groups ruling): the seven staged adds
+# were ENABLED — but two UnoRouter routes failed their live
+# pin-smokes twice the same day (qwen3.5-397b: upstream 403 then
+# 429/empty completion; claude-haiku-4-5: upstream 503 twice) and
+# were RE-DISABLED on that evidence, so they rejoin this cohort
+# alongside the lfm disable.
 NOV15_DISABLED_IDS = ("openrouter/lfm-2.5-2.6b-free",
-                      "openrouter/ling-3.2-flash-free",
-                      "openrouter/particle-1-free",
                       "unorouter/claude-haiku-4-5-20251001",
-                      "unorouter/codestral-latest",
-                      "unorouter/gemini-3.5-flash-lite",
-                      "unorouter/mistral-small-3.2",
                       "unorouter/qwen3.5-397b-a17b")
 # v0.9.1 (F-17, owner's ruling 2026-11-15): both Aion entries
 # disabled — the account-wide 20,000 tokens/day free allowance is
@@ -192,15 +222,13 @@ NOV15_DISABLED_IDS = ("openrouter/lfm-2.5-2.6b-free",
 # dated reason and its tooling-battery score is preserved.
 V091_DISABLED_IDS = ("aion/aion-3.5-mini", "aion/aion-2.0")
 # The 2026-11-17 nRouter build-in: ten routes added DISABLED
-# (probe-proven, paid lane, staged for the owner's enable ruling —
-# enabling any of them is a separate decision, not a test edit).
-NROUTER_DISABLED_IDS = ("nrouter/gpt-5-nano", "nrouter/gpt-5-mini",
-                        "nrouter/gpt-4.1-mini", "nrouter/gpt-5.4-mini",
-                        "nrouter/mistral-small-2503", "nrouter/qwen3-32b",
-                        "nrouter/qwen3-coder-480b-a35b",
-                        "nrouter/deepseek-v4.1-flash",
-                        "nrouter/amazon-nova-lite-v1",
-                        "nrouter/llama-3.3-70b-instruct")
+# (probe-proven, paid lane, staged for the owner's enable ruling).
+# 2026-11-17 (owner's ready-groups ruling, same day): all ten were
+# ENABLED — the cohort is empty now; the constant stays so the
+# disabled-set union below keeps its shape. The ten remain in
+# SENSITIVE_EXCLUDED_IDS: enabling does not clear the aggregator
+# for sensitive spillway.
+NROUTER_DISABLED_IDS = ()
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -293,7 +321,12 @@ def test_registry_counts_and_unique_ids():
     # and disabled lfm-2.5-2.6b-free (upstream deleted): 88 - 16 = 72.
     # v0.9.1 (F-17) disabled both Aion entries: 88 - 18 = 70.
     # 2026-11-17 added 10 nRouter routes, all disabled: 98 - 28 = 70.
-    assert sum(1 for e in REG.entries if e.enabled) == 70
+    # 2026-11-17 ready-groups enable (owner's ruling): the 10
+    # nRouter + 5 UnoRouter + ling/particle routes enabled:
+    # 98 - 11 = 87. Same-day correction: qwen3.5-397b and
+    # claude-haiku-4-5 re-disabled on failed pin-smokes:
+    # 98 - 13 = 85.
+    assert sum(1 for e in REG.entries if e.enabled) == 85
 
 
 def test_registry_get_by_id_is_exact_for_every_entry():
@@ -851,8 +884,9 @@ def test_shadow_sensitive_never_selects_public_or_excluded(tmp_path):
     skipped = {(s["model"], s["reason"]) for s in d["skipped"]}
     for entry_id in PUBLIC_FREE_IDS:
         # selection checks `enabled` before the lane rule, so a
-        # disabled public entry (lfm-2.5 + the 2026-11-15 staged adds)
-        # reports "disabled"; every enabled public entry must report
+        # disabled public entry (lfm-2.5 — the 2026-11-15 staged
+        # adds were enabled 2026-11-17) reports "disabled"; every
+        # enabled public entry must report
         # the sensitive lane exclusion itself
         reason = "sensitive_public_lane" \
             if BY_ID[entry_id].enabled else "disabled"
@@ -888,8 +922,9 @@ def test_shadow_public_client_can_select_public_only_free(tmp_path):
         if entry_id in candidate_ids:
             continue
         if not BY_ID[entry_id].enabled:
-            # disabled public entries (lfm-2.5 + the 2026-11-15
-            # staged adds) skip as "disabled", never as candidates
+            # disabled public entries (lfm-2.5 — the 2026-11-15
+            # staged adds were enabled 2026-11-17) skip as
+            # "disabled", never as candidates
             assert (entry_id, "disabled") in skipped, entry_id
             continue
         assert (entry_id, "quality_below_required") in skipped, entry_id

@@ -8,8 +8,14 @@ The governor instead:
     levels 1-3 drop one required quality level, level 4 is held to the
     cheapest quality-4 model, and premium requires an explicit request
     — plus one alert that day;
-  * alerts on the level mix (>40% of a client's daily requests at
-    level 4+5 usually means the classifier is over-assigning);
+  * alerts on the level mix — v0.9.1 (F-14): only with a >=200-request
+    daily sample, and only when today's level 4+5 share exceeds the
+    trailing-7-day mean by >10 points (the old static 40% paged on
+    ordinary mornings; Hermes' baseline share is 62-92%);
+  * computes the monthly spend alerts on the ACTUALS window (v0.9.1,
+    F-13): the v0.8.3 true-cost cutover clips November 2026's
+    pre-cutover ceiling out of the figures, and any alert that still
+    fires annotates the excluded ceiling share;
   * fires the hourly runaway alarm — first 14 days on fixed thresholds
     (paid spend > $0.50/hr, or a client > 2x its daily target), after
     that when an hour exceeds 5x the trailing 7-day hourly average
@@ -42,6 +48,14 @@ from quota import QuotaStore
 DAY_S = 86_400.0
 HOUR_S = 3_600.0
 
+# v0.8.3 true-cost cutover: 2026-11-13 21:33:54 MST. Every ledger
+# dollar before this epoch is a cache-blind CEILING (F-12), not spend.
+# Month-to-date SPEND alerts therefore compute on the actuals window —
+# the month clipped at the cutover — so November 2026 can never page
+# phantom dollars (v0.9.1, F-13). From 2026-12-01 the clip is inert:
+# the month start is past the cutover by construction.
+TRUECOST_CUTOVER_EPOCH = 1794630834.0
+
 
 def _day_start(ts: float) -> float:
     return time.mktime(time.strptime(time.strftime("%Y-%m-%d", time.localtime(ts)),
@@ -51,6 +65,12 @@ def _day_start(ts: float) -> float:
 def _month_start(ts: float) -> float:
     lt = time.localtime(ts)
     return time.mktime((lt.tm_year, lt.tm_mon, 1, 0, 0, 0, 0, 0, -1))
+
+
+def _actuals_month_start(now: float) -> float:
+    """Start of the actuals-basis MTD window (F-13): the month start,
+    clipped at the true-cost cutover while the month straddles it."""
+    return max(_month_start(now), TRUECOST_CUTOVER_EPOCH)
 
 
 def _days_in_month(ts: float) -> int:
@@ -91,12 +111,20 @@ class Governor:
                  emergency: Optional[EmergencyConfig] = None,
                  first_days_fixed: int = 14,
                  runaway_fixed_hourly_usd: float = 0.50,
-                 level_mix_threshold: float = 0.40):
+                 level_mix_min_sample: int = 200,
+                 level_mix_margin: float = 0.10):
         self.store = store
         self.emergency = emergency or EmergencyConfig()
         self.first_days_fixed = first_days_fixed
         self.runaway_fixed_hourly_usd = runaway_fixed_hourly_usd
-        self.level_mix_threshold = level_mix_threshold
+        # F-14 (v0.9.1): level_mix is baseline-relative — a minimum
+        # sample of 200 requests today, and today's L4-5 share must
+        # exceed the trailing-7-day mean of daily shares by more than
+        # `level_mix_margin` (10 points). The pre-v0.9.1 static 40%
+        # threshold paged on ordinary mornings: Hermes' established
+        # L4-5 share is 62-92%.
+        self.level_mix_min_sample = level_mix_min_sample
+        self.level_mix_margin = level_mix_margin
 
     # ------------------------------------------------------------------
     # per-request steering
@@ -186,21 +214,41 @@ class Governor:
     # ------------------------------------------------------------------
     def evaluate_alerts(self, clients: dict[str, Any],
                         provider_alerts: dict[str, float],
-                        now: Optional[float] = None) -> None:
+                        now: Optional[float] = None,
+                        sensitive_cleared_entries: Optional[int] = None) -> None:
         now = now or time.time()
         day0 = _day_start(now)
+        month0 = _month_start(now)
+        actuals0 = _actuals_month_start(now)
+        # F-13: while the month straddles the cutover, the pre-cutover
+        # slice is a ceiling, not spend — it is excluded from the
+        # alert figures and, if an alert still fires, annotated.
+        ceiling_note = actuals0 > month0
 
         # --- per-client: level mix, premium alerts ----------------------
         for client_id, policy in clients.items():
             total, hi = self.store.level_mix(client_id, day0, now + 1)
-            if total >= 20 and hi / total > self.level_mix_threshold:
-                self.store.add_alert(
-                    "level_mix", client_id, f"level_mix:{client_id}",
-                    f"Client {client_id}: {hi}/{total} requests today are "
-                    f"level 4-5 ({hi / total:.0%} > {self.level_mix_threshold:.0%}); "
-                    "the classifier may be over-assigning hard levels.",
-                    now,
-                )
+            if total >= self.level_mix_min_sample:
+                shares = []
+                for back in range(1, 8):
+                    d0 = day0 - back * DAY_S
+                    t, h = self.store.level_mix(client_id, d0, d0 + DAY_S)
+                    if t > 0:
+                        shares.append(h / t)
+                if shares:
+                    baseline = sum(shares) / len(shares)
+                    share = hi / total
+                    if share > baseline + self.level_mix_margin:
+                        self.store.add_alert(
+                            "level_mix", client_id, f"level_mix:{client_id}",
+                            f"Client {client_id}: {hi}/{total} requests today "
+                            f"are level 4-5 ({share:.0%}), above the "
+                            f"trailing-7-day mean of {baseline:.0%} by more "
+                            f"than {self.level_mix_margin:.0%} (F-14 "
+                            "baseline-relative threshold); the classifier "
+                            "may be over-assigning hard levels.",
+                            now,
+                        )
             if policy.premium_daily_count_alert is not None or \
                     policy.premium_monthly_alert_usd is not None:
                 day_n, _ = self.store.premium_stats(client_id, day0, now + 1)
@@ -215,30 +263,94 @@ class Governor:
                     )
                 if policy.premium_monthly_alert_usd is not None:
                     _, m_cost = self.store.premium_stats(
-                        client_id, _month_start(now), now + 1)
+                        client_id, actuals0, now + 1)
                     if m_cost > policy.premium_monthly_alert_usd:
+                        note = ""
+                        if ceiling_note:
+                            _, ceil = self.store.premium_stats(
+                                client_id, month0, actuals0)
+                            note = (f" Actuals basis (F-13): excludes the "
+                                    f"${ceil:.2f} pre-cutover ledger "
+                                    f"ceiling, which was cache-blind and "
+                                    f"is not spend.")
                         self.store.add_alert(
                             "premium_monthly_spend", client_id,
                             f"premium_month:{client_id}",
                             f"Client {client_id}: premium spend this month "
                             f"${m_cost:.2f} > ${policy.premium_monthly_alert_usd:.2f} "
-                            "alert level.",
+                            f"alert level.{note}",
                             now,
                         )
 
-        # --- provider monthly spend alerts ------------------------------
+        # --- provider monthly spend alerts (actuals basis, F-13) -------
         for provider, level_usd in provider_alerts.items():
-            spent = self.store.provider_spend(provider, _month_start(now), now + 1)
+            spent = self.store.provider_spend(provider, actuals0, now + 1)
             if spent > level_usd:
+                note = ""
+                if ceiling_note:
+                    ceil = self.store.provider_spend(
+                        provider, month0, actuals0)
+                    note = (f" Actuals basis (F-13): excludes the "
+                            f"${ceil:.2f} pre-cutover ledger ceiling, "
+                            f"which was cache-blind and is not spend.")
                 self.store.add_alert(
                     "provider_spend", provider, f"provider_spend:{provider}",
                     f"Provider {provider}: month-to-date spend ${spent:.2f} "
-                    f"> ${level_usd:.2f} alert level (alert only, no cap).",
+                    f"> ${level_usd:.2f} alert level (alert only, no cap)."
+                    f"{note}",
                     now,
                 )
 
+        self._sensitive_posture_digest(clients, sensitive_cleared_entries, now)
         self._runaway_alarm(clients, now)
         self._slow_leak_alerts(clients, provider_alerts, now)
+
+    # ------------------------------------------------------------------
+    def _sensitive_posture_digest(self, clients: dict[str, Any],
+                                  sensitive_cleared_entries: Optional[int],
+                                  now: float) -> None:
+        """F-15 (v0.9.1): the pre-v0.9.1 sensitive_no_cleared_provider
+        alert fired on a permanently-true condition (no provider is
+        owner-cleared, so EVERY day's first sensitive request paged).
+        That condition is now a daily posture digest — an alert record
+        the chain delivers alongside the all-clear — while the
+        sensitive_no_cleared_provider kind itself fires only on real
+        outcomes (paid/premium sensitive serves, zero-candidate
+        sensitive requests; raised by the gateway at serve time)."""
+        serves = self.store.sensitive_serves(now - DAY_S, now + 1)
+        if serves:
+            parts = "; ".join(
+                f"{s['model']} ×{s['requests']} ({s['lane']}, "
+                f"${s['cost_usd']:.4f})" for s in serves[:8])
+            total = sum(s["requests"] for s in serves)
+            summary = f"{total} sensitive serves in the trailing 24h: {parts}."
+        else:
+            summary = "No sensitive serves in the trailing 24h."
+        cleared_clients = {cid: list(p.sensitive_cleared_providers)
+                           for cid, p in clients.items()
+                           if getattr(p, "sensitive_cleared_providers", None)}
+        if cleared_clients:
+            cleared = "; ".join(
+                f"{cid}: {', '.join(v)}" for cid, v in cleared_clients.items())
+            cleared_txt = f"Owner-cleared providers — {cleared}"
+            if sensitive_cleared_entries is not None:
+                cleared_txt += f"; {sensitive_cleared_entries} cleared entries."
+        else:
+            cleared_txt = (
+                "Cleared set: NO provider is owner-cleared for any client "
+                "(sensitive_cleared_providers empty fleet-wide"
+                + (f"; {sensitive_cleared_entries} registry entries carry "
+                   "sensitive_cleared" if sensitive_cleared_entries is not None
+                   else "")
+                + ") — sensitive turns serve on the wall's private-free "
+                "side by lane default (v0.5.5 ruling), and a paid/premium "
+                "sensitive serve or a zero-candidate sensitive request "
+                "raises sensitive_no_cleared_provider at serve time.")
+        self.store.add_alert(
+            "sensitive_posture_digest", "all", "sensitive_posture_digest",
+            f"Sensitive posture digest (daily, F-15): {summary} {cleared_txt}",
+            now,
+        )
 
     # ------------------------------------------------------------------
     def _runaway_alarm(self, clients: dict[str, Any], now: float) -> None:
@@ -286,10 +398,16 @@ class Governor:
     def _slow_leak_alerts(self, clients: dict[str, Any],
                           provider_alerts: dict[str, float], now: float) -> None:
         # Projected month: month-to-date extrapolated linearly vs the sum
-        # of provider monthly alert levels.
-        month0 = _month_start(now)
+        # of provider monthly alert levels. MTD is taken on the F-13
+        # actuals window (same blended-ceiling root as the spend
+        # alerts): in November 2026 the pre-cutover slice is a ceiling
+        # and must not project phantom spend either.
+        month0 = _actuals_month_start(now)
         lt = time.localtime(now)
         elapsed_days = max(lt.tm_mday - 1 + (now - day0_frac(now)) / DAY_S, 1 / 24)
+        if month0 > _month_start(now):
+            # Elapsed actuals days since the cutover, not since the 1st.
+            elapsed_days = max((now - month0) / DAY_S, 1 / 24)
         mtd = self.store.paid_spend(month0, now + 1)
         projected = mtd / elapsed_days * _days_in_month(now)
         ceiling = sum(provider_alerts.values())

@@ -27,13 +27,15 @@
         "code": 2,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-19",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-09"
+      "price_verified_at": "2026-11-09",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -47,7 +49,7 @@
         "tpm": 250000
       },
       "model": "openai/gpt-oss-120b",
-      "notes": "Spec: quality 4, small prompts only (8k tokens/min Groq free limit). 2026-11-09: owner moved Groq to the Developer (paid) plan \u2014 limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real.",
+      "notes": "Spec: quality 4, small prompts only (8k tokens/min Groq free limit). 2026-11-09: owner moved Groq to the Developer (paid) plan \u2014 limits/prices are now the Developer-plan figures from Groq's own docs models page (checked 2026-11-09). Lane stays private-free (owner decision 2026-11-09): the lane marks Groq's no-training data posture; prices are carried so spend accounting is real. 2026-11-13 (v0.9.0 battery): tooling 5 (T3 parallel calls 0.5 \u2014 one of two calls emitted) \u2014 TENSION with the 2026-11-13 production incident (1-token degenerate completion breaking tool JSON in an OpenClaw cron run): fresh synthetic turns do not reproduce the degeneracy seen mid-agent-run. Incident stands on production evidence.",
       "output_usd_per_million": 0.6,
       "probe": {
         "cadence": "weekly",
@@ -61,13 +63,15 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 4
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-19",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-09"
+      "price_verified_at": "2026-11-09",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -95,12 +99,14 @@
         "code": 3,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
-      "verified_until": null,
+      "verified_until": "2026-12-19",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-09"
+      "price_verified_at": "2026-11-09",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -122,7 +128,7 @@
         "rpm": 20
       },
       "model": "cohere/north-mini-code:free",
-      "notes": "Spec: private-free only because data_collection=deny is enforced via extra_body on every call. About 1,000 requests/day shared across clients (rpd). Code quality seeded 4 (it is a code model); other classes at the spec's flat 3. 2026-11-04: reasoning disabled via extra_body - direct probes showed this endpoint's hidden reasoning expands to consume ANY budget (512-8192) on most code prompts, returning finish=length with zero content; OpenRouter ignores reasoning.max_tokens and effort caps for it but honours reasoning.enabled=false, after which it answers directly. QUALITY CORRECTION 2026-11-12 (expansion phase 2, owner's order): chat 3->2 and long-context 3->2. Evidence: the Launch AI Works Article Engine census (verified 2026-11-12) reconciled 16 malformed-JSON article-draft failures 1:1 to this model while a control model (nemotron) went 11/11 clean on the same node, and 2026-11-04 records show empty-length failures \u2014 it is demonstrably bad at structured long-form generation. Drafting-class work classifies as chat at L2+ (required quality floor 3) or as long-context for very long inputs, so the lowered scores remove it from auto-selection for drafting while L1 simple chat (floor 2) still reaches it and code (unchanged at 4 \u2014 its genuine strength) is untouched.",
+      "notes": "Spec: private-free only because data_collection=deny is enforced via extra_body on every call. About 1,000 requests/day shared across clients (rpd). Code quality seeded 4 (it is a code model); other classes at the spec's flat 3. 2026-11-04: reasoning disabled via extra_body - direct probes showed this endpoint's hidden reasoning expands to consume ANY budget (512-8192) on most code prompts, returning finish=length with zero content; OpenRouter ignores reasoning.max_tokens and effort caps for it but honours reasoning.enabled=false, after which it answers directly. QUALITY CORRECTION 2026-11-12 (expansion phase 2, owner's order): chat 3->2 and long-context 3->2. Evidence: the Launch AI Works Article Engine census (verified 2026-11-12) reconciled 16 malformed-JSON article-draft failures 1:1 to this model while a control model (nemotron) went 11/11 clean on the same node, and 2026-11-04 records show empty-length failures \u2014 it is demonstrably bad at structured long-form generation. Drafting-class work classifies as chat at L2+ (required quality floor 3) or as long-context for very long inputs, so the lowered scores remove it from auto-selection for drafting while L1 simple chat (floor 2) still reaches it and code (unchanged at 4 \u2014 its genuine strength) is untouched. SENSITIVE-WALL CORRECTION 2026-11-15 (v0.9.1, F-16, owner's ruling): spillway_sensitive_excluded set. This entry sat inside the sensitive wall via its private-free lane while 7 sibling OpenRouter entries were excluded; it served sensitive turns on 2026-11-15 (alert diagnosis A5). It is now dropped for sensitive turns in every pass, pins included. Non-sensitive routing is unchanged (the quality correction above stands); the lane stays private-free.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -136,11 +142,14 @@
         "code": 4,
         "infra": 3,
         "long-context": 2,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19",
+      "spillway_sensitive_excluded": true
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -162,7 +171,7 @@
         "rpm": 20
       },
       "model": "dots-studio/dots-3-note-preview:free",
-      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md.",
+      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 shared OpenRouter free pool 429 congested on every pinned probe. The protocol S7 degenerate-fresh-call-args evidence stands alone; the entry remains enabled (route sound; the F-09 budget fault was the gateway's). Priority entry for the weekly re-probe. RETIREMENT DATE (flagged 2026-11-15, batch-1 source mining via ClawLabsAI's provider data): OpenRouter publishes a 2026-12-31 retirement date for this preview \u2014 expect the route to die on that date; the weekly re-probe cadence applies. SENSITIVE-WALL CORRECTION 2026-11-15 (v0.9.1, F-16, owner's ruling): spillway_sensitive_excluded set. This entry sat inside the sensitive wall via its private-free lane while 7 sibling OpenRouter entries were excluded; on 2026-11-15 it served a 348,543-token sensitive context (alert diagnosis A5). It is now dropped for sensitive turns in every pass, pins included \u2014 the same posture as its OpenRouter siblings. Non-sensitive routing is unchanged; the lane stays private-free.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -176,10 +185,13 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19",
+      "spillway_sensitive_excluded": true
     },
     {
       "cached_input_usd_per_million": 0.018,
@@ -203,16 +215,18 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "spend_alert_usd": 10.0,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
-      "cached_input_usd_per_million": null,
+      "cached_input_usd_per_million": 0.014,
       "context_tokens": 131072,
       "id": "ollama/gpt-oss-120b",
       "input_usd_per_million": 0.15,
@@ -222,7 +236,7 @@
         "tpd": 10000000
       },
       "model": "gpt-oss:120b",
-      "notes": "Spec: $0.15/$0.60 per 1M, quality 4, spend alert $5/month (no cap). Daily token limit matches the Ollama Cloud plan behaviour observed 2026-10-31 (400k/day exhausted by 17 Hermes turns); rpd/rpm to be set from the plan page at deploy time. 2026-11-09 CORRECTION: the 400k/day figure was a router-side conservative seed, NOT an Ollama limit \u2014 the owner's Ollama console shows 50 requests / $0.07 total for Nov 1-9 with gpt-oss:120b under free usage. The seed caused the 05:11 self-throttle during the 2026-11-09 DeepInfra outage. Raised to 10M/day (effectively unseeded); a real Ollama ceiling will now surface as upstream errors + lane_dead alerts instead of a silent self-skip.",
+      "notes": "Spec: $0.15/$0.60 per 1M, quality 4, spend alert $5/month (no cap). Daily token limit matches the Ollama Cloud plan behaviour observed 2026-10-31 (400k/day exhausted by 17 Hermes turns); rpd/rpm to be set from the plan page at deploy time. 2026-11-09 CORRECTION: the 400k/day figure was a router-side conservative seed, NOT an Ollama limit \u2014 the owner's Ollama console shows 50 requests / $0.07 total for Nov 1-9 with gpt-oss:120b under free usage. The seed caused the 05:11 self-throttle during the 2026-11-09 DeepInfra outage. Raised to 10M/day (effectively unseeded); a real Ollama ceiling will now surface as upstream errors + lane_dead alerts instead of a silent self-skip. PRICE VERIFIED 2026-11-13 (v0.8.3): Ollama's own pricing table lists gpt-oss:120b at $0.15 in / $0.014 cached / $0.60 out \u2014 the groq-parity seed's in/out were exact; the cached rate is now recorded.",
       "output_usd_per_million": 0.6,
       "probe": {
         "cadence": "weekly",
@@ -241,8 +255,9 @@
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "verified_until": null,
-      "price_source": "spec v0.5.3 seed at groq parity; ollama console showed free-tier usage only as of 2026-11-09 \u2014 unverified against ollama's price list",
-      "price_confidence": "seeded"
+      "price_source": "ollama:ollama.com/pricing model pricing table (read 2026-11-13) \u2014 gpt-oss:120b $0.15 in / $0.014 cached / $0.60 out per 1M",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.26,
@@ -270,18 +285,20 @@
         "code": 5,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "siliconflow:/models listing (provider's own published list)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
-      "cached_input_usd_per_million": null,
+      "cached_input_usd_per_million": 0.5,
       "completion_tokens_param": true,
       "context_tokens": 262144,
       "id": "premium/gpt-5.5",
@@ -289,7 +306,7 @@
       "lane": "premium",
       "latency_p50_ms": 2000,
       "model": "gpt-5.5",
-      "notes": "Premium lane placeholder carried from v0.2.1 production (gpt-5.5 was 82 of the 104 premium requests in the live audit; claude-sonnet-4-6 took the rest and can be added as a second premium entry before Phase 3). PRICING IS A PLACEHOLDER \u2014 confirm against the provider price list before Phase 3; the premium monthly alert ($20 proposed) lives on the OpenClaw client policy. Only level 5 or explicit premium, only for clients with premium permission.",
+      "notes": "Premium lane placeholder carried from v0.2.1 production (gpt-5.5 was 82 of the 104 premium requests in the live audit; claude-sonnet-4-6 took the rest and can be added as a second premium entry before Phase 3). PRICE VERIFIED 2026-11-13 (v0.8.3): OpenAI's own GPT-5.5 model page lists $5.00 in / $0.50 cached / $30.00 out per 1M \u2014 the carried placeholder figures were exact, and the cached rate is now recorded. NOT modelled: OpenAI prices >272K-input sessions at 2x input / 1.5x output for the full session, so very-long premium turns can still understate; the premium monthly alert ($20 proposed) lives on the OpenClaw client policy. Only level 5 or explicit premium, only for clients with premium permission.",
       "output_usd_per_million": 30.0,
       "probe": {
         "cadence": "weekly",
@@ -303,14 +320,17 @@
         "code": 5,
         "infra": 5,
         "long-context": 5,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 20.0,
       "supports_vision": true,
-      "verified_until": null,
-      "price_source": "PLACEHOLDER carried from v0.2.1 (per entry notes) \u2014 unverified against OpenAI's price list",
-      "price_confidence": "seeded"
+      "verified_until": "2026-12-13",
+      "price_source": "openai:developers.openai.com/api/docs/models/gpt-5.5 (read 2026-11-13) \u2014 Input $5.00 / Cached input $0.50 / Output $30.00 per 1M",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.deepseek.com",
@@ -337,13 +357,16 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
-      "price_source": "deepseek published peak/off-peak pricing as recorded at add; no dated verification in the record",
-      "price_confidence": "seeded",
-      "spend_alert_usd": 10.0
+      "verified_until": "2026-12-13",
+      "price_source": "deepseek:api-docs.deepseek.com/quick_start/pricing (read 2026-11-13) \u2014 peak accounting: $1.32 cache-miss / $0.044 cache-hit / $3.96 out per 1M; off-peak exactly half",
+      "price_confidence": "verified",
+      "spend_alert_usd": 10.0,
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -370,13 +393,16 @@
         "code": 5,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
-      "price_source": "parity with the verified siliconflow/glm-5.3 list price; z.ai direct price not separately recorded",
-      "price_confidence": "seeded",
-      "spend_alert_usd": 10.0
+      "verified_until": "2026-12-13",
+      "price_source": "z.ai:docs.z.ai/guides/overview/pricing (read 2026-11-13) \u2014 GLM-5.3 $1.40 in / $0.26 cached / $4.40 out per 1M",
+      "price_confidence": "verified",
+      "spend_alert_usd": 10.0,
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.135,
@@ -410,9 +436,10 @@
       "reasoning": true,
       "spillway_sensitive_excluded": true,
       "verified_until": null,
-      "price_source": "siliconflow model page suggests $1.50/$3.135 vs probe read $1.00/$1.50 \u2014 unsettled; entry ships disabled pending firsthand price confirmation",
-      "price_confidence": "seeded",
-      "spend_alert_usd": 10.0
+      "price_source": "siliconflow:/models listing (provider's own published list, re-read 2026-11-13) \u2014 DeepSeek-V4-Pro $1.50162 in / $0.135 cached / $3.135 out per 1M",
+      "price_confidence": "verified",
+      "spend_alert_usd": 10.0,
+      "price_verified_at": "2026-11-13"
     },
     {
       "base_url": "https://api.meta.ai/v1",
@@ -443,14 +470,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "meta:dev.meta.ai pricing page",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "spend_alert_usd": 10.0
+      "spend_alert_usd": 10.0,
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://router.huggingface.co/v1",
@@ -477,14 +506,16 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "huggingface:router pass-through at the deepinfra rate (deepinfra:/v1/openai/models); billing observed via probe estimated_cost 2026-11-09, rate re-confirmed 2026-11-12",
       "price_confidence": "observed",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cerebras.ai/v1",
@@ -518,14 +549,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "cerebras published developer-card rate as carried at add (2026-11-12); entry notes record no first-hand source read for this entry",
-      "price_confidence": "seeded"
+      "price_confidence": "seeded",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -552,14 +585,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "huggingface catalog listing of novita's rate (read 2026-11-09) \u2014 NOT verified against novita's own price list",
-      "price_confidence": "seeded"
+      "price_confidence": "seeded",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -586,10 +621,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -619,14 +656,16 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "mistral:docs pricing table",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -656,14 +695,16 @@
         "code": 5,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "mistral:docs pricing table",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -693,10 +734,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 5,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -756,7 +799,7 @@
         "reasoning": 3
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-19"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -809,7 +852,7 @@
       "latency_p50_ms": 4000,
       "limits": {},
       "model": "glm-4.5-flash",
-      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai official pricing page lists GLM-4.5-Flash as Free ($0 in/out/cached). Deploy probe 2026-11-12: plain chat 200 AND a well-formed tool call (finish=tool_calls) \u2014 tool-calling PROVEN, bettering the audit's caution from an older record. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Free-Flash throttling scope (per-model vs account) is UNVERIFIED \u2014 treat as soft capacity. $0 tier, weakest data posture \u2014 public-only-free, never sensitive.",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai official pricing page lists GLM-4.5-Flash as Free ($0 in/out/cached). Deploy probe 2026-11-12: plain chat 200 AND a well-formed tool call (finish=tool_calls) \u2014 tool-calling PROVEN, bettering the audit's caution from an older record. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Free-Flash throttling scope (per-model vs account) is UNVERIFIED \u2014 treat as soft capacity. $0 tier, weakest data posture \u2014 public-only-free, never sensitive. 2026-11-13 (v0.9.0 battery): tooling 5 on the synthetic set \u2014 TENSION with the 2026-11-13 production incident (semantic bad call + identical-retry fixation in a long BrowserOS session): the battery's fresh single-turn probes, incl. error recovery, did not reproduce the fixation. Incident stands on production evidence; the score measures the synthetic set only.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -823,10 +866,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -839,7 +884,7 @@
       "latency_p50_ms": 4000,
       "limits": {},
       "model": "glm-4.6v-flash",
-      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai's free VISION Flash (official pricing page: Free). Deploy probe 2026-11-12: plain chat 200 (text path; vision input not probed). First vision-capable entry in the free lane. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Throttle scope unverified, as for its siblings. Public-only-free \u2014 $0 tier posture, never sensitive.",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). Z.ai's free VISION Flash (official pricing page: Free). Deploy probe 2026-11-12: plain chat 200 (text path; vision input not probed). First vision-capable entry in the free lane. Context seeded from the glm-4.7-flash sibling (200K; UNVERIFIED for this model). Throttle scope unverified, as for its siblings. Public-only-free \u2014 $0 tier posture, never sensitive. 2026-11-13 (v0.9.0 battery): tooling 2 on THIN evidence \u2014 exactly 3 components (T3 one-call-only, T5 failed gateway validation, envelope 0.5); its own 429s starved the other tasks. Treat as provisional; priority re-probe entry.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -853,10 +898,12 @@
         "code": 2,
         "infra": 2,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -883,9 +930,11 @@
         "code": 3,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -912,9 +961,11 @@
         "code": 3,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -971,10 +1022,12 @@
         "code": 2,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -1031,10 +1084,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 5
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1062,11 +1117,13 @@
         "code": 2,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1126,10 +1183,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1157,10 +1216,12 @@
         "code": 2,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 5
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1188,10 +1249,12 @@
         "code": 1,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 1
+        "reasoning": 1,
+        "tooling": 5
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1205,7 +1268,7 @@
         "rpm": 20
       },
       "model": "liquid/lfm-2.5-2.6b:free",
-      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Tiny 2.6B \u2014 grunt work only, quality seeded low. Public-only-free.",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probe 2026-11-12: plain chat 200. Tiny 2.6B \u2014 grunt work only, quality seeded low. Public-only-free. DISABLED 2026-11-15 (consolidated free-model update, Jordan's ruling): the upstream model liquid/lfm-2.5-2.6b:free was deleted from the OpenRouter catalog (verified in the 2026-11-15 OpenRouter assessment) \u2014 the route is dead and selection would burn attempts on it. Entry retained disabled, never deleted, in case the model returns.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -1222,7 +1285,8 @@
         "reasoning": 1
       },
       "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "quota_pool_id": "openrouter-free",
+      "enabled": false
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1236,7 +1300,7 @@
         "rpm": 20
       },
       "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
-      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probes 2026-11-12: plain chat 200, but the data_collection=deny probe returned 404 'No endpoints found matching your data policy' \u2014 no deny-honouring endpoint exists for this model, so it is PUBLIC-ONLY-free, never private (the \u00a75.2 conditional resolved negative). 550B-class, the free lane's strongest weights when the shared pool has room. QUALITY RAISE 2026-11-12 (expansion phase 2, owner's routing philosophy \u2014 the best free model for a class carries that class's top free score): chat 4->5, reasoning 4->5. As the free bench's strongest model (550B, 1M ctx) it now leads chat and reasoning among $0 routes; long-context was already 5.",
+      "notes": "Added 2026-11-12, free-catalog expansion (Jordan's order). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Deploy probes 2026-11-12: plain chat 200, but the data_collection=deny probe returned 404 'No endpoints found matching your data policy' \u2014 no deny-honouring endpoint exists for this model, so it is PUBLIC-ONLY-free, never private (the \u00a75.2 conditional resolved negative). 550B-class, the free lane's strongest weights when the shared pool has room. QUALITY RAISE 2026-11-12 (expansion phase 2, owner's routing philosophy \u2014 the best free model for a class carries that class's top free score): chat 4->5, reasoning 4->5. As the free bench's strongest model (550B, 1M ctx) it now leads chat and reasoning among $0 routes; long-context was already 5. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 the shared OpenRouter free pool answered 429 congested to every pinned probe. The 2026-11-12 production incident (invalid-JSON tool envelope x2) is therefore neither corroborated nor contradicted by the battery; it stands alone. Priority entry for the weekly re-probe.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -1250,11 +1314,13 @@
         "code": 4,
         "infra": 4,
         "long-context": 5,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1348,10 +1414,12 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1384,11 +1452,13 @@
         "code": 3,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
       "reasoning": true,
-      "verified_until": null,
-      "quota_pool_id": "openrouter-free"
+      "verified_until": "2026-12-19",
+      "quota_pool_id": "openrouter-free",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.018,
@@ -1413,16 +1483,18 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.03,
@@ -1447,16 +1519,18 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models endpoint pricing \u2014 registered figure is the billed ceiling, confirmed by two probe billings 2026-11-12",
       "price_confidence": "observed",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.016,
@@ -1481,16 +1555,18 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -1519,11 +1595,13 @@
         "code": 3,
         "infra": 3,
         "long-context": 5,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
       "supports_vision": true,
-      "verified_until": null
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.025,
@@ -1548,17 +1626,19 @@
         "code": 3,
         "infra": 3,
         "long-context": 5,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
       "supports_vision": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.17,
@@ -1583,17 +1663,19 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 4
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
       "supports_vision": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.01,
@@ -1618,16 +1700,18 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "openrouter:/api/v1/models",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "quota_pool_id": "openrouter-paid"
+      "quota_pool_id": "openrouter-paid",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.15,
@@ -1690,21 +1774,23 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "siliconflow:/models listing (provider's own published list)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
-      "cached_input_usd_per_million": 0.14,
+      "cached_input_usd_per_million": 0.135,
       "context_tokens": 163840,
       "id": "siliconflow/deepseek-v3.2",
-      "input_usd_per_million": 0.259,
+      "input_usd_per_million": 0.27,
       "lane": "paid",
       "latency_p50_ms": 3000,
       "limits": {
@@ -1712,8 +1798,8 @@
         "tpm": 40000
       },
       "model": "deepseek-ai/DeepSeek-V3.2",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cleanest SiliconFlow probe of the batch (200 in 6.3s, zero reasoning tokens). Price: $0.259 in / $0.14 cached / $0.80 out from OpenRouter's live SiliconFlow endpoint listing \u2014 SF's own page text for this model could not be surfaced in this pass, so treat the seed as endpoint-sourced and re-confirm on the first SF invoice (some aggregators quote $0.27/$0.42, which matches neither). NON-SENSITIVE ONLY (spillway_sensitive_excluded): SF's data posture graded UNCLEAR. Limits are SF's L0 ceilings (1,000 RPM / 40,000 TPM).",
-      "output_usd_per_million": 0.8,
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cleanest SiliconFlow probe of the batch (200 in 6.3s, zero reasoning tokens). Price: $0.259 in / $0.14 cached / $0.80 out from OpenRouter's live SiliconFlow endpoint listing \u2014 SF's own page text for this model could not be surfaced in this pass, so treat the seed as endpoint-sourced and re-confirm on the first SF invoice (some aggregators quote $0.27/$0.42, which matches neither). NON-SENSITIVE ONLY (spillway_sensitive_excluded): SF's data posture graded UNCLEAR. Limits are SF's L0 ceilings (1,000 RPM / 40,000 TPM). PRICE CORRECTION 2026-11-13 (v0.8.3, F-04 pattern): SiliconFlow's own models listing gives $0.27 in / $0.135 cached / $0.42 out \u2014 the OpenRouter endpoint seed ($0.259/$0.14/$0.80) overstated output ~2x. Corrected to the provider's own published figures.",
+      "output_usd_per_million": 0.42,
       "probe": {
         "cadence": "weekly",
         "kind": "chat",
@@ -1726,14 +1812,17 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
-      "price_source": "openrouter endpoint listing for siliconflow \u2014 SF's own page could not be surfaced; re-confirm on first SF invoice",
-      "price_confidence": "seeded"
+      "verified_until": "2026-12-13",
+      "price_source": "siliconflow:/models listing (provider's own published list, read 2026-11-13) \u2014 DeepSeek-V3.2 $0.27 in / $0.135 cached / $0.42 out per 1M",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.028,
@@ -1761,15 +1850,17 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "siliconflow:/models listing (provider's own published list)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1794,14 +1885,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.015,
@@ -1826,14 +1919,16 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1858,14 +1953,16 @@
         "code": 2,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 1
+        "reasoning": 1,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 10.0,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models pricing fields",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": null,
@@ -1876,7 +1973,7 @@
       "latency_p50_ms": 500,
       "limits": {},
       "model": "mistralai/Mistral-Small-24B-Instruct-2501",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cheap EU small model ($0.05/$0.08). Price from DeepInfra's own /v1/models pricing fields, reconciled against the probe's estimated_cost. PROBE 2026-11-12: 200 in 0.39s, sane. Limitations: 32,768 context (smallest in the expansion) and a tokenizer that counted the trivial probe prompt at ~7x the tokens other providers did \u2014 negligible at this price, real for long prompts.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cheap EU small model ($0.05/$0.08). Price from DeepInfra's own /v1/models pricing fields, reconciled against the probe's estimated_cost. PROBE 2026-11-12: 200 in 0.39s, sane. Limitations: 32,768 context (smallest in the expansion) and a tokenizer that counted the trivial probe prompt at ~7x the tokens other providers did \u2014 negligible at this price, real for long prompts. 2026-11-13 (v0.9.0 battery): supports_tools set FALSE on direct upstream evidence \u2014 DeepInfra answers 'Tool calling is not supported for model: mistralai/Mistral-Small-24B-Instruct-2501' (400); the route serves chat only.",
       "output_usd_per_million": 0.08,
       "probe": {
         "cadence": "weekly",
@@ -1897,7 +1994,8 @@
       "verified_until": null,
       "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "supports_tools": false
     },
     {
       "cached_input_usd_per_million": 0.05,
@@ -1922,15 +2020,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 10.0,
       "supports_vision": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "deepinfra:/v1/openai/models pricing fields (probe-reconciled at list price)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1942,7 +2042,7 @@
       "latency_p50_ms": 700,
       "limits": {},
       "model": "meta-llama/llama-3.1-8b-instruct",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cheapest Novita route ($0.02/$0.05). Price dual-verified 2026-11-12 on two Novita sources with exact agreement: Novita's own API pricing fields and novita.ai/pricing. PROBE 2026-11-12: 200 in 0.64s, sane. Hard limitation: 16,384 context (Novita's listing) \u2014 trivial turns only. NON-SENSITIVE ONLY (spillway_sensitive_excluded): third-party compute host, data posture unverified \u2014 same basis as novita/gpt-oss-120b.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Cheapest Novita route ($0.02/$0.05). Price dual-verified 2026-11-12 on two Novita sources with exact agreement: Novita's own API pricing fields and novita.ai/pricing. PROBE 2026-11-12: 200 in 0.64s, sane. Hard limitation: 16,384 context (Novita's listing) \u2014 trivial turns only. NON-SENSITIVE ONLY (spillway_sensitive_excluded): third-party compute host, data posture unverified \u2014 same basis as novita/gpt-oss-120b. 2026-11-13 (v0.9.0 battery): supports_tools set FALSE on direct upstream evidence \u2014 Novita answers tool-bearing requests with 400 'model features function calling not support'; the route serves chat only.",
       "output_usd_per_million": 0.05,
       "probe": {
         "cadence": "weekly",
@@ -1964,7 +2064,8 @@
       "verified_until": null,
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "supports_tools": false
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -1990,15 +2091,17 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2024,15 +2127,17 @@
         "code": 3,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2058,15 +2163,17 @@
         "code": 5,
         "infra": 5,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2092,16 +2199,18 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
       "supports_vision": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2127,15 +2236,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.novita.ai/v3/openai",
@@ -2161,15 +2272,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "novita:API pricing fields + novita.ai/pricing (dual-verified)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://router.huggingface.co/v1",
@@ -2195,15 +2308,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "huggingface:catalog (:deepinfra backend rate; matches deepinfra:/v1/openai/models) + probe estimated_cost exact match",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://router.huggingface.co/v1",
@@ -2229,14 +2344,16 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "huggingface:catalog (:deepinfra backend list rate) \u2014 probe estimated_cost did NOT reconcile (billed lower); F-06, verify on first HF invoice",
-      "price_confidence": "seeded"
+      "price_confidence": "seeded",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -2265,14 +2382,16 @@
         "code": 3,
         "infra": 2,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "mistral:docs pricing table",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -2301,18 +2420,20 @@
         "code": 2,
         "infra": 2,
         "long-context": 2,
-        "reasoning": 2
+        "reasoning": 2,
+        "tooling": 5
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "mistral:docs pricing table",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
-      "cached_input_usd_per_million": null,
+      "cached_input_usd_per_million": 0.15,
       "context_tokens": 262144,
       "id": "mistral/mistral-medium",
       "input_usd_per_million": 1.5,
@@ -2323,7 +2444,7 @@
         "tpm": 500000
       },
       "model": "mistral-medium-latest",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Mistral's medium flagship class. Price ($1.50 in / $7.50 out) from Mistral's own Mistral Medium 3.5 announcement on mistral.ai \u2014 the model does NOT appear in the docs pricing table fetched 2026-11-12, and no cached-input rate is published in either source (cached left null). The -latest alias resolves to Medium 3.5. PROBE 2026-11-12: 200 in 1.21s, sane. NON-SENSITIVE ONLY (spillway_sensitive_excluded), same basis as the existing Mistral entries. Paid from the existing $10 prepaid (no new purchase). Limits mirror the existing entries' conservative seeds.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Mistral's medium flagship class. Price ($1.50 in / $7.50 out) from Mistral's own Mistral Medium 3.5 announcement on mistral.ai \u2014 the model does NOT appear in the docs pricing table fetched 2026-11-12, and no cached-input rate is published in either source (cached left null). The -latest alias resolves to Medium 3.5. PROBE 2026-11-12: 200 in 1.21s, sane. NON-SENSITIVE ONLY (spillway_sensitive_excluded), same basis as the existing Mistral entries. Paid from the existing $10 prepaid (no new purchase). Limits mirror the existing entries' conservative seeds. CACHED RATE ADDED 2026-11-13 (v0.8.3): Mistral's current API price sheet publishes a cached-input rate for Medium 3.5 ($0.15 = 10% of input); the 2026-11-12 sources read for this entry carried none.",
       "output_usd_per_million": 7.5,
       "probe": {
         "cadence": "weekly",
@@ -2337,14 +2458,16 @@
         "code": 4,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": false,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
-      "price_source": "mistral:docs pricing table",
+      "verified_until": "2026-12-13",
+      "price_source": "mistral:mistral.ai API price sheet (Mistral Medium 3.5: $1.50 in / $0.15 cached / $7.50 out per 1M; cached input billed at 10% of the standard input rate per Mistral's pricing/docs \u2014 read 2026-11-13)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-13",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "cached_input_usd_per_million": 0.3,
@@ -2372,13 +2495,15 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-19",
       "price_source": "groq:/models pricing field",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -2404,14 +2529,16 @@
         "code": 5,
         "infra": 3,
         "long-context": 4,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "z.ai:docs.z.ai official pricing page",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -2437,14 +2564,16 @@
         "code": 4,
         "infra": 3,
         "long-context": 5,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "z.ai:docs.z.ai official pricing page",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.meta.ai/v1",
@@ -2473,14 +2602,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "meta:dev.meta.ai pricing page",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "spend_alert_usd": 10.0
+      "spend_alert_usd": 10.0,
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.meta.ai/v1",
@@ -2510,14 +2641,16 @@
         "code": 4,
         "infra": 4,
         "long-context": 4,
-        "reasoning": 5
+        "reasoning": 5,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "meta:dev.meta.ai pricing page",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "spend_alert_usd": 10.0
+      "spend_alert_usd": 10.0,
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.cerebras.ai/v1",
@@ -2550,15 +2683,17 @@
         "code": 4,
         "infra": 3,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "spend_alert_usd": 5.0,
       "spillway_sensitive_excluded": true,
-      "verified_until": null,
+      "verified_until": "2026-12-13",
       "price_source": "cerebras:published pricing page (developer card)",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-12"
+      "price_verified_at": "2026-11-12",
+      "tooling_source": "tooling-battery:2026-11-13"
     },
     {
       "base_url": "https://api.aionlabs.ai/v1",
@@ -2576,7 +2711,7 @@
         "tpd": 20000
       },
       "model": "aion-labs/aion-3.5-mini",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Aion's current mini system (multi-model, tuned for roleplay/storytelling). Lane price $0 under the free allowance; the underlying LIST price from Aion's own public /v1/models pricing fields is $0.70 in / $0.18 cached / $1.40 out per 1M \u2014 recorded for the day the allowance ends. Reasoning CANNOT be disabled on the 3.5 line (low/high/max only) \u2014 extra_body pins reasoning_effort=low (probe-verified shape: 200 in 9.5s, clean content, but 637 completion tokens on a trivial prompt even at low). Free tier is ACCOUNT-WIDE 15 RPM / 20,000 tokens/day \u2014 a thimble, shared by both Aion entries (limits carry the account figures). Google-style posture: public-only-free.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Aion's current mini system (multi-model, tuned for roleplay/storytelling). Lane price $0 under the free allowance; the underlying LIST price from Aion's own public /v1/models pricing fields is $0.70 in / $0.18 cached / $1.40 out per 1M \u2014 recorded for the day the allowance ends. Reasoning CANNOT be disabled on the 3.5 line (low/high/max only) \u2014 extra_body pins reasoning_effort=low (probe-verified shape: 200 in 9.5s, clean content, but 637 completion tokens on a trivial prompt even at low). Free tier is ACCOUNT-WIDE 15 RPM / 20,000 tokens/day \u2014 a thimble, shared by both Aion entries (limits carry the account figures). Google-style posture: public-only-free. DISABLED 2026-11-15 (v0.9.1, F-17, owner's ruling): the account-wide free allowance (15 RPM / 20,000 tokens/day, shared with aion/aion-2.0) is smaller than one ordinary fleet request \u2014 on 2026-11-15 a 67,274-token request tripped the TPD check at zero usage \u2014 so this rung could only ever serve small requests and generated ~350 skip evaluations/day of noise. Lifetime serves across both Aion entries: ~21 (2026-11-12 to 14). On 2026-11-13 the account absorbed 144 failed attempts (143x upstream 429 congested + 1 transient), every failure would_demote-stamped \u2014 preserved as Exhibit 1 of the J-2 review packet (docs/cycles/j2-review-packet.md). The 2026-11-15 tooling-battery score on this entry is preserved while disabled.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -2590,10 +2725,13 @@
         "code": 2,
         "infra": 2,
         "long-context": 4,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 3
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-15",
+      "tooling_source": "tooling-battery:2026-11-15",
+      "enabled": false
     },
     {
       "base_url": "https://api.aionlabs.ai/v1",
@@ -2611,7 +2749,7 @@
         "tpd": 20000
       },
       "model": "aion-labs/aion-2.0",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Aion 2.0 (DeepSeek V3.2 variant tuned for roleplay/storytelling). Lane price $0 under the free allowance; underlying LIST price from Aion's own public /v1/models pricing fields: $0.80 in / $0.20 cached / $1.60 out per 1M. The 2.0 line accepts reasoning_effort 'none' \u2014 extra_body pins it (probe-verified: 200 in 0.75s, 5 completion tokens, clean direct answer). Free tier is ACCOUNT-WIDE 15 RPM / 20,000 tokens/day \u2014 a thimble, shared by both Aion entries (limits carry the account figures). Google-style posture: public-only-free.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Aion 2.0 (DeepSeek V3.2 variant tuned for roleplay/storytelling). Lane price $0 under the free allowance; underlying LIST price from Aion's own public /v1/models pricing fields: $0.80 in / $0.20 cached / $1.60 out per 1M. The 2.0 line accepts reasoning_effort 'none' \u2014 extra_body pins it (probe-verified: 200 in 0.75s, 5 completion tokens, clean direct answer). Free tier is ACCOUNT-WIDE 15 RPM / 20,000 tokens/day \u2014 a thimble, shared by both Aion entries (limits carry the account figures). Google-style posture: public-only-free. DISABLED 2026-11-15 (v0.9.1, F-17, owner's ruling): the account-wide free allowance (15 RPM / 20,000 tokens/day, shared with aion/aion-3.5-mini) is smaller than one ordinary fleet request \u2014 on 2026-11-15 a 67,274-token request tripped the TPD check at zero usage \u2014 so this rung could only ever serve small requests and generated ~350 skip evaluations/day of noise. Lifetime serves across both Aion entries: ~21 (2026-11-12 to 14). On 2026-11-13 the account absorbed 144 failed attempts (143x upstream 429 congested + 1 transient), every failure would_demote-stamped \u2014 preserved as Exhibit 1 of the J-2 review packet (docs/cycles/j2-review-packet.md). The 2026-11-15 tooling-battery score on this entry is preserved while disabled.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -2625,10 +2763,13 @@
         "code": 2,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-15",
+      "tooling_source": "tooling-battery:2026-11-15",
+      "enabled": false
     },
     {
       "base_url": "https://integrate.api.nvidia.com/v1",
@@ -2656,10 +2797,12 @@
         "code": 3,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 3
+        "reasoning": 3,
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://integrate.api.nvidia.com/v1",
@@ -2687,11 +2830,13 @@
         "code": 2,
         "infra": 2,
         "long-context": 3,
-        "reasoning": 4
+        "reasoning": 4,
+        "tooling": 5
       },
       "reasoning": true,
       "supports_vision": true,
-      "verified_until": null
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -2731,6 +2876,556 @@
         "reasoning": 3
       },
       "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1048576,
+      "enabled": true,
+      "id": "openrouter/ling-3.2-flash-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 1300,
+      "limits": {
+        "rpd": 1000,
+        "rpm": 20
+      },
+      "model": "inclusionai/ling-3.2-flash:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), shipped disabled pending one more clean weekly re-probe; enable only if latency stays sane. The only genuinely new model in the 2026-11-15 OpenRouter catalog refresh (created 2026-11-13; Ant Group InclusionAI). SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Probes 2026-11-15: assessment run \u2014 chat 200 but 38.25s and an ~11-minute battery wall; consolidated-package re-probe the same day \u2014 chat 200 in 1.30s and 2.27s (latency normalized on simple chat) with genuine upstream usage on every response. Tooling battery (R4 task set, direct-call administration, report-only \u2014 the registry score write belongs to the v0.9.0 battery patch): assessment run scored 4 (T2 malformed-JSON on the 160-line payload, T5 passed); re-run: composite 1.0, tooling score 5 (measured=True); t1_exact_args=1.0, t2_large_payload=1.0, t3_parallel_calls=1.0, t4_follow_through=n/e, t5_error_recovery=1.0, v_envelope=1.0; envelope 6 valid / 0 invalid; wall 315.7s; model echoes ['inclusionai/ling-3.2-flash:free']. Reasoning-first model: at max_tokens 32 a trivial reply burned the whole budget on reasoning tokens (finish=length, empty content) \u2014 entry carries reasoning:true and callers must give output headroom. Quality figures are SEEDS. Public-only-free. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 2,
+        "long-context": 4,
+        "reasoning": 3,
+        "tooling": 5
+      },
+      "quota_pool_id": "openrouter-free",
+      "reasoning": true,
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-15"
+    },
+    {
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1048576,
+      "enabled": true,
+      "id": "openrouter/particle-1-free",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 800,
+      "limits": {
+        "rpd": 1000,
+        "rpm": 20
+      },
+      "model": "particle-ai/particle-1:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), shipped disabled: provenance is UNKNOWN (model created 2026-10-28; first appeared in OpenRouter's zero-price list between the 2026-11-12 and 2026-11-15 catalog pulls) and the 2026-11-15 assessment's instruction was to revisit only if it survives a catalog cycle. SHARED POOL: every OpenRouter :free route draws on ONE account pool (20 RPM, 1,000 requests/day at the >=$10-lifetime tier, verified against the account 2026-11-12) \u2014 this route adds choice/failover, not requests. Probes 2026-11-15: chat 200 in 0.72s, tool probe 200 in 0.81s with exact get_weather {\"city\": \"Denver\"} arguments, genuine upstream usage on every response. Tooling battery (R4 task set, direct-call administration, report-only): composite 0.833, tooling score 4 (measured=True); t1_exact_args=1.0, t2_large_payload=0.0, t3_parallel_calls=1.0, t4_follow_through=1.0, t5_error_recovery=1.0, v_envelope=1.0; envelope 7 valid / 0 invalid; wall 18.8s; model echoes ['particle-ai/particle-1:free']. Quality figures are SEEDS, deliberately conservative for an unprovenanced model. Public-only-free. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "openrouter",
+      "quality": {
+        "chat": 3,
+        "code": 2,
+        "infra": 2,
+        "long-context": 3,
+        "reasoning": 2,
+        "tooling": 5
+      },
+      "quota_pool_id": "openrouter-free",
+      "reasoning": true,
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 1000000,
+      "enabled": true,
+      "id": "unorouter/gemini-3.5-flash-lite",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 2300,
+      "limits": {
+        "rpm": 1
+      },
+      "model": "gemini-3.5-flash-lite:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. Probes 2026-11-12: chat PASS (200, 2.3s) and tool probe PASS (valid get_weather arguments) \u2014 the strongest all-round UnoRouter candidate; a spot re-check the same night returned 200 but took 60.2s, so treat latency as best-effort. UnoRouter-reported 24h uptime 82%. Consent status: NONE required \u2014 served without consent; catalog flags consent_required false / trains_or_retains true. Quality figures are SEEDS. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 4,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 131072,
+      "enabled": true,
+      "id": "unorouter/mistral-small-3.2",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 400,
+      "limits": {
+        "rpm": 1
+      },
+      "model": "mistral-small-3.2:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. Probes 2026-11-12: chat PASS (200, 0.4s \u2014 fastest of the set), ~100% UnoRouter-reported 24h uptime; spot re-check 200 in 0.64s. Tool-calling NOT probed on this route. Consent status: catalog posture flags unrecorded (null/null) \u2192 treated as trains-on-data; the public-only posture covers it. Quality figures are SEEDS. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "enabled": true,
+      "id": "unorouter/codestral-latest",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 600,
+      "limits": {
+        "rpm": 1
+      },
+      "model": "codestral-latest:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. Probes 2026-11-12: chat PASS (200, 0.6s), 100% UnoRouter-reported 24h uptime. Code-specialist diversity the free bench otherwise lacks. Tool-calling not separately probed. Consent status: NONE required \u2014 catalog flags consent_required false / trains_or_retains true. Quality figures are SEEDS. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 3,
+        "code": 4,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 262144,
+      "enabled": false,
+      "id": "unorouter/qwen3.5-397b-a17b",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "limits": {
+        "rpm": 1
+      },
+      "model": "qwen3.5-397b-a17b:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. Probes 2026-11-12: chat PARTIAL \u2014 at max_tokens 128 the entire budget burned on hidden reasoning and content returned empty (finish=length); tool probe PASS at max_tokens 256 (valid arguments). Entry carries reasoning:true \u2014 callers must give generous output budgets. UnoRouter-reported 24h uptime 95%. Consent status: catalog posture flags unrecorded (null/null) \u2192 treated as trains-on-data. Quality figures are SEEDS. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable. RE-DISABLED 2026-11-17 same day (owner's ready-groups enable reversed for this route on live evidence): pin-smokes through :6075 failed twice, spaced \u2014 upstream 403 on the first attempt, upstream 429 plus a length_no_content empty completion on the second; the route is not serving usable completions. Returns to staged/disabled pending a clean re-probe per the route-health protocol.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 4,
+        "code": 4,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 4
+      },
+      "reasoning": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.unorouter.com/v1",
+      "cached_input_usd_per_million": 0.0,
+      "context_tokens": 200000,
+      "enabled": false,
+      "id": "unorouter/claude-haiku-4-5-20251001",
+      "input_usd_per_million": 0.0,
+      "lane": "public-only-free",
+      "latency_p50_ms": 2000,
+      "limits": {
+        "rpm": 1
+      },
+      "model": "claude-haiku-4-5-20251001:free",
+      "notes": "DISABLED candidate \u2014 added 2026-11-15 in the consolidated free-model update (Jordan's ruling), carried disabled from the 2026-11-12 UnoRouter candidate evaluation (probe-proven; no consent required for this route). Public-only-free FOREVER: UnoRouter's free upstreams are not contractually bound to it and may retain or train on inputs (UnoRouter Privacy \u00a73/\u00a74 \u2014 unknown posture is treated as training posture); nothing sensitive may ever route here. Capacity: 1 req/min/model/account, plus an account-wide free cap of 10 calls/day until any top-up (a top-up is Jordan's decision, not made) \u2014 long-tail diversity only, never a relied rung. The unorouter.key credential is already installed on VM103. CHAT-ONLY \u2014 supports_tools=false is load-bearing. Probes 2026-11-12: chat PASS (200, 2.0s, usage_source anthropic) but the tool probe FAILED with HTTP 400: the free route is served at least sometimes via AWS Bedrock, which rejected the OpenAI-style tool request. UnoRouter-reported 24h uptime 51% \u2014 a diversity route, never a relied rung. Consent status: NONE required \u2014 catalog flags consent_required false / trains_or_retains true. Quality figures are SEEDS. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable. RE-DISABLED 2026-11-17 same day (owner's ready-groups enable reversed for this route on live evidence): pin-smokes through :6075 failed twice, spaced \u2014 upstream 503 on both attempts; the route's upstream is consistently unavailable (note: this entry is also chat-shape-limited, supports_tools false). Returns to staged/disabled pending a clean re-probe per the route-health protocol.",
+      "output_usd_per_million": 0.0,
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "unorouter",
+      "quality": {
+        "chat": 4,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "supports_tools": false,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "context_tokens": 400000,
+      "enabled": true,
+      "id": "nrouter/gpt-5-nano",
+      "input_usd_per_million": 0.05,
+      "lane": "paid",
+      "latency_p50_ms": 1500,
+      "limits": {},
+      "model": "gpt-5-nano",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: chat PASS and tool PASS at a 512-token completion budget (200; tool probe finish=tool_calls, valid get_weather arguments) \u2014 but mandatory reasoning consumed 64\u2013128 tokens per call, and at 64/128-token budgets both probes ended finish=length with empty content; any enabling must pair this entry with generous completion budgets. Latency ~1.0\u20133.0s. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.4,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 4
+      },
+      "reasoning": true,
+      "spillway_sensitive_excluded": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "completion_tokens_param": true,
+      "context_tokens": 400000,
+      "enabled": true,
+      "id": "nrouter/gpt-5-mini",
+      "input_usd_per_million": 0.25,
+      "lane": "paid",
+      "latency_p50_ms": 2700,
+      "limits": {},
+      "model": "gpt-5-mini",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: this route REJECTS the max_tokens parameter (400 invalid_request, 'provider rejected this request as malformed'); with max_completion_tokens it serves \u2014 chat 200 and tool probe PASS (finish=tool_calls, valid arguments) \u2014 hence completion_tokens_param:true. Same reasoning-burn caveat as gpt-5-nano at tiny budgets (chat at a 64-token cap ended finish=length, empty content). Latency ~2.7\u20133.6s. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 2.0,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 4,
+        "code": 4,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 4
+      },
+      "reasoning": true,
+      "spillway_sensitive_excluded": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "context_tokens": 1000000,
+      "enabled": true,
+      "id": "nrouter/gpt-4.1-mini",
+      "input_usd_per_million": 0.4,
+      "lane": "paid",
+      "latency_p50_ms": 1700,
+      "limits": {},
+      "model": "gpt-4.1-mini",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: chat PASS (200, 1.7s, finish=stop) and tool probe PASS (finish=tool_calls, valid get_weather arguments). Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 1.6,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 4,
+        "code": 4,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "spillway_sensitive_excluded": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "context_tokens": 400000,
+      "enabled": true,
+      "id": "nrouter/gpt-5.4-mini",
+      "input_usd_per_million": 0.75,
+      "lane": "paid",
+      "latency_p50_ms": 1500,
+      "limits": {},
+      "model": "gpt-5.4-mini",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: chat PASS (200, 1.5s, finish=stop) and tool probe PASS (finish=tool_calls, valid get_weather arguments). Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 4.5,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 4,
+        "code": 4,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 4
+      },
+      "spillway_sensitive_excluded": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "context_tokens": 128000,
+      "enabled": true,
+      "id": "nrouter/mistral-small-2503",
+      "input_usd_per_million": 0.1,
+      "lane": "paid",
+      "latency_p50_ms": 2100,
+      "limits": {},
+      "model": "mistral-small-2503",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: chat PASS (200, 2.1s, finish=stop) and tool probe PASS (finish=tool_calls, valid get_weather arguments). Mistral Small 3.1 weights via Azure AI Foundry. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.3,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "spillway_sensitive_excluded": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "context_tokens": 131072,
+      "enabled": true,
+      "id": "nrouter/qwen3-32b",
+      "input_usd_per_million": 0.15,
+      "lane": "paid",
+      "latency_p50_ms": 1100,
+      "limits": {},
+      "model": "qwen3-32b",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: chat PASS (200, 1.1s, finish=stop) and tool probe PASS (finish=tool_calls, valid get_weather arguments). Served via AWS Bedrock (x-nr-model qwen.qwen3-32b-v1:0). Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.6,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 3,
+        "code": 4,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 4
+      },
+      "spillway_sensitive_excluded": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "context_tokens": 262144,
+      "enabled": true,
+      "id": "nrouter/qwen3-coder-480b-a35b",
+      "input_usd_per_million": 0.22,
+      "lane": "paid",
+      "latency_p50_ms": 1100,
+      "limits": {},
+      "model": "qwen3-coder-480b-a35b",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: chat PASS (200, 1.1s, finish=stop) and tool probe PASS (finish=tool_calls, valid get_weather arguments). Served via AWS Bedrock (x-nr-model qwen.qwen3-coder-480b-a35b-v1:0). Code specialist. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 1.8,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 3,
+        "code": 5,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 4
+      },
+      "spillway_sensitive_excluded": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "context_tokens": 262144,
+      "enabled": true,
+      "id": "nrouter/deepseek-v4.1-flash",
+      "input_usd_per_million": 0.25,
+      "lane": "paid",
+      "latency_p50_ms": 2300,
+      "limits": {},
+      "model": "deepseek-v4.1-flash",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: chat PASS (200, 2.3s, finish=stop; light reasoning \u2014 10 reasoning tokens) and tool probe PASS (finish=tool_calls, valid get_weather arguments). nRouter's v4.1-flash variant via Alibaba DashScope \u2014 distinct from the deepseek-v4-flash entries elsewhere in this registry. Context seeded conservatively. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 2.0,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 4,
+        "code": 4,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 4
+      },
+      "reasoning": true,
+      "spillway_sensitive_excluded": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "context_tokens": 300000,
+      "enabled": true,
+      "id": "nrouter/amazon-nova-lite-v1",
+      "input_usd_per_million": 0.06,
+      "lane": "paid",
+      "latency_p50_ms": 1400,
+      "limits": {},
+      "model": "amazon-nova-lite-v1",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: chat PASS (200, 1.4s, finish=stop) and tool probe PASS (finish=tool_calls, valid get_weather arguments). Served via AWS Bedrock (x-nr-model us.amazon.nova-lite-v1:0). Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.24,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "spillway_sensitive_excluded": true,
+      "verified_until": null
+    },
+    {
+      "base_url": "https://api.nrouter.ai/v1",
+      "cached_input_usd_per_million": null,
+      "context_tokens": 131072,
+      "enabled": true,
+      "id": "nrouter/llama-3.3-70b-instruct",
+      "input_usd_per_million": 0.71,
+      "lane": "paid",
+      "latency_p50_ms": 1400,
+      "limits": {},
+      "model": "Llama-3.3-70B-Instruct",
+      "notes": "DISABLED candidate \u2014 added 2026-11-17 on Jordan's order (build nRouter in, entries disabled until vetted/enabled by his ruling). nRouter (CloudAct Inc.) is a paid pass-through aggregator: 0% platform fee, models billed at list rates against the account credit ($5 purchased). Terms posture (ToS \u00a77/\u00a78 + Privacy Policy, read 2026-11-17): zero retention of inference payloads (in-memory only, never written to disk/DB) and contractually no training on content \u2014 hence the PAID lane, not public-only-free; still spillway_sensitive_excluded (third-party aggregator holding upstream credentials; NOT a Jordan-designated sensitive-cleared provider, so the sensitive wall's default treatment applies). Wrinkle: nRouter runs a \u226415-min per-org response cache by default (disableable per request via nrouter_cache:false) \u2014 observed live during probes. Credential: secrets/nrouter.key on VM103 (sha256 fp 4745caaa\u2026). Prices are nRouter public-catalog list rates (pass-through), seeded; the gateway's x-nr-request-cost telemetry matched them on probes. Quality figures are SEEDS. Probes 2026-11-17: chat PASS (200, 1.4s, finish=stop) and tool probe PASS (finish=tool_calls, valid get_weather arguments). Note: probe requests were billed funding-source 'promo' in x-nr telemetry \u2014 do not assume promo funding persists. Enabled 2026-11-17 on Jordan's ruling \u2014 ready-groups enable.",
+      "output_usd_per_million": 0.71,
+      "price_confidence": "seeded",
+      "price_source": "nrouter public catalog list rates (pass-through, 0% platform fee), carried at add 2026-11-17",
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "provider": "nrouter",
+      "quality": {
+        "chat": 4,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "spillway_sensitive_excluded": true,
       "verified_until": null
     }
   ],

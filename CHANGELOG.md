@@ -9,6 +9,21 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+**v0.9.0 test completion, 2026-11-15** (owner's order 02:15 MST + CI directive re-issued 02:48 MST — "run CI tests again until you get green, then deploy it live"; gateway code unchanged, v0.9.0):
+
+- **CI restored to green.** The consolidated registry update below landed without updating the registry-premise tests (it had been validated with the invariant battery only) and CI #45/#46 went red on main — 13 failures, all premises pinned to the 81-entry shape. Fixed in `b431bd1` (counts 88/72-enabled, NOV15_DISABLED_IDS cohort, OpenRouter free pool at 16 members, enabled-aware skip reasons in the shadow tests, lfm-2.5 out of the pin map): CI #47 SUCCESS. No production code or registry content changed by the fix.
+- **Golden set completed and merged.** The 24-item starter is now the full 180-item set designed in cycle-01-plan F.3.2 (starter items verbatim; client mix = census mix), replayed in shadow against live v0.9.0: the 5 known violations reproduce; 69 new violation strings across 63 items, analyzed in `docs/cycles/golden-full-run-2026-11-15.md` (long-context engages only above the >60k-token hard rule; short-prompt task_class misclassification priced at scale; L5-driven paid-first is spec-conformant; NEW — prose-stated credential values classify `internal`, not `sensitive`, and two items first-routed public: proposed as Improvement Loop candidate F-18, no posture change made). Landed via PR #9 (branch CI #48 SUCCESS, merge CI #49 SUCCESS, main `625b4be`).
+- **Tooling battery completed and deployed.** All 17 enabled-unmeasured entries targeted against live v0.9.0: **11 newly measured** (north-mini-code 4, dots-3-note 4, nemotron-3.5-lightning 5, nemotron-3-nano-omni 5, flint 4, lfm-3-1.7b 5, nemotron-3-ultra 5, nemotron-3.5-super-vl 4, free-router 5, aion-3.5-mini 3, aion-2.0 5 — measured coverage 66 of 72 enabled); 6 never served (ollama `upstream_402`; the Cloudflare trio on shared-pool `upstream_429`; deepinfra/mistral-small-24b + novita/llama-3.1-8b structural `supports_tools: false`). Scores written via the established path — snapshot `pre-battery-scores-20261115`, battery patch applied field-for-field (programmatic diff: only `quality.tooling` + entry-level `tooling_source`/`verified_until` on the 11), suite 701 passed ×2 after recalibrating three escalation tests the new rankings legitimately moved, CI #50 (run 43702684456) SUCCESS on `dee1a2a`, synced to VM103 build/src + state and gateway restarted 10:11 UTC. **Live registry md5 `bf40db3e7fa02abfa2aae12bc655c81d`** (was `03df1665…`); `/health` ok, 88 models; a shadow tool turn now first-routes to newly-measured `aion/aion-2.0`. Record: `docs/cycles/tooling-battery-2026-11-15.md`.
+- **Extended live battery + early-soak census.** Per client (hermes/openclaw/n8n/crm) chat + tool-bearing + streaming turns all PASS (14/14, real tool calls returned; the CRM tool turn served by `openrouter/free-router`); a 96,619-token long-context turn served 200 by `google/gemini-3.1-flash-lite` (class long-context, L4); a sensitive-shaped turn classified `internal` (no detector fires on a redacted placeholder) — observation only, no posture change. Census from the v0.9.0 cutover (2026-11-15 01:58 MST) to 03:13 MST, production + tonight's test traffic: 288 requests (hermes 126, openclaw 129, n8n 30, crm 3), **100% HTTP 200**, escalations 12 (4.2%, all recovered), 110 streaming rows with **zero `stream_bound_timeout`**, 7,704,887 tokens with **98.6% on free lanes** (by tokens), ledger cost $0.08.
+
+**Consolidated free-model registry update, 2026-11-15** (owner's ruling \u2014 package approved as built 2026-11-15 02:03 MST; gateway code unchanged, v0.9.0; registry 81 \u2192 88 models, enabled count unchanged):
+
+- **Added disabled (7), all public-only-free:** `openrouter/ling-3.2-flash-free` (tooling battery 5 on re-probe; chat latency normalized from 38s to ~1.3\u20132.3s), `openrouter/particle-1-free` (battery 4; provenance unknown), and five UnoRouter routes probe-proven 2026-11-12, none requiring provider consent (`unorouter/gemini-3.5-flash-lite`, `unorouter/mistral-small-3.2`, `unorouter/codestral-latest`, `unorouter/qwen3.5-397b-a17b`, `unorouter/claude-haiku-4-5-20251001` \u2014 the last chat-only, `supports_tools: false` load-bearing). Every add ships disabled; enabling is a separate decision.
+- **Disabled** `openrouter/lfm-2.5-2.6b-free`: the upstream model was deleted from the OpenRouter catalog (verified in the 2026-11-15 OpenRouter assessment); the entry is retained disabled, never deleted.
+- **Annotated** `openrouter/dots-3-note-preview-free` with its published 2026-12-31 retirement date (notes-only).
+- **Battery tooling scores written** via the battery patch mechanism (run date 2026-11-15, `verified_until` 2026-12-15): `openrouter/ernie-5.5-flash-free` tooling 4, `openrouter/ling-3.2-flash-free` tooling 5, `openrouter/particle-1-free` tooling 4.
+- The package was assembled on the v0.8.3 registry and re-based onto the live v0.9.0 registry (md5 `460b6df4\u2026`) at deploy; final registry md5 `03df1665a6b2e99c53d50bd865d52b31`, byte-identical on GitHub main, VM103 build/src and VM103 state. Invariant battery 15/15 on the final file. Snapshot `pre-registry-update-20261115` precedes the change; rollback = restore that registry to all copies + gateway restart. Live verification: `/health` reports 88 models; a pin test against the disabled Ling entry dropped the pin (`pin_blocked:disabled`) and served 200 via `openrouter/nemotron-3-ultra-free`; 85 routes in the first 15 minutes post-restart, all 200, zero serves by any disabled entry.
+
 **Expansion phase 2, 2026-11-12** (owner's order — "expand the options, with the understanding of the price"; gateway code unchanged; registry 42 → 81 models, 72 enabled):
 
 - **Added 36 enabled routes, every price verified against the provider's own published source:** DeepInfra ×5 (`gpt-oss-120b` $0.037/$0.17 — the cheapest route to those weights in the registry; `deepseek-v4-flash-0731` $0.06/$0.18 at 1M context; `llama-3.1-8b-turbo` $0.02/$0.04 — the cheapest chat route; `mistral-small-24b`; `qwen3.8-27b` at list, catalog discount observed live); Novita ×7 (Llama 3.1 8B, GLM-4.7-Flash, Qwen3.8-Flash, V4 Flash 0731, Qwen3.8-27B, Kimi K2.5, GLM-4.6 — prices dual-verified on Novita's API pricing fields and pricing pages); OpenRouter paid ×6 (DeepSeek V4 Flash, GLM-5.3-Flash seeded at its observed billing ceiling, Qwen3.8-Flash, Gemini 3.1 Flash-Lite, Llama 4 Maverick, Claude Haiku 5.5 — the first Anthropic route; all `spillway_sensitive_excluded`: their `data_collection=deny` probes passed, but OpenRouter exposes no auditable data-policy metadata, so the conservative aggregator posture stands); SiliconFlow ×3 (Qwen3-32B, DeepSeek V3.2, DeepSeek V4 Flash); Hugging Face ×2 via `:deepinfra` backends ONLY (GLM-5.3-Flash, Qwen3.8-27B — the standing no-`:cerebras` rule held); Mistral ×3 (Small, Ministral 8B, Medium — Medium's price rests on Mistral's own product announcement); Z.ai paid ×2 (GLM-4.6, GLM-5.3-Flash at Z.ai's official pricing page; tool-calling probe-proven on Z.ai direct); `groq/qwen3.6-27b` (private-free lane = data posture, metered Developer price); `cerebras/qwen-3.8-27b` (paid, trial terms, reasoning pinned low); `meta/muse-spark-1.2` (premium, same published price group as 1.1); `google/gemini-3.1-flash-lite` (public-only-free; per-model bucket = real capacity); Aion ×2 (public-only-free on the free tier's account-wide 15 RPM / 20k tokens/day allowance; 3.5-mini's reasoning cannot be disabled — pinned `low`; 2.0 takes reasoning off); NVIDIA ×2 (public-only-free; **trial terms are evaluation/testing only, not production** — the caveat is carried verbatim in both entries' notes, per the owner's expansion order).
@@ -31,6 +46,201 @@ Post-0.6.0 registry changes, 2026-11-12 (gateway code unchanged):
 - **Enabled** `google/gemini-3.5-flash-lite` (public-only-free), `cloudflare/gpt-oss-120b` and `cloudflare/glm-4.7-flash` (public-only-free, owner-supplied Workers AI token), `mistral/mistral-large` and `mistral/codestral` (reclassified to the paid lane at published pay-as-you-go rates after an owner-approved $10 activation — Mistral's free tier issues no API keys), and `meta/muse-spark-1.1` (premium; owner resolved the Meta team billing issue). Every enable was probe-verified directly and through the router.
 - **Removed** `huggingface/gpt-oss-120b-cerebras` (owner's order): the HF passthrough ignored reasoning controls and leaked deliberation (2026-11-11); the direct `cerebras/gpt-oss-120b` route replaces it. Standing rule recorded in `docs/ROUTING-PRINCIPLES.md`: Cerebras is called direct, never via HF.
 - Registry now 22 models, 21 enabled (only `siliconflow/deepseek-v4-pro` disabled, a deliberate duplicate).
+
+## [0.9.1] — 2026-11-15 (DEPLOYED 2026-11-15 03:51 MST)
+
+Alert truth + sensitive wall — the full fix set F-13…F-18 from the 2026-11-15 alert diagnosis and the golden full-set run, approved by the owner 2026-11-15 03:19 MST ("apply the full fix set as recommended"). PR #10 (branch CI run 43704831192 SUCCESS; merged to main `9fb48c7c`, main CI #53 run 43705294364 SUCCESS). Suite 701 → 721, green ×2 locally before push. Snapshot `pre-v091-20261115`; image `192.168.0.28:5000/sovereign-router:v0.9.1` sha256:38c6bc41a341dad95c593bc22a4bb40f4ad455f176135c132661d4c7bf419a9b; compose backup `bak-20261115-prev090`. **Final live registry md5 `d9a1f9994f6c4048fde7e7eba16c4488`** (88 entries, 70 enabled), byte-identical on GitHub main, VM103 build/src and VM103 state.
+
+- **F-13 — spend alerts on the actuals basis (governor).** `premium_monthly_spend` and `provider_spend` now sum the actuals window (month start clipped at the true-cost cutover epoch 1794630834 for November 2026; unclipped from Dec 1 by construction). Levels UNCHANGED ($20 premium / $10 provider). When the clipped window still fires, the message annotates the excluded pre-cutover ceiling. The slow-leak projection uses the same window. Live dry-run verdict: zero spend alerts since the recreate — the three pasted alerts ($20.22 / $20.56 / $150.05) were $20.19 / $20.37 / $150.01 of pre-cutover ceiling over $0.08 / $0.19 / $0.06 of actuals.
+- **F-14 — level_mix baseline-relative (governor).** Fires only with today's sample n ≥ 200 AND today's L4–5 share above the trailing-7-day mean of daily shares by >10 points. No classifier change. Silent in the live dry-run.
+- **F-15 — sensitive alert on outcomes (gateway + quota).** `sensitive_no_cleared_provider` now fires ONLY when a sensitive request serves on a paid/premium lane (post-serve, both JSON and streaming paths) or finds no candidate at all. The permanently-true empty-clearance condition is demoted to a daily `sensitive_posture_digest` (trailing-24h sensitive serves by entry/lane/cost + cleared-set status); usage rows carry `data_class` (migrated column) to feed it. Live: exactly ONE alert created since the recreate — the digest itself (10:54:26 UTC, rendering the smoke serves). The n8n alert workflow needed no edit (it passes gateway alerts through).
+- **F-16 — sensitive wall (registry).** `openrouter/dots-3-note-preview-free` and `openrouter/north-mini-code-free` gain `spillway_sensitive_excluded: true` with dated notes (lane stays private-free) — the 348,543-token sensitive serve by dots-3 on 2026-11-14 cannot recur: both entries now skip for sensitive turns in every pass, pins included. `sensitive_cleared_providers` deliberately NOT populated (no owner-reviewed cleared set exists; separate future ruling — consideration recorded in the loop doc). Live proof: sensitive smokes show both entries skipped `sensitive_spillway_excluded`; a body-pin to dots-3 on a sensitive turn dropped `pin_blocked:sensitive_spillway_excluded` and served inside the wall.
+- **F-17 — Aion (gateway + registry + J-2 packet).** (a) The lane-dead TPD cause now states counted usage vs cap and the triggering request's estimate ("0 / 1,000 tokens used today; this request's estimate N tokens exceeds the cap"); the dedup key stays on the stable cause class so distinct estimates don't mint fresh alerts. (b) Both Aion entries disabled with dated notes (20k/day account cap below one ordinary fleet request — a 67,274-token request tripped it at zero usage; ~350 skip evaluations/day; ~21 lifetime serves); their 2026-11-15 tooling scores (3 / 5) are preserved on the disabled entries. Live: Aion skips as `disabled`; a body-pin drops `pin_blocked:disabled`. (c) `docs/cycles/j2-review-packet.md` created; Exhibit 1 = the Nov 13 Aion dataset pulled from production `attempt_events` (165 attempts: 144 failed — 143× 429 congested + 1 transient — ALL `would_demote`-stamped; 21 served, 3,626 tokens).
+- **F-18 — prose-stated credentials (sensitivity).** New detector `credential_prose_assignment`: credential noun (incl. multiword `client secret` / `session cookie`) + ≤6 filler words + separator (`:` / `=` / "is") + a value token passing a credential-shape gate (digit, hyphen, underscore, or mixed case; UUID/hex/placeholder/ellipsis exclusions; an idiom guard keeps "the secret to … is …" clean). Golden g175/g177/g179/g180 are the regression set. Negative-tested: policy discussion, value-less mentions, redacted placeholders (`sk-…`, `password=...`) do NOT flip. Live proof: the g175-shaped smoke classified sensitive on this detector ALONE; the password-policy smoke stayed internal.
+- **Golden replay (post-deploy, vs `baseline-full-2026-11-15`):** 180 items; **Group S CLEAN** — g175/g177/g179/g180 flip `internal → sensitive` and re-route inside the wall (free-router / groq, private-free); g176 re-routes off north-mini (F-16). 82 selection diffs, **0 undeclared** (`tests/golden/declared-changes-2026-11-15-v091.json`; capture `tests/golden/capture-2026-11-15-v091.json`): F-17b candidate removals, F-16/F-18 sensitive-set changes, the 2026-11-15 battery write (which landed after that baseline was captured — tool lists only), and live-state ordering noise. Remaining verifier findings (63) are exactly the known Groups L/M/P (F-10 family + ranking + spec-conformant paid-first) — unchanged in character, NOT addressed here by design. The 5 starter-known violations reproduce.
+- **Live smokes (all PASS):** sensitive turn cannot land on dots-3/north-mini (route log `sensitive_spillway_excluded`); pins drop per J-1 with exact reasons; prose-credential turn classifies sensitive; password-discussion turn does not; non-sensitive chat / tool / stream unaffected (200s, sensible serves); alert dry-run as above. Post-recreate traffic watch: 22 requests in the first 15.9 minutes (production + smoke traffic), all HTTP 200, zero `stream_bound_timeout`.
+
+## [0.9.0] — 2026-11-15 (DEPLOYED 2026-11-15 01:58:08 MST)
+
+**Measured tooling dimension (Cycle 1 R4)** — owner's go 2026-11-14
+22:58 MST ("rebase, replay, then deploy if clean"); the first gate
+run halted at the push-approval timeout and the owner resumed it
+2026-11-15 01:43 MST. Decision package:
+`docs/cycles/release-v0.9.0-decision.md`. Battery:
+`docs/cycles/tooling-battery-2026-11-13.md`. Golden cross-check:
+`docs/cycles/golden-crosscheck-2026-11-14.md`.
+
+- **`quality.tooling`, written only by the battery.** Optional
+  per-entry tooling score (T1 exact-args / T2 160-line payload /
+  T3 parallel / T4 follow-through / T5 error-recovery); 54 of 73
+  enabled entries measured (50 scored 5, three scored 4, one
+  scored 2 provisional), `verified_until` 2026-12-13 on the 54.
+  Provenance is a registry invariant — no hand-entered scores.
+- **One selection helper at every ranking site.** Tool-classified
+  turns rank by the tooling score; the fallback rule is load-
+  bearing: an entry with no measured score ranks for tooling
+  exactly as it did before R4.
+- **`supports_tools` corrected to false** for
+  `novita/llama-3.1-8b` and `deepinfra/mistral-small-24b` on
+  verbatim upstream errors.
+- **Registry merged at the rebase:** v0.8.3's cached-input
+  pricing and R4's tooling fields both survive, proven
+  field-for-field in both directions against both parents. New
+  registry md5 `460b6df48f1d8217eb2c11622b70cb4f`, byte-identical
+  across GitHub main, VM103 build/src and VM103 state
+  (10001:10001, 644).
+- **Golden replay cross-check** (the check v0.8.2 owed R4): **0
+  new violations, exactly the 5 known** (g07/g08/g15 + g17/g19 =
+  F-10, still open); 19 diffs all declared — 16 belong to the
+  v0.8.2/v0.8.3 line (the baseline predates them), 3 are R4's
+  intended tooling effect (g20–g22: first choice
+  nemotron-3-ultra-free → cloudflare/llama-4-scout, tooling 5).
+  v0.8.2's `cooldown_stream_abort` produced no shadow diff.
+- **DEPLOY RECORD (2026-11-15):** branch rebased onto main
+  `9c5290f`; suite **681 passed** on the final tree (run twice).
+  PR #7's merge path was blocked — the push-files branch history
+  leaves the PR conflicted (`mergeable_state: dirty`) and no CI
+  fired on its synchronize / ready-for-review / reopen events —
+  so the resolved tree landed direct to main as `e7372a98` per
+  the v0.8.0 precedent (PR #4 → `9f811cb6`), byte-identical to
+  PR #7 head `3392c5ac`. **CI #43, run 43696746550, SUCCESS**
+  (pytest, Python 3.12) on main. PR #7 closed with an
+  explanation comment; the branch is retained as archive.
+  Image `192.168.0.28:5000/sovereign-router:v0.9.0`
+  (sha256:281ba4898ea832fc5b9ea0048ef4104f7d439fc189a2393c03e274d1f0b316f1);
+  gateway recreated 01:58:08 MST; /health version **0.9.0**,
+  81 models, clients [crm, hermes, n8n, openclaw], sidecar ok,
+  alert chain ok; prod :6070 still v0.2.1. Snapshot
+  `snapshots/pre-v090-20261114` (v0.8.3 image + pre-merge
+  registry, the pair rollback needs).
+- **Smokes all pass:** (a) tool-bearing request served by a
+  battery-5 entry (`google/gemini-3.1-flash-lite`, tooling 5)
+  with a well-formed tool call; (b) plain chat exact echo; (c)
+  **v0.8.3 regression check** — pinned `deepseek/deepseek-v4-pro`
+  session ×3: cold turn cached 0, warm turns cached 8,832 of
+  8,969 (98.5%), recorded cost equal to the hand-computed
+  cache-aware cost on every turn; (d) streaming 8 chunks,
+  finish=stop; (e) attempt ledger flowing (25 events in the
+  smoke window), zero `stream_bound_timeout`. A first (c)
+  attempt capped at 120 output tokens escalated two turns to
+  `meta/muse-spark-1.1` (`length_no_content` — the reasoning
+  model ate the cap; correct validation behavior, re-run at
+  2,000). **Traffic watch:** 76 rows in the first 20 minutes
+  post-cutover, ALL 200 (hermes 60, openclaw 9, n8n 7).
+- Tests: 654 → **681** (the +27 are the v0.8.2/v0.8.3 suites
+  pulled in at the rebase; R4's own were already in the 654).
+- **Rollback:** image → v0.8.3 AND restore `state/registry.json`
+  from the pre-v090 snapshot **together** (the v0.8.x loader
+  rejects the `tooling` key), then compose up -d gateway.
+- **NOT in this deploy:** re-probe cadence activation (owner
+  decision still open; `verified_until` expires 2026-12-13),
+  the F-10 classifier-fusion fix, and the ERNIE tooling-score
+  write (battery 4 measured 2026-11-15 — a follow-up registry
+  task, deliberately not folded into the gated tree).
+
+## [0.8.3] — 2026-11-13 (DEPLOYED 2026-11-13 21:33:54 MST)
+
+**True-cost ledger** (owner's order, 2026-11-13: "ADJUST THE LEDGER TO
+THE ACTUAL AMOUNT" — reversing his 2026-11-12 ruling that the
+cache-pricing fix was "NOT NECESSARY"). Decision package:
+`docs/cycles/release-v0.8.3-true-cost-ledger.md`. Failure-log entry
+F-12.
+
+- **Cached-token parsing, all shapes, both paths.** The gateway now
+  reads cached-input counts from every upstream usage shape —
+  OpenAI-style `prompt_tokens_details.cached_tokens`, DeepSeek
+  `prompt_cache_hit_tokens`, Anthropic `cache_read_input_tokens`
+  (aggregator shape, and the native shape where input_tokens excludes
+  cache reads), Google `usageMetadata.cachedContentTokenCount` — via
+  one shared parser used by the JSON path and, for the first time, the
+  streaming path (whose finalize previously hard-coded
+  cached_tokens=0). Parsed counts land on the route row and the quota
+  usage event and are priced by `estimate_cost` at the entry's
+  cached-input rate. Absent/garbage usage degrades to cached=0,
+  exactly the old behaviour; parsing can never break a response.
+  Before this fix, cache-heavy turns (300–530k contexts resent per
+  turn, ~90%+ cache hits at ~1/10 price) were priced as full-price
+  misses — the phantom-dollar overstatement proven against the
+  provider consoles on 2026-11-12 (DeepSeek 30-day actual $9.34 vs
+  the ledger's $109.32 for V4 Pro on Nov 11 alone).
+- **Registry: cached rates verified from primary sources**
+  (2026-11-13 reads). Added: `premium/gpt-5.5` $0.50 (OpenAI's own
+  model page — the carried "placeholder" price set was exact and is
+  now graded verified), `ollama/gpt-oss-120b` $0.014 (Ollama's pricing
+  table), `mistral/mistral-medium` $0.15 (Mistral's API price sheet).
+  Confirmed and upgraded seeded → verified: `deepseek/deepseek-v4-pro`
+  $0.044 (DeepSeek pricing page, peak accounting),
+  `zai/glm-5.3` $0.26 (Z.ai pricing page),
+  `siliconflow/deepseek-v4-pro` $0.135 (SiliconFlow listing).
+  **Price correction** (F-04 pattern): `siliconflow/deepseek-v3.2`
+  $0.259/$0.14/$0.80 → **$0.27/$0.135/$0.42** per SiliconFlow's own
+  listing. Entries whose providers publish no cached rate keep
+  cached=null — cached tokens price at the full input rate, never
+  assumed free (Cerebras, three DeepInfra models, Novita gpt-oss-120b,
+  both Hugging Face pass-throughs, SiliconFlow Qwen3-32B). New
+  registry invariant: a cached rate must lie in [0, input] and
+  inherits the entry's provenance grading.
+- **Soak report:** per-day token totals and free share BY TOKENS
+  alongside free share by requests (owner's order, 2026-11-13).
+  Census-verified against production routes: Nov 12 = 57,556,861
+  tokens, free-lane 80.9% of tokens vs 74.4% of requests; Nov 13 =
+  84.1% of tokens vs 70.4% of requests.
+- **Reconciliation probe** (throwaway v0.8.3 gateway on VM103:6085,
+  torn down after): repeated ~31.3k-token context ×6 turns against
+  DeepSeek direct (JSON + streaming arms). Provider reported 99.8%
+  cache hits on warm turns; the gateway's parsed cached_tokens
+  matched the provider-reported hit count on **8/8 turns exactly**,
+  and ledger cost equalled the hand-computed console-style cost on
+  every turn (session ledger $0.053186 = hand total at the registry's
+  peak-rate basis; the probe ran on a Saturday, so DeepSeek's actual
+  off-peak deduction is half that — the recorded peak-accounting
+  convention, flagged in the package).
+- **History is not rewritten.** Upstream cache data was never stored
+  for past turns, so pre-v0.8.3 route rows remain ceiling estimates;
+  dollars are actuals only from this deploy onward.
+- **DEPLOY RECORD (2026-11-13):** PR #8 merged to main as
+  `a240bc4cf8bd6f02d1972fb15c3e1af1bd9615dd`; CI run 43556738063
+  SUCCESS (pytest, Python 3.12); suite 654. Snapshot
+  `snapshots/pre-v083-20261113`. Image
+  `192.168.0.28:5000/sovereign-router:v0.8.3`
+  (sha256:0e0b0ed786fd1334b588913b93cf33a2548930264e3b3658798403015591f010);
+  gateway recreated 21:33:54 MST (cutover epoch 1794630834);
+  /health version 0.8.3, 81 models, clients
+  [crm, hermes, n8n, openclaw], sidecar ok, alert chain ok;
+  prod :6070 still v0.2.1. **Registry changed:** new md5
+  `a915a4d1c0d5237534feba2d562358a0` byte-identical across GitHub
+  main, VM103 build/src and VM103 state (10001:10001, 644).
+  Smokes all pass (non-streaming exact echo; streaming 12 chunks
+  finish=stop; tool call well-formed). **Live true-cost proof:**
+  pinned openclaw session on `deepseek/deepseek-v4-pro`, ~20.4k
+  context ×5 turns — turn 1 cold (cached 0, $0.02731872); warm
+  turns cached 20,352–20,480 (~99.4% hits) with recorded cost
+  equal to the hand-computed (in−cached)×$1.32 + cached×$0.044 +
+  out×$3.96 per 1M on every turn (e.g. in 20,559 / cached 20,480 /
+  out 52 → $0.00121132). Traffic watch (CORRECTED 2026-11-13 —
+  the watch summary first circulated in the deploy session
+  misstated this window's counts; the figures here are re-derived
+  from routes.jsonl): 17 rows in the post-cutover window (6
+  deploy smokes, 5 proof turns, 6 genuine OpenClaw turns), ALL
+  200, no `stream_bound_timeout`; the only signals were the
+  proof session's own repeat_within_60s ×5; attempt ledger 17
+  served + 7 failed congested (OpenRouter free-pool 429s absorbed
+  by failover — every client row still 200). Genuine fleet rows
+  recorded cached_tokens > 0 within minutes: OpenClaw on
+  openrouter/nemotron-3-ultra-free (13,152 / 17,536 cached) and
+  groq/gpt-oss-120b (17,152 cached of 19,913 in → $0.000568). An
+  evening lull followed (no rows after 21:38 MST; gateway
+  verified healthy). **Dashboard:** exporter v1.2 adds
+  `sovereign_premium_spend_since_truecost_usd`; the Overview
+  premium panel now shows ACTUAL dollars since the cutover
+  (first read: openclaw $0.032772, the proof session exactly) and
+  the pre-fix MTD ceiling totals moved into the READ BEFORE
+  annotation panel as static historical text. Rollback: image →
+  v0.8.2 AND restore state/registry.json from the pre-v083
+  snapshot, then compose up -d gateway.
+- Tests: 636 → 654. Rollback: image swap only — the registry changes
+  are value-only (no new keys); the v0.8.2 loader was verified loading
+  the new registry (81 entries) in this build.
 
 ## [0.8.2] — 2026-11-13 (built 2026-11-13; NOT yet deployed)
 

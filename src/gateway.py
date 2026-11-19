@@ -60,6 +60,22 @@ returns an account-class upstream failure (401/402/403) or exhausts
 its daily token cap, so a dead cheap rung surfaces within one
 alert-chain poll instead of burning silently for hours.
 
+True-cost ledger (v0.8.3, owner order 2026-11-13 — "ADJUST THE LEDGER
+TO THE ACTUAL AMOUNT", reversing his 2026-11-12 ruling that this fix
+was not necessary): the gateway parses cached-input token counts from
+every upstream usage shape (OpenAI prompt_tokens_details, DeepSeek
+prompt_cache_hit_tokens, Anthropic cache_read_input_tokens, Google
+usageMetadata.cachedContentTokenCount) on BOTH the JSON and streaming
+paths, records them on the route row and usage event, and prices them
+at the entry's cached_input_usd_per_million rate (falling back to the
+full input rate where the provider publishes no cached rate). Before
+this, cached_tokens was 0 on effectively every row and cache-heavy
+turns were priced as full-price misses — the phantom-dollar
+overstatement proven against the provider consoles on 2026-11-12
+(DeepSeek's 30-day actual $9.34 vs the ledger's $109.32 for V4 Pro on
+2026-11-11 alone). History is NOT rewritten: pre-v0.8.3 route rows
+remain ceiling estimates; dollars are actuals only from this deploy.
+
 No startup patches: this is the v0.5 source tree (the v0.3.3 canary's
 PATCH_V033 mechanism is gone). Provider keys are read once at startup
 from mode-600 files in the state dir (``keys/<provider>.key``); they are
@@ -93,7 +109,7 @@ from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.8.2"
+VERSION = "0.9.1"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -162,6 +178,29 @@ def _default_max_tokens(body: dict[str, Any]) -> int:
     if body.get("tools") or body.get("tool_choice") is not None:
         return TOOL_DEFAULT_MAX_TOKENS
     return DEFAULT_MAX_TOKENS
+
+
+def _selection_quality(entry: ModelEntry, task_class: str,
+                       has_tools: bool) -> int:
+    """The quality selection ranks and floors on (v0.9.0, Cycle 1
+    aspect F / NEXT plan §2d — the tooling dimension).
+
+    For a tool-bearing request, an entry with a MEASURED tooling score
+    is ranked on that score: tool competence is what the turn actually
+    exercises, and tonight's incident record (2026-11-13) is three
+    production tool-call defects on models that chat/code quality had
+    ranked as peers. An entry with NO tooling score is unmeasured, and
+    the fallback rule is strict: it ranks on exactly the input it
+    ranked on before the dimension existed — quality_for(task_class),
+    the request's classified class — so adding the dimension never
+    silently re-ranks an unmeasured entry. Non-tool requests are
+    untouched. The binary supports_tools gate is unchanged and still
+    applies first (build_candidates)."""
+    if has_tools:
+        measured = entry.tooling_quality()
+        if measured is not None:
+            return measured
+    return entry.quality_for(task_class)
 FAILOVER_STATUSES = {401, 403, 408, 413, 429, 500, 502, 503, 504}
 # Escalation reason recorded on every turn the paid spillway serves
 # (v0.5.5 free-first / paid-spillway waterfall, owner ruling 2026-11-07).
@@ -344,16 +383,99 @@ def _route_headers(entry: ModelEntry, level: int, task_class: str,
     }
 
 
+def _as_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _cached_tokens_from_usage(usage: dict[str, Any]) -> int:
+    """Cached-input token count from an upstream usage object, across
+    the shapes the fleet's providers actually return (v0.8.3 — the
+    true-cost ledger fix; before it, only the first two shapes were
+    read and only on the non-streaming path, so route rows carried
+    cached_tokens=0 on cache-served turns and every cache-heavy turn
+    was priced as a full-price miss):
+
+      * OpenAI-style: ``prompt_tokens_details.cached_tokens`` —
+        OpenAI, OpenRouter-normalised, Groq, DeepInfra, SiliconFlow,
+        Novita, Z.ai (the OpenAI-compatible majority).
+      * DeepSeek: ``prompt_cache_hit_tokens`` (its complement,
+        ``prompt_cache_miss_tokens``, sums with it to prompt_tokens;
+        the hit count is the cached count).
+      * Anthropic-style: ``cache_read_input_tokens`` (Anthropic models
+        reached via aggregators; see _usage_counts for the native
+        shape, where input_tokens excludes cache reads).
+      * Google: ``cachedContentTokenCount`` — inside a nested
+        ``usageMetadata`` object or at the usage level (Gemini-native
+        shape flowing through a pass-through).
+
+    Aggregators sometimes report the same cached tokens under two of
+    these names at once (e.g. OpenRouter sets both the OpenAI details
+    field and the Anthropic field for Claude routes), so the MAX of
+    the recognised fields is the count — never their sum. Absent or
+    unrecognised usage -> 0, exactly the pre-v0.8.3 behaviour; a
+    malformed usage object must never break a response.
+    """
+    if not isinstance(usage, dict):
+        return 0
+    candidates: list[int] = []
+    details = usage.get("prompt_tokens_details")
+    if isinstance(details, dict):
+        candidates.append(_as_int(details.get("cached_tokens")))
+    candidates.append(_as_int(usage.get("prompt_cache_hit_tokens")))
+    candidates.append(_as_int(usage.get("cache_read_input_tokens")))
+    meta = usage.get("usageMetadata")
+    if isinstance(meta, dict):
+        candidates.append(_as_int(meta.get("cachedContentTokenCount")))
+    candidates.append(_as_int(usage.get("cachedContentTokenCount")))
+    return max(candidates, default=0)
+
+
+def _usage_counts(usage: Any, est_input: int) -> tuple[int, int, int]:
+    """(input, output, cached) token counts from a usage object in any
+    supported shape. ``cached`` is always a subset of ``input`` in the
+    returned triple — the invariant estimate_cost prices against:
+
+      * OpenAI/DeepSeek shapes: prompt_tokens already includes the
+        cached count.
+      * Google native shape (usageMetadata): promptTokenCount
+        includes cachedContentTokenCount.
+      * Anthropic native shape: input_tokens EXCLUDES cache reads, so
+        reads (and cache creations, which the registry prices as
+        fresh input — it carries no cache-write rate) are folded
+        into the input total to restore the subset invariant.
+    """
+    if not isinstance(usage, dict):
+        return est_input, 0, 0
+    meta = usage.get("usageMetadata")
+    if not isinstance(meta, dict):
+        meta = {}
+    cached = _cached_tokens_from_usage(usage)
+    in_tok = _as_int(usage.get("prompt_tokens")) \
+        or _as_int(usage.get("promptTokenCount")) \
+        or _as_int(meta.get("promptTokenCount"))
+    if not in_tok:
+        native_in = _as_int(usage.get("input_tokens"))
+        if native_in:
+            in_tok = native_in + cached \
+                + _as_int(usage.get("cache_creation_input_tokens"))
+        else:
+            in_tok = est_input
+    out_tok = _as_int(usage.get("completion_tokens")) \
+        or _as_int(usage.get("candidatesTokenCount")) \
+        or _as_int(meta.get("candidatesTokenCount")) \
+        or _as_int(usage.get("output_tokens"))
+    if in_tok:
+        cached = min(cached, in_tok)
+    return in_tok, out_tok, cached
+
+
 def _usage_from_response(resp: dict[str, Any], est_input: int,
                          entry: ModelEntry) -> tuple[int, int, int, float]:
-    usage = resp.get("usage") or {}
-    in_tok = int(usage.get("prompt_tokens") or usage.get("input_tokens") or est_input)
-    out_tok = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
-    cached = 0
-    details = usage.get("prompt_tokens_details") or {}
-    if isinstance(details, dict):
-        cached = int(details.get("cached_tokens") or 0)
-    cached = cached or int(usage.get("cache_read_input_tokens") or 0)
+    usage = resp.get("usage") or resp.get("usageMetadata") or {}
+    in_tok, out_tok, cached = _usage_counts(usage, est_input)
     if out_tok == 0:
         msg = (resp.get("choices") or [{}])[0].get("message") or {}
         if isinstance(msg.get("content"), str):
@@ -375,15 +497,47 @@ def _usage_from_response(resp: dict[str, Any], est_input: int,
 DEAD_LANE_STATUSES = {401, 402, 403}
 
 
-def note_lane_dead(app: FastAPI, entry: ModelEntry, cause: str) -> None:
+def note_lane_dead(app: FastAPI, entry: ModelEntry, cause: str,
+                   dedup_cause: Optional[str] = None) -> None:
+    # The dedup key carries `dedup_cause` when given: the F-17(a)
+    # TPD cause embeds live numbers (counted usage, the triggering
+    # estimate), and keying on them would mint a fresh "first alert
+    # of the day" for every distinct request — the alert is once per
+    # entry per day by design, so its key stays on the stable class.
     app.state.store.add_alert(
         "lane_dead", entry.provider,
-        f"lane_dead:{entry.provider}:{entry.id}:{cause}",
+        f"lane_dead:{entry.provider}:{entry.id}:{dedup_cause or cause}",
         f"Lane dead: {entry.id} (provider {entry.provider}) — "
         f"{cause}. This is an account/credit/cap failure, not a "
         "rate limit. The cascade is serving from the next rungs "
         "in cost order; fix or top up this provider to restore "
         "the cheap rung.")
+
+
+def note_sensitive_paid_serve(app: FastAPI, record: RouteRecord,
+                              client: ClientPolicy, entry: ModelEntry,
+                              cost: float) -> None:
+    """v0.9.1 (F-15): sensitive_no_cleared_provider fires on OUTCOMES,
+    not on the clearance list's emptiness. Pre-v0.9.1 the alert fired
+    pre-serve whenever no owner-cleared candidate sat in the free-first
+    set — a permanently-true condition (no provider is cleared), so it
+    paged on the first sensitive request of every day while describing
+    a paid fallthrough that usually never happened. Now it records
+    only the two outcomes that matter: a sensitive request actually
+    serving on a paid/premium lane (here), or finding no candidate at
+    all (the chat handler's 429 path). The standing posture — who
+    served sensitive traffic, and that the cleared set is empty — is
+    the governor's daily sensitive_posture_digest."""
+    if record.data_class != "sensitive" or entry.lane not in ("paid", "premium"):
+        return
+    app.state.store.add_alert(
+        "sensitive_no_cleared_provider", client.id,
+        f"sensitive_paid_serve:{client.id}",
+        f"Client {client.id}: sensitive request SERVED on the "
+        f"{entry.lane} lane via {entry.id} (${cost:.4f}) — no "
+        "owner-cleared provider exists, so the v0.5.5 spillway served "
+        "it uncleared as a last resort. (F-15: this alert fires on "
+        "the outcome, not on the empty clearance list.)")
 
 
 def note_stream_abort(app: FastAPI, entry: ModelEntry) -> None:
@@ -543,7 +697,8 @@ def create_app(config: Optional[GatewayConfig] = None,
                     skip("sensitive_not_cleared"); continue
             if has_tools and not entry.supports_tools:
                 skip("tools_unsupported"); continue
-            if entry.quality_for(task_class) < required_quality:
+            if _selection_quality(entry, task_class, has_tools) \
+                    < required_quality:
                 skip("quality_below_required"); continue
             # Fit = the *input* fits; max_tokens is clamped to the
             # model's remaining room at call time, so only a minimal
@@ -556,8 +711,25 @@ def create_app(config: Optional[GatewayConfig] = None,
                 entry.provider, entry.limits, est_tokens, now)
             if reason:
                 if reason == "rate_limited_tpd":
-                    note_lane_dead(app, entry,
-                                   "daily token cap (TPD) exhausted")
+                    # F-17(a) (v0.9.1): the cause must state what was
+                    # actually consumed vs the cap AND the estimate
+                    # that tripped it. The pre-v0.9.1 string asserted
+                    # "exhausted" even when usage was zero and a single
+                    # oversized request estimate alone exceeded the cap
+                    # (Aion, 2026-11-15: 0 / 20,000 used, estimate
+                    # 67,274).
+                    cap = int(entry.limits.get("tpd") or 0)
+                    day_start = time.mktime(time.strptime(
+                        time.strftime("%Y-%m-%d", time.localtime(now)),
+                        "%Y-%m-%d"))
+                    _, counted = app.state.store.window_usage(
+                        entry.provider, day_start, now + 1)
+                    note_lane_dead(
+                        app, entry,
+                        f"daily token cap (TPD): {counted:,} / {cap:,} "
+                        f"tokens used today; this request's estimate "
+                        f"{est_tokens:,} tokens exceeds the cap",
+                        dedup_cause="daily token cap (TPD)")
                 skip(reason); continue
             # v0.8.2 (F-11): stream-abort cooldown. Checked last, so a
             # cooled entry in the list is one that passed EVERY other
@@ -572,7 +744,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         def sort_key(e: ModelEntry) -> tuple[float, int, int]:
             est_out = max_tokens // 2
             return (e.estimate_cost(est_tokens, est_out),
-                    -e.quality_for(task_class),
+                    -_selection_quality(e, task_class, has_tools),
                     e.latency_p50_ms or 99_999)
 
         candidates.sort(key=sort_key)
@@ -887,7 +1059,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         # 15 min): record the heartbeat and surface pending alerts.
         app.state.store.record_poll(now)
         app.state.governor.evaluate_alerts(
-            app.state.clients.clients, provider_alert_levels(app.state.registry), now)
+            app.state.clients.clients, provider_alert_levels(app.state.registry), now,
+            sensitive_cleared_entries=sum(
+                1 for e in app.state.registry.entries if e.sensitive_cleared))
         day0 = time.mktime(time.strptime(
             time.strftime("%Y-%m-%d", time.localtime(now)), "%Y-%m-%d"))
         month0 = time.mktime(time.strptime(
@@ -932,7 +1106,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         now = time.time()
         app.state.store.record_poll(now)
         app.state.governor.evaluate_alerts(
-            app.state.clients.clients, provider_alert_levels(app.state.registry), now)
+            app.state.clients.clients, provider_alert_levels(app.state.registry), now,
+            sensitive_cleared_entries=sum(
+                1 for e in app.state.registry.entries if e.sensitive_cleared))
         alerts = app.state.store.alerts_after(after)
         return {"alerts": alerts,
                 "last_id": alerts[-1]["id"] if alerts else after}
@@ -1036,7 +1212,8 @@ def create_app(config: Optional[GatewayConfig] = None,
             if candidates:
                 skipped = skipped2 + [{"model": "-", "reason": "level5_fallback_quality4"}]
         if steering.cheapest_quality4_only and len(candidates) > 1:
-            exact = [c for c in candidates if c.quality_for(task_class) == 4]
+            exact = [c for c in candidates
+                     if _selection_quality(c, task_class, bool(tools)) == 4]
             if exact:
                 candidates = exact
         candidates, pin_blocked = apply_pin(
@@ -1086,7 +1263,7 @@ def create_app(config: Optional[GatewayConfig] = None,
                 if first else None),
             "candidates": [
                 {"model": c.id, "lane": c.lane, "provider": c.provider,
-                 "quality": c.quality_for(task_class),
+                 "quality": _selection_quality(c, task_class, bool(tools)),
                  "estimated_cost_usd": c.estimate_cost(est_tokens, max_tokens // 2)}
                 for c in candidates],
             "skipped": skipped,
@@ -1230,7 +1407,8 @@ def create_app(config: Optional[GatewayConfig] = None,
                 skipped = skipped2 + [{"model": "-", "reason": "level5_fallback_quality4"}]
         # Governor: above target, level 4 is held to the cheapest q4.
         if steering.cheapest_quality4_only and len(candidates) > 1:
-            exact = [c for c in candidates if c.quality_for(task_class) == 4]
+            exact = [c for c in candidates
+                     if _selection_quality(c, task_class, bool(tools)) == 4]
             if exact:
                 for c in candidates:
                     if c not in exact:
@@ -1265,19 +1443,13 @@ def create_app(config: Optional[GatewayConfig] = None,
                 app.state.sticky.invalidate(conv_key)
         queue_ms = (time.perf_counter() - t_q0) * 1000
 
-        if data_class == "sensitive":
-            cleared_available = any(
-                c.sensitive_cleared or c.provider in client.sensitive_cleared_providers
-                for c in candidates)
-            if not cleared_available:
-                app.state.store.add_alert(
-                    "sensitive_no_cleared_provider", client.id,
-                    f"sensitive_fallback:{client.id}",
-                    f"Client {client.id}: sensitive request had no "
-                    "cleared provider in free-first selection; under "
-                    "the v0.5.5 free-first / paid-spillway ruling "
-                    "(2026-11-07) it may fall through to a paid "
-                    "provider as a last resort.")
+        # v0.9.1 (F-15): NO alert is raised here anymore. The
+        # pre-v0.9.1 block paged sensitive_no_cleared_provider whenever
+        # the free-first set held no owner-cleared candidate — a
+        # permanently-true condition that fired daily while describing
+        # a fallthrough that usually never happened. The alert now
+        # fires on outcomes only: note_sensitive_paid_serve at serve
+        # time, and the zero-candidate 429 path below.
 
         record = RouteRecord(
             ts=time.time(), client=client.id, level=level, task_class=task_class,
@@ -1340,6 +1512,19 @@ def create_app(config: Optional[GatewayConfig] = None,
                 record.signals.append(f"paid_spillway:{spill_candidates[0].id}")
 
         if not candidates:
+            if data_class == "sensitive":
+                # F-15 (v0.9.1) outcome alert: a sensitive request
+                # that finds no candidate at all is a real event —
+                # the wall plus provider limits left nothing eligible.
+                app.state.store.add_alert(
+                    "sensitive_no_cleared_provider", client.id,
+                    f"sensitive_no_candidate:{client.id}",
+                    f"Client {client.id}: sensitive request found NO "
+                    "candidate at all (429) — the sensitive wall and "
+                    "provider limits left nothing eligible, and no "
+                    "owner-cleared provider exists. (F-15: this alert "
+                    "fires on the outcome, not on the empty clearance "
+                    "list.)")
             record.status = 429
             record.upstream_failure = True
             telemetry.write(record)
@@ -1357,7 +1542,7 @@ def create_app(config: Optional[GatewayConfig] = None,
             model_id=first.id, lane=first.lane, level=level,
             task_class=task_class, input_tokens=est_tokens,
             output_tokens=max_tokens // 2, cached_tokens=0,
-            cost_usd=est_cost, estimated=True))
+            cost_usd=est_cost, estimated=True, data_class=data_class))
 
         if stream:
             return await _stream_response(
@@ -1546,16 +1731,18 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             # model is already quality 4 — retry the next candidate at
             # >= current quality instead of serving a known-invalid
             # answer; a different model rarely fails the same way.
-            target_q = entry.quality_for(task_class) + 1
+            entry_q = _selection_quality(entry, task_class, bool(tools))
+            target_q = entry_q + 1
             esc_idx = next(
                 (j for j in range(idx + 1, len(candidates))
-                 if candidates[j].quality_for(task_class) >= target_q),
+                 if _selection_quality(candidates[j], task_class,
+                                       bool(tools)) >= target_q),
                 None)
             if esc_idx is None:
                 esc_idx = next(
                     (j for j in range(idx + 1, len(candidates))
-                     if candidates[j].quality_for(task_class)
-                     >= entry.quality_for(task_class)),
+                     if _selection_quality(candidates[j], task_class,
+                                           bool(tools)) >= entry_q),
                     None)
             if esc_idx is not None:
                 escalated = True
@@ -1592,15 +1779,19 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             ts=time.time(), client_id=client.id, provider=entry.provider,
             model_id=entry.id, lane=entry.lane, level=level,
             task_class=task_class, input_tokens=in_tok, output_tokens=out_tok,
-            cached_tokens=cached, cost_usd=cost, estimated=False))
+            cached_tokens=cached, cost_usd=cost, estimated=False,
+            data_class=record.data_class))
         _record_attempt(app, record, client, entry,
                         outcome="served", units=in_tok + out_tok,
                         truncated_tool_call=truncated_tc)
+        note_sensitive_paid_serve(app, record, client, entry, cost)
         app.state.sticky.set(conv_key, entry.id, level)
         app.state.governor.evaluate_alerts(
             app.state.clients.clients,
             {e.provider: e.spend_alert_usd for e in app.state.registry.entries
-             if e.spend_alert_usd is not None})
+             if e.spend_alert_usd is not None},
+            sensitive_cleared_entries=sum(
+                1 for e in app.state.registry.entries if e.sensitive_cleared))
         telemetry.write(record)
         return JSONResponse(
             data, status_code=200,
@@ -1749,6 +1940,11 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                             continue
                         if isinstance(chunk.get("usage"), dict):
                             usage_data = chunk["usage"]
+                        if isinstance(chunk.get("usageMetadata"), dict):
+                            # Gemini-native stream shape: usage rides
+                            # at chunk level, not inside a usage object.
+                            usage_data = {**usage_data,
+                                          "usageMetadata": chunk["usageMetadata"]}
                         choice = (chunk.get("choices") or [{}])[0]
                         delta = choice.get("delta") or {}
                         is_tool = bool(delta.get("tool_calls"))
@@ -1781,10 +1977,13 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         failures = validate_response(
                             assembled, tools=tools or None, json_mode=False)
                         if failures and not escalated:
-                            target_q = entry.quality_for(task_class) + 1
+                            entry_q = _selection_quality(
+                                entry, task_class, bool(tools))
+                            target_q = entry_q + 1
                             esc_idx = next(
                                 (j for j in range(idx + 1, len(candidates))
-                                 if candidates[j].quality_for(task_class) >= target_q),
+                                 if _selection_quality(candidates[j], task_class,
+                                                       bool(tools)) >= target_q),
                                 None)
                             if esc_idx is None:
                                 # Same fallback as the JSON path: next
@@ -1792,8 +1991,10 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                 # serving a known-invalid tool call.
                                 esc_idx = next(
                                     (j for j in range(idx + 1, len(candidates))
-                                     if candidates[j].quality_for(task_class)
-                                     >= entry.quality_for(task_class)),
+                                     if _selection_quality(candidates[j],
+                                                           task_class,
+                                                           bool(tools))
+                                     >= entry_q),
                                     None)
                             if esc_idx is None and failures:
                                 record.signals.append(
@@ -1808,23 +2009,28 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                 idx = esc_idx
                                 retry_candidate = True
                         if retry_candidate:
+                            _r_in, _r_out, _ = _usage_counts(
+                                usage_data, est_tokens)
                             _record_attempt(
                                 app, record, client, entry,
                                 outcome="served",
-                                units=int(usage_data.get("prompt_tokens") or 0)
-                                + int(usage_data.get("completion_tokens") or 0),
+                                units=_r_in + _r_out,
                                 truncated_tool_call=truncated_tc)
                             continue
                         for sse_line in buffered:
                             yield sse_line
                         yield "data: [DONE]\n\n"
-                        in_tok = int(usage_data.get("prompt_tokens") or est_tokens)
-                        out_tok = int(usage_data.get("completion_tokens") or 0)
-                        cost = entry.estimate_cost(in_tok, out_tok)
+                        # v0.8.3: the streaming path prices cached
+                        # tokens too — before, it never passed them
+                        # and the finalize hard-coded cached_tokens=0.
+                        in_tok, out_tok, cached = _usage_counts(
+                            usage_data, est_tokens)
+                        cost = entry.estimate_cost(in_tok, out_tok, cached)
                         _finalize_stream(app, record, entry, client, conv_key,
                                          level, task_class, in_tok, out_tok, cost,
                                          escalated or spillway_reason is not None,
-                                         truncated_tool_call=truncated_tc)
+                                         truncated_tool_call=truncated_tc,
+                                         cached_tokens=cached)
                         finalized = True
                         return
                     # text path finished (already committed live)
@@ -1836,13 +2042,15 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         record.signals.append(
                             "stream_text_log_only:" + ",".join(log_failures))
                     yield "data: [DONE]\n\n"
-                    in_tok = int(usage_data.get("prompt_tokens") or est_tokens)
-                    out_tok = int(usage_data.get("completion_tokens") or
-                                  max(1, content_chars // 4))
-                    cost = entry.estimate_cost(in_tok, out_tok)
+                    in_tok, out_tok, cached = _usage_counts(
+                        usage_data, est_tokens)
+                    if not out_tok:
+                        out_tok = max(1, content_chars // 4)
+                    cost = entry.estimate_cost(in_tok, out_tok, cached)
                     _finalize_stream(app, record, entry, client, conv_key,
                                      level, task_class, in_tok, out_tok, cost,
-                                     escalated or spillway_reason is not None)
+                                     escalated or spillway_reason is not None,
+                                     cached_tokens=cached)
                     finalized = True
                     return
             except (httpx.TimeoutException, httpx.TransportError,
@@ -1915,22 +2123,26 @@ def _finalize_stream(app: FastAPI, record: RouteRecord, entry: ModelEntry,
                      client: ClientPolicy, conv_key: str, level: int,
                      task_class: str, in_tok: int, out_tok: int, cost: float,
                      escalated: bool,
-                     truncated_tool_call: bool = False) -> None:
+                     truncated_tool_call: bool = False,
+                     cached_tokens: int = 0) -> None:
     record.model = entry.id
     record.lane = entry.lane
     record.escalated = escalated
     record.input_tokens, record.output_tokens = in_tok, out_tok
+    record.cached_tokens = cached_tokens
     record.cost_usd = cost
     record.status = 200
     record.latency_upstream_ms = round(record.latency_upstream_ms, 2)
     app.state.store.record_usage(UsageEvent(
         ts=time.time(), client_id=client.id, provider=entry.provider,
         model_id=entry.id, lane=entry.lane, level=level, task_class=task_class,
-        input_tokens=in_tok, output_tokens=out_tok, cached_tokens=0,
-        cost_usd=cost, estimated=False))
+        input_tokens=in_tok, output_tokens=out_tok,
+        cached_tokens=cached_tokens,
+        cost_usd=cost, estimated=False, data_class=record.data_class))
     _record_attempt(app, record, client, entry,
                     outcome="served", units=in_tok + out_tok,
                     truncated_tool_call=truncated_tool_call)
+    note_sensitive_paid_serve(app, record, client, entry, cost)
     app.state.sticky.set(conv_key, entry.id, level)
     app.state.telemetry.write(record)
 

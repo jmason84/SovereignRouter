@@ -141,16 +141,50 @@ def test_price_provenance_on_every_priced_entry():
                 f"{e.id}: verified/observed prices carry the confirmation date"
 
 
+def test_cached_price_bounds_and_provenance():
+    # v0.8.3 (true-cost ledger): a cached-input price is a real price —
+    # it needs the same provenance discipline as in/out (the v0.7.0
+    # battery above covers graded source + dated verification for the
+    # entry as a whole) AND it must sit inside [0, input]: a cached
+    # rate above the fresh-input rate would charge MORE for cheaper
+    # tokens and invert the ledger fix. (A provider publishing such a
+    # rate would need a source-backed exception recorded here, not a
+    # silent registry value.)
+    for e in REG.entries:
+        cached = e.cached_input_usd_per_million
+        if cached is None:
+            continue
+        assert cached >= 0, f"{e.id}: cached price must be >= 0"
+        if e.input_usd_per_million > 0:
+            assert cached <= e.input_usd_per_million, \
+                f"{e.id}: cached rate {cached} exceeds input rate " \
+                f"{e.input_usd_per_million}"
+        else:
+            # $0 entries (free lanes): a cached price must also be $0 —
+            # a priced cache on an unpriced model breaks lane posture.
+            assert cached == 0, \
+                f"{e.id}: unpriced entry must not carry a cached price"
+
+
 def test_premium_entries_have_spend_alert_armed():
     for e in REG.entries:
         if e.lane == "premium":
             assert e.spend_alert_usd is not None and e.spend_alert_usd > 0, e.id
 
 
-def test_spillway_exclusion_only_on_paid_lanes():
+def test_spillway_exclusion_never_on_public_lane():
+    # Premise changed 2026-11-15 (v0.9.1, F-16): the invariant was
+    # "exclusion only on paid lanes" because the flag began as a
+    # spillway concept. F-16 extends it to two private-free entries
+    # (openrouter/dots-3-note-preview-free +
+    # openrouter/north-mini-code-free) — the mechanism drops a flagged
+    # entry for sensitive turns in EVERY pass, so a private-free flag
+    # is precisely how an entry leaves the wall's trusted side. What
+    # remains incoherent is flagging a PUBLIC-lane entry: the lane
+    # itself already bars sensitive turns, so the flag would be noise.
     for e in REG.entries:
         if e.spillway_sensitive_excluded:
-            assert e.lane in ("paid", "premium"), e.id
+            assert e.lane in ("paid", "premium", "private-free"), e.id
 
 
 def test_openrouter_pool_shape():
@@ -180,9 +214,30 @@ def test_disabled_entries_carry_dated_notes():
 
 
 def test_quality_maps_complete():
+    # v0.9.0 amendment (aspect F, recorded in the release package): the
+    # five BASE classes stay complete on every entry; `tooling` is the
+    # measured-only sixth dimension — present exactly where the battery
+    # measured it, never required, never hand-filled for completeness.
+    from registry import BASE_TASK_CLASSES
     for e in REG.entries:
-        assert set(e.quality) == set(TASK_CLASSES), e.id
+        assert set(BASE_TASK_CLASSES) <= set(e.quality) <= set(TASK_CLASSES), \
+            e.id
         assert all(1 <= int(v) <= 5 for v in e.quality.values()), e.id
+
+
+def test_tooling_scores_carry_battery_provenance():
+    # A tooling score is derived by the battery's rubric from measured
+    # tool-call evidence — it must name its measuring run, and the
+    # provenance field must never appear without the score it vouches
+    # for (no hand-entered scores, no orphan provenance).
+    for e in REG.entries:
+        if "tooling" in e.quality:
+            assert e.tooling_source, \
+                f"{e.id}: tooling score without tooling_source provenance"
+            assert "tooling-battery:" in e.tooling_source, e.id
+        else:
+            assert not e.tooling_source, \
+                f"{e.id}: tooling_source set but no tooling score measured"
 
 
 def test_provider_posture_caveats_stay_in_notes():

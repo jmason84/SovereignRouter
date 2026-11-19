@@ -31,7 +31,16 @@ def test_starting_registry_matches_spec_table():
     # muse-spark-1.3 no-content probes, google gemma-4-26b-it
     # inconsistency); every paid price verified from the provider's
     # own published source.
-    assert len(reg.entries) == 81
+    # + 7 entries added DISABLED 2026-11-15 (consolidated free-model
+    # update: openrouter ling-3.2-flash-free + particle-1-free and
+    # five unorouter routes, staged for the owner's enable ruling);
+    # openrouter/lfm-2.5-2.6b-free was disabled the same day (its
+    # upstream model id was deleted) — no count change from a disable.
+    # + 10 nRouter entries added DISABLED 2026-11-17 (owner's
+    # build-in order): probe-proven aggregator routes on the paid
+    # lane, flagged spillway_sensitive_excluded provider-wide,
+    # staged for the owner's enable ruling.
+    assert len(reg.entries) == 98
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4
@@ -135,13 +144,34 @@ def test_starting_registry_matches_spec_table():
         "openrouter/llama-4-maverick", "openrouter/claude-haiku-5.5",
         "openrouter/kimi-k2.6", "zai/glm-4.6", "zai/glm-5.3-flash",
     }
+    # v0.9.1 (F-16, owner's ruling 2026-11-15): the flag extends to
+    # the two OpenRouter FREE routes that sat inside the sensitive
+    # wall via private-free — the phase-2 "nothing else" premise is
+    # superseded by the F-16 pair, recorded here deliberately.
+    v091_flagged = {
+        "openrouter/dots-3-note-preview-free",
+        "openrouter/north-mini-code-free",
+    }
+    # 2026-11-17: the nRouter build-in flags the aggregator
+    # provider-wide (all ten routes, paid lane) on the same
+    # conservative grounds — the "nothing else" premise grows by
+    # this set, recorded here deliberately.
+    nrouter_flagged = {
+        "nrouter/gpt-5-nano", "nrouter/gpt-5-mini",
+        "nrouter/gpt-4.1-mini", "nrouter/gpt-5.4-mini",
+        "nrouter/mistral-small-2503", "nrouter/qwen3-32b",
+        "nrouter/qwen3-coder-480b-a35b", "nrouter/deepseek-v4.1-flash",
+        "nrouter/amazon-nova-lite-v1", "nrouter/llama-3.3-70b-instruct",
+    }
     assert all(not e.spillway_sensitive_excluded
                for e in reg.entries
                if e.provider not in ("siliconflow", "huggingface",
                                       "cerebras", "novita", "mistral")
-               and e.id not in phase2_flagged)
+               and e.id not in phase2_flagged
+               and e.id not in v091_flagged
+               and e.id not in nrouter_flagged)
     assert all(by_id[i].spillway_sensitive_excluded
-               for i in phase2_flagged)
+               for i in phase2_flagged | v091_flagged | nrouter_flagged)
 
     # every 2026-11-12 addition is live; nothing remains staged
     assert all(by_id[i].enabled for i in

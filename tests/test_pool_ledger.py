@@ -58,7 +58,7 @@ def _fail(entry, status, body="", headers=None, transport=False):
 
 def test_pool_derivation_covers_registry_exactly_once():
     pools = {e.id: pool_for(e) for e in REG.entries}
-    assert len(pools) == len(REG.entries) == 81
+    assert len(pools) == len(REG.entries) == 98
     assert all(p.id and p.unit in ("requests", "tokens", "neurons")
                for p in pools.values())
 
@@ -70,7 +70,10 @@ def test_openrouter_free_pool_membership_and_inheritance():
                 if e.provider == "openrouter"
                 and (e.model.endswith(":free") or e.id == "openrouter/free-router")}
     assert members == expected
-    assert len(members) == 14
+    # 14 at phase 2; +2 on 2026-11-15 (ling-3.2-flash-free and
+    # particle-1-free joined the shared :free pool — pool derivation
+    # covers disabled entries too; both shipped disabled).
+    assert len(members) == 16
     # NEW-01: the virtual router inherits the pool.
     assert "openrouter/free-router" in members
     assert pool_for(_entry("openrouter/free-router")).unit == "requests"

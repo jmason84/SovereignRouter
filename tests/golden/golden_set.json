@@ -1,0 +1,5070 @@
+{
+ "version": 2,
+ "composed": "2026-11-15",
+ "basis": "Full set per cycle-01-plan F.3.2: composed to the census mix across client x class x level (clients hermes 113 / openclaw 43 / n8n 22 / crm 2) with verifier categories JSON drafting 27, tool turns 36, long-context 27, infra/ops 36, drafting 27, reasoning 18, sensitive 9. Items g01-g24 are the v1 starter, verbatim. All prompts synthetic; no production prompt text. Decision-level (shadow) verifiers only, per the starter's honesty rule: answer-level verifiers belong to the live replay sample, which remains designed-but-report-only (Decision #5's judged sample stays OFF). Extrapolation note: the plan gives category percentages and census shares but not per-item prompts; item shapes follow the starter's patterns (task_class / task_class_in / data_class / first_lane_in / forbidden_first_lanes / pad_to_tokens).",
+ "items": [
+  {
+   "id": "g01-infra-restart",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "restart the nginx container on the staging host and confirm it comes back healthy"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g02-infra-oom",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "debug why the docker compose service for the worker keeps getting OOM-killed and restart-looping since the last deploy"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g03-infra-disk",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "check disk usage on the media server and prune docker images older than 30 days"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g04-infra-migrate",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "migrate the postgres container to the new host, then update the connection string in the compose file"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g05-infra-logs",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "tail the gateway logs and find why the nightly cron job failed"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g06-infra-n8n",
+   "client": "n8n",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "my workflow's HTTP request node has returned 502 since yesterday's deploy; diagnose the upstream service and check its health endpoint"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g07-chat-email",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "draft a short email to a client explaining that Thursday's shoot moves to Friday morning"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "known_violation": "baseline 2026-11-13: sidecar/rules classified an email-draft prompt as 'code'"
+  },
+  {
+   "id": "g08-chat-press",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a press-release style paragraph announcing a community robotics workshop for high-school students"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "known_violation": "baseline 2026-11-13: classified a press-release writing prompt as 'infra'"
+  },
+  {
+   "id": "g09-chat-summary",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "summarize these meeting notes into three bullets: we agreed to ship the beta on Monday, Priya owns the changelog, and the pricing page waits for legal review"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g10-chat-tone",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "rewrite this social post in a warmer tone: 'Our fall schedule is now live. Sign up on the website.'"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g11-chat-reminder",
+   "client": "n8n",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "draft a friendly payment reminder message for an invoice that is ten days overdue"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g12-code-function",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a python function that removes duplicates from a list while preserving order, with a docstring"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g13-code-debug",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "debug this javascript and explain the bug:\n```js\nconst total = items.reduce((a, b) => a + b.price, 0);\nconsole.log(totals);\n```"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g14-code-refactor",
+   "client": "hermes",
+   "note": "boundary item: shell scripting classifies either way; both accepted",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "refactor this bash one-liner into a proper script with error handling: tar czf backup.tgz /srv/data && scp backup.tgz backup-host:/srv/backups/"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "code",
+     "infra"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g15-reasoning-puzzle",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Three boxes are labeled apples, oranges, and mixed, but every label is wrong. You may pick one fruit from one box. Reason step by step about how to relabel all three boxes correctly."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "known_violation": "baseline 2026-11-13: classified a logic puzzle as 'infra'"
+  },
+  {
+   "id": "g16-reasoning-plan",
+   "client": "openclaw",
+   "note": "L5/internal policy probe: ops-vocabulary text is data-classed internal; at L5 the spec allows paid lanes only. First choice must be a paid entry.",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "A release depends on a schema migration, which depends on a backup verification, which depends on storage provisioning. Think carefully and lay out the safe execution order and what could go wrong at each step."
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "internal",
+    "first_lane_in": [
+     "paid"
+    ]
+   }
+  },
+  {
+   "id": "g17-long-log",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Read this operations log dump and tell me the first ERROR line and what preceded it."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 65000,
+   "known_violation": "F-10: sidecar fusion overrides the rules' >60k long-context signal (sidecar sees only 1,500 chars); baseline 2026-11-13 classified both padded items 'chat'"
+  },
+  {
+   "id": "g18-long-runbook",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Summarize this runbook into the five steps that matter during an outage."
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 25000
+  },
+  {
+   "id": "g19-long-extract",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "From this long project archive, extract every date on which a deployment is mentioned."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 65000,
+   "known_violation": "F-10: sidecar fusion overrides the rules' >60k long-context signal (sidecar sees only 1,500 chars); baseline 2026-11-13 classified both padded items 'chat'"
+  },
+  {
+   "id": "g20-tool-write",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "save this note to the project file: kickoff moved to Monday 9am"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "write_file",
+       "description": "Write content to a file.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         },
+         "content": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path",
+         "content"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g21-tool-browser",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "open the analytics dashboard and click the settings tab"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "click_element",
+       "description": "Click a page element by CSS selector.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "selector": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "selector"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g22-tool-webhook",
+   "client": "n8n",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "call the status webhook and then post the summary to the team channel"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "http_request",
+       "description": "Make an HTTP request.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "url": {
+          "type": "string"
+         },
+         "method": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "url"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g23-sensitive-key",
+   "client": "hermes",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "here is the staging key sk-GOLDENFAKE00000000000000 \u2014 log it in the vault and confirm the rotation steps"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g24-sensitive-pem",
+   "client": "openclaw",
+   "note": "",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "I pasted a private key block starting with -----BEGIN PRIVATE KEY----- into the notes; explain how to move it into proper secret storage"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g025-infra-x01",
+   "client": "hermes",
+   "note": "container restart loop diagnosis",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "check why the redis container keeps restarting and tell me what to look at first"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g026-infra-x02",
+   "client": "hermes",
+   "note": "502 upstream diagnosis",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the staging web server returns 502 after deploys; walk me through checking the upstream"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g027-infra-x03",
+   "client": "hermes",
+   "note": "cron + docker prune",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "set up a cron job that prunes docker images older than two weeks every sunday night"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g028-infra-x04",
+   "client": "hermes",
+   "note": "database disk pressure",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "our postgres database is running low on disk; what are the safe first steps"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g029-infra-x05",
+   "client": "hermes",
+   "note": "certificate rotation",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "explain how to rotate the TLS certificate on the internal wiki without downtime"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g030-infra-x06",
+   "client": "hermes",
+   "note": "backup failure diagnosis",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the backup job failed with a permissions error on the archive share; how do I diagnose it"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g031-infra-x07",
+   "client": "hermes",
+   "note": "user provisioning",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write the steps to add a new sudo user on the build server and disable password login for them"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g032-infra-x08",
+   "client": "hermes",
+   "note": "kubernetes crashloop",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a kubernetes pod is stuck in CrashLoopBackOff after the config change; what do I check"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g033-infra-x09",
+   "client": "hermes",
+   "note": "port conflict check",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "how do I check which process is holding port 8080 on the app server"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g034-infra-x10",
+   "client": "hermes",
+   "note": "stuck worker diagnosis",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the queue worker stopped processing jobs but the process is still running; where do I look"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g035-infra-x11",
+   "client": "hermes",
+   "note": "runbook drafting, ops",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "draft the runbook entry for restarting the search indexing service during an outage"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g036-infra-x12",
+   "client": "hermes",
+   "note": "memory triage",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "what commands show me the top memory consumers on the mail server right now"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g037-infra-x13",
+   "client": "hermes",
+   "note": "load balancer diagnosis",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the load balancer health check fails for one backend only; how do I isolate the cause"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g038-infra-x14",
+   "client": "hermes",
+   "note": "node maintenance",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "how to safely drain a node before kernel updates and bring it back into rotation"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g039-infra-x15",
+   "client": "hermes",
+   "note": "log spike analysis",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "nginx access logs show a spike of 404s from one subnet; how do I confirm and mitigate"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g040-infra-x16",
+   "client": "hermes",
+   "note": "log rotation config",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "set up log rotation for the application logs with 14 days retention and compression"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g041-infra-x17",
+   "client": "hermes",
+   "note": "ci runner cleanup",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the CI runner is out of disk again; give me a cleanup checklist that will not break builds"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g042-infra-x18",
+   "client": "hermes",
+   "note": "replication lag check",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "how do I verify the database replication lag between primary and replica"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g043-infra-x19",
+   "client": "hermes",
+   "note": "systemd boot failure",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a systemd service fails on boot but starts fine manually; what differs"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g044-infra-x20",
+   "client": "hermes",
+   "note": "storage migration plan",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "plan a zero-downtime migration of the file share to the new storage array"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g045-infra-x21",
+   "client": "openclaw",
+   "note": "certificate expiry sweep",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "how to check certificate expiry across all our internal hosts in one pass"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g046-infra-x22",
+   "client": "openclaw",
+   "note": "vpn tunnel drops",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the vpn gateway drops tunnels every few hours; what logs tell the story"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g047-infra-x23",
+   "client": "openclaw",
+   "note": "health check design",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a health-check script outline for the three core services and alert thresholds"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g048-infra-x24",
+   "client": "openclaw",
+   "note": "dns diagnosis",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "dns resolution inside the cluster is slow; how do I narrow down whether it is the resolver"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g049-infra-x25",
+   "client": "openclaw",
+   "note": "deployment rollback",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "how do I roll back the last deployment of the billing service safely"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g050-infra-x26",
+   "client": "openclaw",
+   "note": "mail queue backlog",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the mail queue is backed up with deferred messages; what are the likely causes"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g051-infra-x27",
+   "client": "n8n",
+   "note": "fail2ban config",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "configure fail2ban for the ssh service with a one hour ban after five failures"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g052-infra-x28",
+   "client": "n8n",
+   "note": "image pull error",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a container image pull fails with a manifest unknown error; what does that usually mean"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g053-infra-x29",
+   "client": "n8n",
+   "note": "vm snapshot plan",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "how to snapshot the virtual machines before the hypervisor upgrade this weekend"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g054-infra-x30",
+   "client": "crm",
+   "note": "cache invalidation",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the application cache is stale after releases; how should cache invalidation be wired"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "infra",
+    "first_lane_in": [
+     "private-free",
+     "paid"
+    ]
+   }
+  },
+  {
+   "id": "g055-draft-x01",
+   "client": "hermes",
+   "note": "announcement email",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a short email to the team announcing that the office moves to the new building on december 1"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g056-draft-x02",
+   "client": "hermes",
+   "note": "thank-you note",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "draft a thank-you note to a client who just renewed their annual contract"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g057-draft-x03",
+   "client": "hermes",
+   "note": "product description",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a product description for a stainless steel travel mug that keeps drinks hot for eight hours"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g058-draft-x04",
+   "client": "hermes",
+   "note": "newsletter summary",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "summarize this update for the newsletter: the spring release adds offline mode, faster sync, and a redesigned dashboard"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g059-draft-x05",
+   "client": "hermes",
+   "note": "meeting agenda",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a meeting agenda for a one-hour quarterly planning session with five topics"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g060-draft-x06",
+   "client": "hermes",
+   "note": "decline letter",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "draft a polite decline to a vendor whose proposal we are not accepting this year"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g061-draft-x07",
+   "client": "hermes",
+   "note": "speaker bio",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a short bio for a conference speaker who leads infrastructure teams and writes about reliability"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g062-draft-x08",
+   "client": "hermes",
+   "note": "welcome message",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "compose a welcome message for new members of our community forum"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g063-draft-x09",
+   "client": "hermes",
+   "note": "apology email",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write an apology email to customers for the two-hour outage yesterday afternoon"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g064-draft-x10",
+   "client": "hermes",
+   "note": "headline drafting",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "draft three headline options for a blog post about small teams adopting automation"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g065-draft-x11",
+   "client": "hermes",
+   "note": "faq drafting",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a faq answer explaining how our refund policy works in plain language"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g066-draft-x12",
+   "client": "hermes",
+   "note": "status update",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "turn these rough notes into a clean status update: shipped the importer, tests green, docs pending"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g067-draft-x13",
+   "client": "openclaw",
+   "note": "invitation",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write an invitation to the annual customer appreciation dinner on november 20"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "chat",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g068-draft-x14",
+   "client": "openclaw",
+   "note": "function writing",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a python function that takes a list of invoices and returns the total tax grouped by rate"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g069-draft-x15",
+   "client": "openclaw",
+   "note": "script writing",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a bash script that finds files larger than 500 mb under a directory and prints them sorted"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g070-draft-x16",
+   "client": "openclaw",
+   "note": "regex help",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "give me a regular expression that matches dates in the format 2026-11-15 and explain it briefly"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g071-draft-x17",
+   "client": "openclaw",
+   "note": "sql writing",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a sql query that lists customers with no orders in the last ninety days"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g072-draft-x18",
+   "client": "n8n",
+   "note": "test writing",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a unit test in pytest for a function that parses iso timestamps into aware datetimes"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g073-draft-x19",
+   "client": "n8n",
+   "note": "program writing",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a small go program that reads a csv of names and prints them deduplicated and sorted"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "code",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g074-json-x01",
+   "client": "hermes",
+   "note": "list to json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "convert this list into a json array of objects with name and role fields: ada - engineer, grace - designer, linus - manager"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g075-json-x02",
+   "client": "hermes",
+   "note": "extraction to json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "extract the order id, total, and currency from this message and return them as json only: order 8841 confirmed, total 129.50 usd"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g076-json-x03",
+   "client": "hermes",
+   "note": "config json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a json configuration for a retry policy with max attempts 5, base delay 2 seconds, and jitter enabled"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g077-json-x04",
+   "client": "hermes",
+   "note": "json schema design",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "design a json schema for a webhook payload that carries an event type, a timestamp, and a nested customer object"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "code",
+     "chat"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g078-json-x05",
+   "client": "hermes",
+   "note": "json repair",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "fix this broken json and return only the corrected version: {\"name\": \"ada\", \"tags\": [\"ops\", \"infra\",]}"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g079-json-x06",
+   "client": "hermes",
+   "note": "csv to json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "turn this csv into json: city,rain_mm / denver,4 / austin,9 / miami,21"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g080-json-x07",
+   "client": "hermes",
+   "note": "code returning json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a python function that takes a nested dict and returns it as pretty-printed json with sorted keys"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g081-json-x08",
+   "client": "hermes",
+   "note": "object drafting",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "produce a json object describing a book with title, author, year, and a chapters array of three entries"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g082-json-x09",
+   "client": "hermes",
+   "note": "kv to json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "given these key-value pairs, output a single json object: mode=auto, retries=3, verbose=false, region=us-east"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g083-json-x10",
+   "client": "hermes",
+   "note": "api payload json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write the json body for a create-ticket api call with subject, priority high, and tags billing and urgent"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g084-json-x11",
+   "client": "hermes",
+   "note": "json restructure",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "restructure this flat json into nested form grouping by department: [{\"dept\": \"ops\", \"name\": \"ada\"}, {\"dept\": \"ops\", \"name\": \"sam\"}]"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g085-json-x12",
+   "client": "hermes",
+   "note": "computed json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "output a json array of the first five prime numbers with their squares, fields n and square"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g086-json-x13",
+   "client": "hermes",
+   "note": "feature flags json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a json example of a feature-flag file with three flags, each having enabled and rollout percentage"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g087-json-x14",
+   "client": "hermes",
+   "note": "log line to json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "parse this log line into json fields level, service, and message: ERROR billing-worker payment retry exhausted"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g088-json-x15",
+   "client": "hermes",
+   "note": "nested json drafting",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "create a json menu structure for a cafe with sections drinks and food, two items each with prices"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g089-json-x16",
+   "client": "hermes",
+   "note": "code fetching json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a javascript snippet that fetches a url and prints the response parsed as json"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g090-json-x17",
+   "client": "hermes",
+   "note": "notes to json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "convert these meeting notes into json with fields date, attendees, and decisions: met nov 3, ada and sam attended, decided to ship friday"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g091-json-x18",
+   "client": "hermes",
+   "note": "computed object json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "produce json describing a triangle with sides 3, 4, 5 and computed perimeter and area fields"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g092-json-x19",
+   "client": "openclaw",
+   "note": "json patch",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a json patch document that replaces the email field and adds a phone field for user 42"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "code",
+     "chat"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g093-json-x20",
+   "client": "openclaw",
+   "note": "yaml to json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "turn this yaml into equivalent json: service: api, replicas: 3, env: prod"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g094-json-x21",
+   "client": "openclaw",
+   "note": "reference json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "output the http status codes 200, 201, 400, 404, 500 as a json array of objects with code and meaning"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g095-json-x22",
+   "client": "openclaw",
+   "note": "invoice template json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a json template for an invoice with placeholders for number, date, lines, and total"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g096-json-x23",
+   "client": "openclaw",
+   "note": "extraction array json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "extract every email address from this text into a json array: contact ada@example.org or sam@test.net for details"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g097-json-x24",
+   "client": "n8n",
+   "note": "api response design",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "design the json response shape for a weather api: location, current conditions, and a five-day forecast array"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "code",
+     "chat"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g098-json-x25",
+   "client": "n8n",
+   "note": "sentence to json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "convert this sentence into a json object with subject, verb, and object fields: the engineer restarted the server"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g099-json-x26",
+   "client": "n8n",
+   "note": "sample data json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "write a json array of three sample users with id, name, and active fields for testing"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g100-json-x27",
+   "client": "n8n",
+   "note": "summary json",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "produce a json summary of this week in numbers: 14 deploys, 2 incidents, 99.95 percent uptime, fields included"
+     }
+    ]
+   },
+   "expect": {
+    "task_class_in": [
+     "chat",
+     "code"
+    ],
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g101-tool-x01",
+   "client": "hermes",
+   "note": "single write_file",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "save this checklist to the ops file: backups verified, alerts muted, window opens at 22:00"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "write_file",
+       "description": "Write content to a file.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         },
+         "content": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path",
+         "content"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g102-tool-x02",
+   "client": "hermes",
+   "note": "single read_file",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "read the release notes file and tell me the version number"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "read_file",
+       "description": "Read a file's contents.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g103-tool-x03",
+   "client": "hermes",
+   "note": "single get_weather",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "what is the weather in denver right now"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "get_weather",
+       "description": "Get current weather for a city.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "city": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "city"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g104-tool-x04",
+   "client": "hermes",
+   "note": "single send_email",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "email the on-call engineer that the deploy finished successfully"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "send_email",
+       "description": "Send an email.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "to": {
+          "type": "string"
+         },
+         "subject": {
+          "type": "string"
+         },
+         "body": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "to",
+         "subject",
+         "body"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g105-tool-x05",
+   "client": "hermes",
+   "note": "single web_search",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "search the web for the current kubernetes version support window"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "web_search",
+       "description": "Search the web.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "query": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "query"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g106-tool-x06",
+   "client": "hermes",
+   "note": "single list_files",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "list the files in the reports directory"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "list_files",
+       "description": "List files in a directory.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g107-tool-x07",
+   "client": "hermes",
+   "note": "single lookup_gauge",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "check the latest reading for gauge 12"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "lookup_gauge",
+       "description": "Look up the latest reading for a gauge.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "gauge": {
+          "type": "integer"
+         }
+        },
+        "required": [
+         "gauge"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g108-tool-x08",
+   "client": "hermes",
+   "note": "single get_time",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "what time is it in london at the moment"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "get_time",
+       "description": "Get the current time for a timezone.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "timezone": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "timezone"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g109-tool-x09",
+   "client": "hermes",
+   "note": "single run_shell",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "run a disk usage check on the data volume"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "run_shell",
+       "description": "Run a shell command.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "command": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "command"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g110-tool-x10",
+   "client": "hermes",
+   "note": "single write_file 2",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "save the meeting notes to the project file: launch moved to tuesday"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "write_file",
+       "description": "Write content to a file.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         },
+         "content": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path",
+         "content"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g111-tool-x11",
+   "client": "hermes",
+   "note": "single read_file 2",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "read the changelog and summarize the last three entries"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "read_file",
+       "description": "Read a file's contents.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g112-tool-x12",
+   "client": "hermes",
+   "note": "single send_email 2",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "send a reminder email to the team about tomorrow's maintenance window"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "send_email",
+       "description": "Send an email.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "to": {
+          "type": "string"
+         },
+         "subject": {
+          "type": "string"
+         },
+         "body": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "to",
+         "subject",
+         "body"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g113-tool-x13",
+   "client": "hermes",
+   "note": "parallel weather+time",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "get the weather in denver and the current time in denver"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "get_weather",
+       "description": "Get current weather for a city.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "city": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "city"
+        ]
+       }
+      }
+     },
+     {
+      "type": "function",
+      "function": {
+       "name": "get_time",
+       "description": "Get the current time for a timezone.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "timezone": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "timezone"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g114-tool-x14",
+   "client": "hermes",
+   "note": "parallel read+list",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "read the config file and list the files in the same directory"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "read_file",
+       "description": "Read a file's contents.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     },
+     {
+      "type": "function",
+      "function": {
+       "name": "list_files",
+       "description": "List files in a directory.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g115-tool-x15",
+   "client": "hermes",
+   "note": "parallel gauges",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "check gauge 3 and gauge 9 readings"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "lookup_gauge",
+       "description": "Look up the latest reading for a gauge.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "gauge": {
+          "type": "integer"
+         }
+        },
+        "required": [
+         "gauge"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g116-tool-x16",
+   "client": "hermes",
+   "note": "parallel search+weather",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "search the web for outage reports and check the weather in austin"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "web_search",
+       "description": "Search the web.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "query": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "query"
+        ]
+       }
+      }
+     },
+     {
+      "type": "function",
+      "function": {
+       "name": "get_weather",
+       "description": "Get current weather for a city.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "city": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "city"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g117-tool-x17",
+   "client": "hermes",
+   "note": "parallel write+email",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "save the summary to the file and email it to the team lead"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "write_file",
+       "description": "Write content to a file.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         },
+         "content": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path",
+         "content"
+        ]
+       }
+      }
+     },
+     {
+      "type": "function",
+      "function": {
+       "name": "send_email",
+       "description": "Send an email.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "to": {
+          "type": "string"
+         },
+         "subject": {
+          "type": "string"
+         },
+         "body": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "to",
+         "subject",
+         "body"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g118-tool-x18",
+   "client": "hermes",
+   "note": "parallel two timezones",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "what time is it in tokyo and in berlin right now"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "get_time",
+       "description": "Get the current time for a timezone.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "timezone": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "timezone"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g119-tool-x19",
+   "client": "hermes",
+   "note": "parallel list+shell",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "list the log directory and run a count of error lines in the app log"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "list_files",
+       "description": "List files in a directory.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     },
+     {
+      "type": "function",
+      "function": {
+       "name": "run_shell",
+       "description": "Run a shell command.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "command": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "command"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g120-tool-x20",
+   "client": "hermes",
+   "note": "follow-through gauge",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "look up gauge 7 and tell me if it is within limits"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "lookup_gauge",
+         "arguments": "{\"gauge\": 7}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "lookup_gauge",
+      "content": "{\"gauge\": 7, \"reading\": 4815, \"unit\": \"kPa\", \"limit\": 5000}"
+     },
+     {
+      "role": "user",
+      "content": "so is gauge 7 within its limit? answer with the numbers"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "lookup_gauge",
+       "description": "Look up the latest reading for a gauge.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "gauge": {
+          "type": "integer"
+         }
+        },
+        "required": [
+         "gauge"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g121-tool-x21",
+   "client": "hermes",
+   "note": "follow-through read",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "read the version file for me"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "read_file",
+         "arguments": "{\"path\": \"VERSION\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "read_file",
+      "content": "version: 2.4.1\nbuild: 881"
+     },
+     {
+      "role": "user",
+      "content": "what version and build did the file report?"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "read_file",
+       "description": "Read a file's contents.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g122-tool-x22",
+   "client": "hermes",
+   "note": "follow-through weather",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "check the weather in miami"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "get_weather",
+         "arguments": "{\"city\": \"miami\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "get_weather",
+      "content": "{\"city\": \"miami\", \"temp_c\": 31, \"condition\": \"sunny\"}"
+     },
+     {
+      "role": "user",
+      "content": "should I pack a jacket based on that? keep it brief"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "get_weather",
+       "description": "Get current weather for a city.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "city": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "city"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g123-tool-x23",
+   "client": "openclaw",
+   "note": "follow-through list",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "list the files in the archive directory"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "list_files",
+         "arguments": "{\"path\": \"/archive\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "list_files",
+      "content": "[\"q1.zip\", \"q2.zip\", \"notes.txt\"]"
+     },
+     {
+      "role": "user",
+      "content": "how many zip files were in that listing?"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "list_files",
+       "description": "List files in a directory.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g124-tool-x24",
+   "client": "openclaw",
+   "note": "follow-through time",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "what time is it in sydney"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "get_time",
+         "arguments": "{\"timezone\": \"Australia/Sydney\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "get_time",
+      "content": "{\"timezone\": \"Australia/Sydney\", \"time\": \"03:15\"}"
+     },
+     {
+      "role": "user",
+      "content": "repeat the time the tool gave you, exactly"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "get_time",
+       "description": "Get the current time for a timezone.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "timezone": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "timezone"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g125-tool-x25",
+   "client": "openclaw",
+   "note": "follow-through search",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "search for the meeting room booking policy"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "web_search",
+         "arguments": "{\"query\": \"meeting room booking policy\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "web_search",
+      "content": "{\"results\": [{\"title\": \"Room policy: book at most 2 hours\"}]}"
+     },
+     {
+      "role": "user",
+      "content": "what is the maximum booking length the policy states?"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "web_search",
+       "description": "Search the web.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "query": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "query"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g126-tool-x26",
+   "client": "openclaw",
+   "note": "follow-through shell",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "run the uptime check"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "run_shell",
+         "arguments": "{\"command\": \"uptime\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "run_shell",
+      "content": "up 41 days, load average: 0.42"
+     },
+     {
+      "role": "user",
+      "content": "how many days has the machine been up per that output?"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "run_shell",
+       "description": "Run a shell command.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "command": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "command"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g127-tool-x27",
+   "client": "openclaw",
+   "note": "error recovery read",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "read the deploy config"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "read_file",
+         "arguments": "{\"path\": \"/etc/app/deploy.yaml\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "read_file",
+      "content": "{\"error\": \"file_not_found: /etc/app/deploy.yaml\"}"
+     },
+     {
+      "role": "user",
+      "content": "that path failed. try the project config directory instead and tell me what you find"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "read_file",
+       "description": "Read a file's contents.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     },
+     {
+      "type": "function",
+      "function": {
+       "name": "list_files",
+       "description": "List files in a directory.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g128-tool-x28",
+   "client": "openclaw",
+   "note": "error recovery write",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "save the report to the shared drive folder"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "write_file",
+         "arguments": "{\"path\": \"/shared/reports/q3.txt\", \"content\": \"draft\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "write_file",
+      "content": "{\"error\": \"permission_denied: /shared/reports\"}"
+     },
+     {
+      "role": "user",
+      "content": "the shared folder denied it. save it under the local reports folder instead"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "write_file",
+       "description": "Write content to a file.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "path": {
+          "type": "string"
+         },
+         "content": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "path",
+         "content"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g129-tool-x29",
+   "client": "n8n",
+   "note": "error recovery weather",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "get the weather for denvr"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "get_weather",
+         "arguments": "{\"city\": \"denvr\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "get_weather",
+      "content": "{\"error\": \"unknown_city: denvr\"}"
+     },
+     {
+      "role": "user",
+      "content": "that city name was misspelled; retry with the correct spelling denver"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "get_weather",
+       "description": "Get current weather for a city.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "city": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "city"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g130-tool-x30",
+   "client": "n8n",
+   "note": "error recovery email",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "email the summary to the whole list"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "send_email",
+         "arguments": "{\"to\": \"all-staff\", \"subject\": \"s\", \"body\": \"b\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "send_email",
+      "content": "{\"error\": \"list_not_found: all-staff\"}"
+     },
+     {
+      "role": "user",
+      "content": "that list does not exist; send it to the ops list instead"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "send_email",
+       "description": "Send an email.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "to": {
+          "type": "string"
+         },
+         "subject": {
+          "type": "string"
+         },
+         "body": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "to",
+         "subject",
+         "body"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g131-tool-x31",
+   "client": "n8n",
+   "note": "error recovery gauge",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "look up gauge 99"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "lookup_gauge",
+         "arguments": "{\"gauge\": 99}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "lookup_gauge",
+      "content": "{\"error\": \"gauge_offline: 99\"}"
+     },
+     {
+      "role": "user",
+      "content": "gauge 99 is offline. check gauge 12 instead and report its state"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "lookup_gauge",
+       "description": "Look up the latest reading for a gauge.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "gauge": {
+          "type": "integer"
+         }
+        },
+        "required": [
+         "gauge"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g132-tool-x32",
+   "client": "n8n",
+   "note": "error recovery search",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "search the web for the vendor status page"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "web_search",
+         "arguments": "{\"query\": \"vendor status page\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "web_search",
+      "content": "{\"error\": \"rate_limited: retry later\"}"
+     },
+     {
+      "role": "user",
+      "content": "search is rate limited. tell me what you would check first once it recovers"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "web_search",
+       "description": "Search the web.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "query": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "query"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g133-tool-x33",
+   "client": "crm",
+   "note": "error recovery shell",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "run the cleanup script"
+     },
+     {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+       {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+         "name": "run_shell",
+         "arguments": "{\"command\": \"./cleanup.sh\"}"
+        }
+       }
+      ]
+     },
+     {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "name": "run_shell",
+      "content": "{\"error\": \"exit_2: missing argument --older-than\"}"
+     },
+     {
+      "role": "user",
+      "content": "the script needs the older-than argument; rerun it with 30 days"
+     }
+    ],
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "run_shell",
+       "description": "Run a shell command.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "command": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "command"
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "first_lane_in": [
+     "private-free",
+     "paid"
+    ]
+   }
+  },
+  {
+   "id": "g134-long-x01",
+   "client": "hermes",
+   "note": "log analysis, small pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Read this operations log dump and find the second occurrence of a failed login and what happened right after it."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 8000
+  },
+  {
+   "id": "g135-long-x02",
+   "client": "hermes",
+   "note": "archive extraction, small pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "From this long incident archive, list every date on which a rollback is mentioned."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 8000
+  },
+  {
+   "id": "g136-long-x03",
+   "client": "hermes",
+   "note": "runbook summary, small pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Summarize this lengthy runbook, keeping only the steps that matter in the first ten minutes of an outage."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 8000
+  },
+  {
+   "id": "g137-long-x04",
+   "client": "hermes",
+   "note": "feedback extraction, small pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "This is a long customer feedback compilation. Extract the three most repeated complaints."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 8000
+  },
+  {
+   "id": "g138-long-x05",
+   "client": "hermes",
+   "note": "history extraction, small pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Read the attached project history and tell me who approved the budget change and when."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 8000
+  },
+  {
+   "id": "g139-long-x06",
+   "client": "hermes",
+   "note": "transcript decisions, small pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Go through this long meeting transcript and pull out every decision that was made."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 8000
+  },
+  {
+   "id": "g140-long-x07",
+   "client": "hermes",
+   "note": "log analysis, mid pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "From this long operations log, tell me the first WARN line and the line that follows it."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 25000
+  },
+  {
+   "id": "g141-long-x08",
+   "client": "hermes",
+   "note": "archive extraction, mid pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "This deployment archive is long. Extract every version number that was promoted to production."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 25000
+  },
+  {
+   "id": "g142-long-x09",
+   "client": "hermes",
+   "note": "project log timeline, mid pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Summarize this multi-week project log into a timeline of milestones with dates."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 25000
+  },
+  {
+   "id": "g143-long-x10",
+   "client": "hermes",
+   "note": "ticket thread analysis, mid pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Read this long support ticket thread and identify the moment the root cause was first named."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 25000
+  },
+  {
+   "id": "g144-long-x11",
+   "client": "hermes",
+   "note": "audit extraction, mid pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "From the attached lengthy audit trail, list all configuration changes made in march."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 25000
+  },
+  {
+   "id": "g145-long-x12",
+   "client": "hermes",
+   "note": "vendor doc extraction, mid pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "This is a long vendor evaluation document. Extract the pricing figures for each vendor."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 25000
+  },
+  {
+   "id": "g146-long-x13",
+   "client": "hermes",
+   "note": "log analysis, large pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Read this operations log dump and tell me the first ERROR line and what preceded it."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 45000
+  },
+  {
+   "id": "g147-long-x14",
+   "client": "hermes",
+   "note": "archive extraction, large pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "From this long project archive, extract every date on which a deployment is mentioned."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 45000
+  },
+  {
+   "id": "g148-long-x15",
+   "client": "hermes",
+   "note": "runbook summary, large pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Summarize this runbook collection into the five checks that matter during a storage outage."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 45000
+  },
+  {
+   "id": "g149-long-x16",
+   "client": "openclaw",
+   "note": "changelog archaeology, large pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Go through this long changelog archive and find when the retry behavior changed."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 45000
+  },
+  {
+   "id": "g150-long-x17",
+   "client": "openclaw",
+   "note": "postmortem extraction, large pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "This lengthy postmortem collection covers a year of incidents. List the ones caused by disk pressure."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 45000
+  },
+  {
+   "id": "g151-long-x18",
+   "client": "openclaw",
+   "note": "log counting, xl pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Read this operations log dump and count how many times the watchdog restarted a service."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 65000
+  },
+  {
+   "id": "g152-long-x19",
+   "client": "openclaw",
+   "note": "archive timeline, xl pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "From this long incident archive, extract the timeline of the longest outage described."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 65000
+  },
+  {
+   "id": "g153-long-x20",
+   "client": "openclaw",
+   "note": "compliance summary, xl pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Summarize this lengthy compliance document, focusing on the retention requirements."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 65000
+  },
+  {
+   "id": "g154-long-x21",
+   "client": "openclaw",
+   "note": "log search, xl pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "This is a long operations log. Find the last successful backup entry and its timestamp."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 65000
+  },
+  {
+   "id": "g155-long-x22",
+   "client": "n8n",
+   "note": "log analysis, xxl pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Read this operations log dump and identify the noisiest service by error count."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 90000
+  },
+  {
+   "id": "g156-long-x23",
+   "client": "n8n",
+   "note": "archive extraction, xxl pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "From this long project archive, extract every mention of a staffing change with its date."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 90000
+  },
+  {
+   "id": "g157-long-x24",
+   "client": "n8n",
+   "note": "runbook library, xxl pad",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Go through this lengthy runbook library and list the procedures that involve a database failover."
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "long-context",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   },
+   "pad_to_tokens": 90000
+  },
+  {
+   "id": "g158-reas-x01",
+   "client": "hermes",
+   "note": "classic trap arithmetic",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a farmer has 17 sheep and all but 9 run away. how many are left, and why do people get this wrong"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g159-reas-x02",
+   "client": "hermes",
+   "note": "switch and bulb puzzle",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "three switches control three bulbs in another room. you may enter the room once. how do you map them"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g160-reas-x03",
+   "client": "hermes",
+   "note": "catch-up problem",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "if a train leaves at 14:00 going 80 km/h and another at 15:00 going 110 km/h on the same route, when does the second catch the first"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g161-reas-x04",
+   "client": "hermes",
+   "note": "dependency ordering",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a project has tasks a, b, c, d where b needs a, c needs a, and d needs b and c. give a valid order and the critical path"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g162-reas-x05",
+   "client": "hermes",
+   "note": "balance puzzle",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "you have 8 identical-looking balls, one heavier. find it in two weighings on a balance scale"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g163-reas-x06",
+   "client": "hermes",
+   "note": "stacked percentages",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a store sells a jacket at 25 percent off, then takes another 10 percent off the reduced price. what is the total discount and why is it not 35 percent"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g164-reas-x07",
+   "client": "hermes",
+   "note": "bridge crossing optimization",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "four people must cross a bridge at night with one torch; times are 1, 2, 7, 10 minutes and at most two cross together. find the fastest plan"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g165-reas-x08",
+   "client": "hermes",
+   "note": "rate trap problem",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "if it takes 5 machines 5 minutes to make 5 parts, how long do 100 machines take to make 100 parts, and what is the trap"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g166-reas-x09",
+   "client": "hermes",
+   "note": "combinatorics",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a committee of 4 must be chosen from 6 engineers and 5 designers with at least 2 engineers. how many valid committees are there"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g167-reas-x10",
+   "client": "hermes",
+   "note": "combined rates",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "two pipes fill a tank in 6 and 4 hours alone; a drain empties it in 12. with all open, how long to fill"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g168-reas-x11",
+   "client": "openclaw",
+   "note": "truth-teller puzzle",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a says b is lying, b says c is lying, c says a and b are both lying. who is telling the truth"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g169-reas-x12",
+   "client": "openclaw",
+   "note": "scheduling plan",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "plan a two-day workshop for 40 people with 3 rooms, 6 sessions, and one keynote everyone attends; lay out the constraints and a schedule shape"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g170-reas-x13",
+   "client": "openclaw",
+   "note": "capacity reasoning",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a backup policy keeps 7 daily, 4 weekly, and 3 monthly copies. reason about worst-case storage growth over a year with 2 gb daily change"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g171-reas-x14",
+   "client": "openclaw",
+   "note": "probability fallacy",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "if a fair coin lands heads five times in a row, what is the probability the next flip is heads, and what fallacy says otherwise"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g172-reas-x15",
+   "client": "n8n",
+   "note": "decision reasoning",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a rollout can go to 5 percent of users tonight or wait a week for full testing. reason through the decision with the risks on both sides"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g173-reas-x16",
+   "client": "n8n",
+   "note": "position trap",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "in a race you overtake the person in second place. what place are you in now, and why do most people answer wrong"
+     }
+    ]
+   },
+   "expect": {
+    "task_class": "reasoning",
+    "first_lane_in": [
+     "private-free",
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g174-sens-x01",
+   "client": "hermes",
+   "note": "fake staging token",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "here is our staging api token sk-FAKE0staging0token0for0tests000 -- add it to the vault and tell me the rotation steps"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g175-sens-x02",
+   "client": "hermes",
+   "note": "fake db password",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the database password for the reporting user is Hunter2-Fake-Example -- explain how to move it into the secret manager"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g176-sens-x03",
+   "client": "hermes",
+   "note": "private key mention",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "i pasted an rsa private key block starting with -----BEGIN RSA PRIVATE KEY----- into the ticket; what is the safe handling procedure"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g177-sens-x04",
+   "client": "hermes",
+   "note": "fake oauth secret",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "this is the oauth client secret for the test app: FAKE-SECRET-1234 -- where should this live instead of the repo"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g178-sens-x05",
+   "client": "openclaw",
+   "note": "fake aws key in env",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "the .env file contains AWS_SECRET_ACCESS_KEY=FAKEEXAMPLEKEY000000000000 -- walk me through rotating it"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g179-sens-x06",
+   "client": "openclaw",
+   "note": "shared password handling",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "a user shared their account password in chat: correct-horse-fake-staple -- what should support do next"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  },
+  {
+   "id": "g180-sens-x07",
+   "client": "n8n",
+   "note": "session cookie as credential",
+   "body": {
+    "model": "auto",
+    "messages": [
+     {
+      "role": "user",
+      "content": "here is a session cookie value session=FAKESESSIONVALUE000 -- explain why it must be treated as a credential"
+     }
+    ]
+   },
+   "expect": {
+    "data_class": "sensitive",
+    "forbidden_first_lanes": [
+     "public-only-free"
+    ]
+   }
+  }
+ ]
+}

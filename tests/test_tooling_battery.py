@@ -49,12 +49,31 @@ def _is_followup(messages) -> bool:
     return any(m.get("role") == "tool" for m in messages)
 
 
+def _exact_args_from_prompt(messages) -> dict:
+    """Parse the exact-args values out of the task prompt (T1/T6/T7
+    share the 'Record this observation exactly' shape)."""
+    import re
+    text = ""
+    for m in reversed(messages):
+        content = m.get("content")
+        if m.get("role") == "user" and isinstance(content, str) \
+                and "Record this observation exactly" in content:
+            text = content
+            break
+    g = lambda pat: re.search(pat, text).group(1)  # noqa: E731
+    return {"station": g(r"station '([^']+)'"),
+            "samples": int(g(r"samples (\d+)")),
+            "mode": g(r"mode '([^']+)'"),
+            "calibrated": g(r"calibrated (true|false)") == "true",
+            "pressure_kpa": float(g(r"pressure_kpa ([0-9]+(?:\.[0-9]+)?)"))}
+
+
 def good_model(messages, tools, pin):
     task = _task_of(messages)
-    if task == "t1_exact_args":
-        return _result(_msg_tool("record_observation", json.dumps(
-            {"station": "north-ridge", "samples": 42, "mode": "manual",
-             "calibrated": True, "pressure_kpa": 87.5})), pin)
+    if task in ("t1_exact_args", "t6_long_context", "t7_many_tools"):
+        return _result(_msg_tool(
+            "record_observation",
+            json.dumps(_exact_args_from_prompt(messages))), pin)
     if task == "t2_large_payload":
         content = messages[0]["content"].split("\n\n", 1)[1]
         return _result(_msg_tool("write_file", json.dumps(
@@ -130,7 +149,8 @@ def test_fixated_model_fails_recovery_only():
     r = tb.run_entry(fixated_model, "fix/model", "2026-11-13")
     assert r["components"]["t5_error_recovery"] == 0.0
     assert r["tasks"]["t5_error_recovery"]["outcome"] == "identical_reissue"
-    assert r["tooling_score"] == 4  # (1+1+1+1+0+env1)/6 = 0.833 -> 1+round(3.33)
+    assert r["tooling_score"] == 4  # composite (6x1 + 0 + env1)/8 = 0.875
+    # -> derive 5, capped at 4 by the no-failed-task gate (2026-11-19)
 
 
 def test_badjson_model_scores_floor_and_envelope_zero():
@@ -156,7 +176,7 @@ def test_never_served_is_unmeasured_and_unstamped():
 
 def test_escalated_away_is_failed_validation_not_no_evidence():
     r = tb.run_entry(always_escalated, "esc/model", "2026-11-13")
-    assert r["escalations"] == 5
+    assert r["escalations"] == 7  # one per task (T1..T7)
     assert r["components"]["t1_exact_args"] == 0.0
     assert r["tooling_score"] == 1
 

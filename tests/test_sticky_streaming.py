@@ -132,7 +132,26 @@ def test_streaming_tool_call_buffered_and_valid(client):
     assert "data: [DONE]" in body
 
 
-def test_streaming_bad_tool_call_escalates(client, app):
+def test_streaming_bad_tool_call_escalates(tmp_path):
+    # 2026-11-19 battery v2 (T6/T7 + no-failed-task cap): the
+    # escalation arithmetic moved twice over. groq/gpt-oss-120b
+    # re-measured tooling 4, so the target is now q5 (not the old
+    # q6 -> >=5 fallback); and openrouter/north-mini-code-free
+    # re-measured tooling 5 at $0 / 900 ms, which puts it FIRST in
+    # that q5 scan — but its upstream is a scripted-bad FREE_MODELS
+    # entry, and the streaming path escalates at most once, so its
+    # bad call would be committed. The premise therefore disables
+    # north-mini (the registry_variant precedent from
+    # test_sticky_switches): with it out, the first q5 candidate is
+    # deepinfra/llama-3.1-8b-turbo (tooling 5, $0.02/$0.04 — the
+    # cheapest qualifying route, as in the v0.9.0 note below).
+    # openrouter/free-router left the target set the other way: it
+    # re-measured tooling 4 (its T2 response failed validation in
+    # the live battery), so it no longer meets a q5 target.
+    from fastapi.testclient import TestClient
+    app = build_app(tmp_path, registry_path=registry_variant(
+        tmp_path, disable=("openrouter/north-mini-code-free",)))
+    client = TestClient(app)
     with client.stream("POST", "/v1/chat/completions",
                        json=chat_body("USE_TOOL BADTOOL_STREAM call the function",
                                       stream=True, tools=TOOLS,
@@ -156,4 +175,4 @@ def test_streaming_bad_tool_call_escalates(client, app):
     # the first server is pinned (groq/gpt-oss-120b, a scripted-bad
     # FREE_MODELS entry) because auto-selection's first pick for a
     # tool turn moved off the scripted set with the new rankings.
-    assert rec.model == "openrouter/free-router"
+    assert rec.model == "deepinfra/llama-3.1-8b-turbo"

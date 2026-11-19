@@ -31,11 +31,11 @@
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-13",
+      "verified_until": "2026-12-19",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-09",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -64,14 +64,14 @@
         "infra": 4,
         "long-context": 3,
         "reasoning": 4,
-        "tooling": 5
+        "tooling": 4
       },
       "reasoning": true,
-      "verified_until": "2026-12-13",
+      "verified_until": "2026-12-19",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-09",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -102,11 +102,11 @@
         "reasoning": 3,
         "tooling": 4
       },
-      "verified_until": "2026-12-13",
+      "verified_until": "2026-12-19",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-09",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -143,12 +143,12 @@
         "infra": 3,
         "long-context": 2,
         "reasoning": 3,
-        "tooling": 4
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15",
+      "tooling_source": "tooling-battery:2026-11-19",
       "spillway_sensitive_excluded": true
     },
     {
@@ -188,9 +188,9 @@
         "reasoning": 3,
         "tooling": 4
       },
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15",
+      "tooling_source": "tooling-battery:2026-11-19",
       "spillway_sensitive_excluded": true
     },
     {
@@ -625,8 +625,8 @@
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-13",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.mistral.ai/v1",
@@ -738,8 +738,8 @@
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-13",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -799,7 +799,7 @@
         "reasoning": 3
       },
       "reasoning": true,
-      "verified_until": null
+      "verified_until": "2026-12-19"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -870,8 +870,8 @@
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-13",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -899,11 +899,11 @@
         "infra": 2,
         "long-context": 4,
         "reasoning": 3,
-        "tooling": 2
+        "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-13",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.cloudflare.com/client/v4/accounts/e931fc27ee6fa7516451b71e4bcaba86/ai/v1",
@@ -1087,9 +1087,9 @@
         "reasoning": 2,
         "tooling": 5
       },
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1121,9 +1121,9 @@
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1184,11 +1184,11 @@
         "infra": 3,
         "long-context": 4,
         "reasoning": 3,
-        "tooling": 4
+        "tooling": 5
       },
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1217,11 +1217,11 @@
         "infra": 2,
         "long-context": 3,
         "reasoning": 2,
-        "tooling": 4
+        "tooling": 5
       },
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1252,9 +1252,9 @@
         "reasoning": 1,
         "tooling": 5
       },
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1318,9 +1318,9 @@
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1415,11 +1415,11 @@
         "infra": 3,
         "long-context": 4,
         "reasoning": 3,
-        "tooling": 4
+        "tooling": 5
       },
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -1453,12 +1453,12 @@
         "infra": 3,
         "long-context": 3,
         "reasoning": 3,
-        "tooling": 5
+        "tooling": 4
       },
       "reasoning": true,
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "quota_pool_id": "openrouter-free",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.018,
@@ -1600,8 +1600,8 @@
       },
       "reasoning": true,
       "supports_vision": true,
-      "verified_until": "2026-12-13",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "cached_input_usd_per_million": 0.025,
@@ -2499,11 +2499,11 @@
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-13",
+      "verified_until": "2026-12-19",
       "price_source": "groq:/models pricing field",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -2801,8 +2801,8 @@
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-13",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://integrate.api.nvidia.com/v1",
@@ -2835,8 +2835,8 @@
       },
       "reasoning": true,
       "supports_vision": true,
-      "verified_until": "2026-12-13",
-      "tooling_source": "tooling-battery:2026-11-13"
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -2910,7 +2910,7 @@
       },
       "quota_pool_id": "openrouter-free",
       "reasoning": true,
-      "verified_until": "2026-12-15",
+      "verified_until": "2026-12-19",
       "tooling_source": "tooling-battery:2026-11-15"
     },
     {
@@ -2941,12 +2941,12 @@
         "infra": 2,
         "long-context": 3,
         "reasoning": 2,
-        "tooling": 4
+        "tooling": 5
       },
       "quota_pool_id": "openrouter-free",
       "reasoning": true,
-      "verified_until": "2026-12-15",
-      "tooling_source": "tooling-battery:2026-11-15"
+      "verified_until": "2026-12-19",
+      "tooling_source": "tooling-battery:2026-11-19"
     },
     {
       "base_url": "https://api.unorouter.com/v1",

@@ -16,6 +16,17 @@ Tasks (fixed set, defined in TASKS below):
   T4 follow_through    use a provided tool result correctly
   T5 error_recovery    after a tool error, adapt vs re-issue the
                        identical call (the 2026-11-13 GLM failure mode)
+  T6 long_context      the T1 exact-args requirement at the end of a
+                       ~62k-token agent-loop context (prior tool
+                       calls + tool results) — production shape: the
+                       2026-11-19 route-log evidence showed tool-call
+                       defects concentrate in long agent contexts the
+                       original short-context tasks never exercised
+  T7 many_tools        the T1 exact-args requirement with 20 tools
+                       declared, several near-named — the production
+                       failure signature is calling a blended /
+                       hallucinated tool name (route-log
+                       validation_failed:unknown_function rows)
   V  envelope validity scored across every call the entry produces:
                        arguments must parse as strict JSON and name a
                        declared tool
@@ -29,13 +40,19 @@ Scoring rubric (mechanical; no hand-entered scores):
     pinned response failed the gateway's own validation — the task
     scores 0.0 as `failed_validation` and the envelope component
     counts one invalid call;
-  * composite = mean of the available components (T1..T5, V);
+  * composite = mean of the available components (T1..T7, V);
     an entry needs >= 3 available components or it stays UNMEASURED
     (no tooling score is emitted for it);
   * tooling score = 1 + round(4 * composite), clamped to 1..5 —
     except that a 0.0 envelope component (every produced call
     malformed) floors the score at 1: such an entry cannot drive
-    tools at all, whatever else it managed.
+    tools at all, whatever else it managed;
+  * and a 0.0 on ANY task component caps the score at 4 (added
+    2026-11-19 with T6/T7): a 5 means no failed task — under the
+    original five easy tasks nearly the whole fleet scored 5 while
+    production tool-error rates on the worst free entries ran
+    30-60%, so a top score must now survive every task, including
+    the production-shaped ones.
 
 The battery is also the verified_until writer: an entry that served
 at least one task itself (served model == pinned id on a non-error
@@ -381,9 +398,136 @@ def task_t5(chat: ChatFn, pin: str, nonce: str) -> tuple[Optional[float], dict]:
     return 1.0, {"outcome": "adapted", "next_call": _call_name(nxt)}
 
 
+def _score_exact_call(result: dict, pin: str, expect: dict,
+                      tool_name: str) -> tuple[Optional[float], dict]:
+    """T1's rubric, shared by the production-shaped variants (T6/T7):
+    the pinned entry must emit one call to `tool_name` whose arguments
+    match `expect` exactly (1.0), deviate (0.5), or fail (0.0)."""
+    verdict = _served_ok(result, pin)
+    if verdict == "no_evidence":
+        return None, {"outcome": "no_evidence",
+                      "served": result.get("served_model")}
+    if verdict == "failed_validation":
+        return 0.0, {"outcome": "failed_validation",
+                     "served": result.get("served_model")}
+    calls = _calls(result)
+    if not calls:
+        return 0.0, {"outcome": "no_tool_call"}
+    args, valid = _parse_args(calls[0])
+    if _call_name(calls[0]) != tool_name or not valid or args is None:
+        return 0.0, {"outcome": "wrong_tool_or_bad_json",
+                     "called": _call_name(calls[0]),
+                     "excerpt": str(calls[0])[:200]}
+    if all(args.get(k) == v for k, v in expect.items()):
+        return 1.0, {"outcome": "exact"}
+    return 0.5, {"outcome": "args_deviated", "args": args}
+
+
+def _pad_episodes(nonce: str, target_chars: int) -> list[dict]:
+    """A synthetic agent-loop context: alternating lookup calls and
+    tool results with unique values, sized to ~target_chars of
+    serialized text (~4 chars/token). The nonce rides in the first
+    user message so the gateway's conversation key (first user text)
+    stays unique per entry/task — the F-03 rule — exactly as the
+    other tasks' single-message prompts do."""
+    msgs: list[dict] = []
+    size = 0
+    i = 0
+    while size < target_chars:
+        i += 1
+        gauge = 1000 + i
+        reading = 4000 + (i * 37) % 900
+        user = (f"Look up the latest reading for gauge {gauge}."
+                if i > 1 else
+                f"[{nonce}] Session log: look up the latest reading "
+                f"for gauge {gauge}.")
+        call = {"id": f"pad_{i}", "type": "function",
+                "function": {"name": "lookup_gauge_reading",
+                             "arguments": json.dumps({"gauge": gauge})}}
+        result = json.dumps(
+            {"gauge": gauge, "reading": reading, "unit": "kPa",
+             "location": f"vault {i % 9}",
+             "note": "routine check; needle steady, seal intact, "
+                     "no drift against the previous reading and the "
+                     "housing shows no condensation or corrosion"})
+        msgs.append({"role": "user", "content": user})
+        msgs.append({"role": "assistant", "content": None,
+                     "tool_calls": [call]})
+        msgs.append({"role": "tool", "tool_call_id": f"pad_{i}",
+                     "content": result})
+        size += len(user) + len(result) + 60
+    return msgs
+
+
+def task_t6(chat: ChatFn, pin: str, nonce: str) -> tuple[Optional[float], dict]:
+    # ~250k chars ≈ 62k tokens of agent-loop context — past the
+    # classifier's long-context line and at the size of a real
+    # mid-conversation Hermes turn, while still fitting every
+    # tool-capable free entry's context window (>= 131k).
+    msgs = _pad_episodes(nonce, 250_000)
+    msgs.append({"role": "user", "content":
+                 "Record this observation exactly as given, using "
+                 "the record_observation tool: station 'south-ridge', "
+                 "samples 17, mode 'auto', calibrated false, "
+                 "pressure_kpa 63.25. Do not change any value."})
+    r = chat(msgs, [RECORD_OBSERVATION, LOOKUP_GAUGE], pin)
+    expect = {"station": "south-ridge", "samples": 17, "mode": "auto",
+              "calibrated": False, "pressure_kpa": 63.25}
+    return _score_exact_call(r, pin, expect, "record_observation")
+
+
+def _distractor_tool(name: str, prop: str) -> dict:
+    return {"type": "function",
+            "function": {
+                "name": name,
+                "description": f"{name.replace('_', ' ').capitalize()}.",
+                "parameters": {"type": "object",
+                               "properties": {prop: {"type": "string"}},
+                               "required": [prop]}}}
+
+
+# Near-named distractors for T7: plausible siblings a model can blend
+# the target name with — the production unknown_function signature.
+T7_DISTRACTORS = [
+    _distractor_tool("record_reading", "reading"),
+    _distractor_tool("log_observation", "note"),
+    _distractor_tool("fetch_observation", "station"),
+    _distractor_tool("record_sample", "sample"),
+    _distractor_tool("get_station_status", "station"),
+    _distractor_tool("list_stations", "region"),
+    _distractor_tool("update_observation", "station"),
+    _distractor_tool("delete_observation", "station"),
+    _distractor_tool("record_observation_draft", "station"),
+    _distractor_tool("search_observations", "query"),
+    _distractor_tool("record_weather", "city"),
+    _distractor_tool("record_pressure", "gauge"),
+    _distractor_tool("calibrate_station", "station"),
+    _distractor_tool("get_reading", "gauge"),
+    _distractor_tool("lookup_station", "station"),
+    _distractor_tool("record_event", "event"),
+    _distractor_tool("submit_observation", "station"),
+    _distractor_tool("record_measurement", "gauge"),
+    _distractor_tool("archive_observation", "station"),
+]
+
+
+def task_t7(chat: ChatFn, pin: str, nonce: str) -> tuple[Optional[float], dict]:
+    msgs = [{"role": "user", "content":
+             f"[{nonce}] Record this observation exactly as given, "
+             "using the record_observation tool: station 'east-ridge', "
+             "samples 8, mode 'auto', calibrated false, "
+             "pressure_kpa 71.0. Do not change any value, and do not "
+             "use any other tool."}]
+    r = chat(msgs, [RECORD_OBSERVATION] + T7_DISTRACTORS, pin)
+    expect = {"station": "east-ridge", "samples": 8, "mode": "auto",
+              "calibrated": False, "pressure_kpa": 71.0}
+    return _score_exact_call(r, pin, expect, "record_observation")
+
+
 TASKS = [("t1_exact_args", task_t1), ("t2_large_payload", task_t2),
          ("t3_parallel_calls", task_t3), ("t4_follow_through", task_t4),
-         ("t5_error_recovery", task_t5)]
+         ("t5_error_recovery", task_t5),
+         ("t6_long_context", task_t6), ("t7_many_tools", task_t7)]
 
 
 # ----------------------------------------------------------------------
@@ -424,6 +568,13 @@ def run_entry(chat: ChatFn, entry_id: str, run_id: str) -> dict:
             # malformed cannot drive tools at all, whatever the other
             # components say — the score floors at 1
             score = 1
+        elif any(components.get(name) == 0.0 for name, _ in TASKS):
+            # rubric gate (2026-11-19, with T6/T7): a 5 means NO
+            # failed task. One outright task failure — a fixated
+            # re-issue, a payload collapse, a long-context or
+            # many-tools miss — caps the score at 4 however clean the
+            # rest of the run was.
+            score = min(score, 4)
     return {
         "entry": entry_id,
         "measured": measured,
@@ -535,16 +686,20 @@ RUBRIC_MD = """\
 
 Components per entry: T1 exact-args, T2 large-payload integrity,
 T3 parallel calls, T4 tool-result follow-through, T5 error recovery
-(identical re-issue after a tool error = 0), V envelope validity
+(identical re-issue after a tool error = 0), T6 exact-args at the
+end of a ~62k-token agent-loop context, T7 exact-args with 20
+tools declared (near-named distractors), V envelope validity
 (fraction of the entry's calls with strict-JSON arguments naming a
 declared tool; a gateway escalation away from the pinned entry on a
 tool task counts one invalid call and scores that task 0 — the
 pinned response failed the gateway's own validation).
 Composite = mean of available components; an entry needs >= 3
 available components to be measured. Tooling score =
-1 + round(4 * composite), clamped 1..5 — with one gate: if the
+1 + round(4 * composite), clamped 1..5 — with two gates: if the
 envelope component is 0 (every call the entry produced was
-malformed), the score floors at 1 regardless of composite.
+malformed), the score floors at 1 regardless of composite; and a
+0 on any task component caps the score at 4 (a 5 means no failed
+task; added 2026-11-19 with T6/T7).
 Tasks the pinned entry never served are no_evidence and
 contribute nothing.
 """
@@ -559,8 +714,8 @@ def render_markdown(report: dict) -> str:
              f"served-but-unmeasured: {report['entries_served_unmeasured']} · "
              f"never served: {report['entries_never_served']}",
              "", RUBRIC_MD, "",
-             "| entry | tooling | composite | T1 | T2 | T3 | T4 | T5 | env | esc |",
-             "|---|---|---|---|---|---|---|---|---|---|"]
+             "| entry | tooling | composite | T1 | T2 | T3 | T4 | T5 | T6 | T7 | env | esc |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in report["results"]:
         c = r["components"]
         fmt = lambda v: "—" if v is None else f"{v:.2f}"  # noqa: E731
@@ -572,6 +727,8 @@ def render_markdown(report: dict) -> str:
             f"| {fmt(c.get('t3_parallel_calls'))} "
             f"| {fmt(c.get('t4_follow_through'))} "
             f"| {fmt(c.get('t5_error_recovery'))} "
+            f"| {fmt(c.get('t6_long_context'))} "
+            f"| {fmt(c.get('t7_many_tools'))} "
             f"| {fmt(c.get('v_envelope'))} | {r['escalations']} |")
     lines += ["", "## Per-entry detail", ""]
     for r in report["results"]:

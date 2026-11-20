@@ -1,5 +1,7 @@
 # LLM router landscape — GitHub survey, 2026-11-19
 
+> Superseded in part by `RESEARCH-2026-11-19.md` (deeper research) and `COMPONENT-REVIEW-2026-11-19.md`.
+
 Method: GitHub search API for metadata (stars, last push, license, archived)
 plus each repo's README. Star counts and feature claims are the projects'
 own and were NOT independently benchmarked. Nothing here was run against
@@ -17,7 +19,7 @@ re-evaluate a gateway underneath only if the bake-off shows it wins.
 | vllm-project/semantic-router | 6.5k | 2026-11-20 | Apache-2.0 | "Decision layer for models and compute": signal/decision routing, guardrails, semantic cache research. v0.4, early. Docs thin on specifics. | High for design ideas (signal -> decision separation); verify depth in docs before relying. |
 | katanemo/plano | 7.1k | 2026-10-24 | Apache-2.0 (code) | Envoy-based proxy with preference routing via a 4B router model. | Medium. Router-model license not stated on the page; our own review rejected Arch-Router (Katanemo license). Re-check before any use. |
 | maximhq/bifrost | 9.8k | 2026-11-20 | Apache-2.0 + enterprise tier | Go gateway: weighted key balancing, fallbacks, virtual-key budgets, semantic cache, MCP gateway. Perf claims (11-59 us overhead) are self-reported. | Medium-high as a transport layer candidate. Unclear which features are enterprise-only. |
-| BerriAI/litellm | 63.6k | 2026-11-20 | Not detected by GitHub (LICENSE file; enterprise tier exists) | De-facto gateway: router with retries/fallbacks/load balancing, virtual keys, spend tracking. | High as transport candidate; confirm license split and recent security history first. |
+| BerriAI/litellm | 63.6k | 2026-11-20 | Not detected by GitHub (LICENSE file; enterprise tier exists) | De-facto gateway: router with retries/fallbacks/load balancing, virtual keys, spend tracking. | Transport candidate **only after a security review**: multiple critical 2026 proxy advisories (see RESEARCH-2026-11-19.md 1.1). Shadow-only, no production keys. |
 | agentgateway/agentgateway | 6.3k | 2026-11-20 | Apache-2.0 | Linux Foundation MCP/A2A-aware proxy: LLM failover, budgets, CEL policy, OTel. | Medium. Strong policy/observability patterns (CEL rules, OTel). |
 | NadirRouter/NadirClaw | 0.7k | 2026-11-20 | PolyForm Noncommercial | Embedding-classifier router (~10 ms), verifier-gated cascade (rule-based answer checks, escalate below 0.80), tool/agent signals force complex tier, 30-min session persistence. | Ideas only: we already have most of it. **License forbids commercial use**: do not adopt code. |
 | tashfeenahmed/freellmapi | 55k | 2026-11-19 | MIT | Self-hosted aggregator of free tiers: per-(provider,model,key) RPM/RPD/token counters, cooldown on 429/5xx, strict failover within model groups, sticky 30 min, converts text tool calls to `tool_calls`. "Personal experimentation only"; no privacy wall. | Directly on our free-first path. Borrow: learned per-key limits, text-to-tool-call repair. Not for sensitive data. |

@@ -84,3 +84,17 @@ problem); any hosted router for sensitive traffic.
 ## Sequencing
 Deploy #14/#15 (owner go + VM103 snapshot) -> W1/W2 shadow (week 1) -> W3/W4
 (week 2) -> W5/W6 audits -> bake-off -> W7 only if data supports.
+
+## Addendum 2026-11-19 (deep research; see docs/RESEARCH-2026-11-19.md)
+- **W8 — Failure-aware cost accounting:** charge full cost of failed/escalated
+  loops to the routing choice that caused them; price cache loss on mid-loop model
+  switches (TwinRouterBench).
+- **W9 — kNN baseline:** evaluate a tuned kNN on our golden set before adding any
+  learned router (Routing Plateau).
+- **W10 — Step-level offline eval:** build a static replay set of real tool-loop
+  prefixes with execution-verified labels from our own traffic.
+- **Bake-off safety rule:** LiteLLM is shadow-only with NO production keys until a
+  pinned, audited version and network isolation exist (2026 advisory record).
+  Bifrost is the preferred transport candidate but its open-source feature edge must
+  be verified against our needs (adaptive routing and several UI pages are enterprise).
+- GUI work is planned separately in `cycle-04-gui-plan.md`.

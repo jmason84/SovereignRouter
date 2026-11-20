@@ -11,8 +11,7 @@ name: CI
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  pull_request:   # all bases, so stacked PRs are tested too (was main only)
   workflow_dispatch:
 
 permissions:

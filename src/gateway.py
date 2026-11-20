@@ -204,6 +204,15 @@ def _latest_tool_error(messages: list[dict]) -> bool:
     return any(_tool_text_has_error(_message_text(m)) for m in trailing)
 
 
+# v0.9.3: how many times ONE request may escalate after a failed validation
+# (invalid tool-call arguments, empty answer, ...). It used to be exactly
+# one, which meant that when the escalation target ALSO failed validation the
+# known-invalid tool call was delivered to the client even though more
+# candidates remained. Two keeps the cost/latency bound (at most three
+# attempts) while closing that hole; found by the live e2e harness.
+MAX_VALIDATION_ESCALATIONS = 2
+
+
 def _selection_quality(entry: ModelEntry, task_class: str,
                        has_tools: bool) -> int:
     """The quality selection ranks and floors on (v0.9.0, Cycle 1
@@ -1725,6 +1734,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                          spillway_builder: Any = None) -> Any:
     telemetry: Telemetry = app.state.telemetry
     escalated = False
+    esc_count = 0
     last_failures: list[str] = []
     retried_same: set[int] = set()
     budget_override: Optional[int] = None
@@ -1797,7 +1807,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             and bool(_msg0.get("tool_calls"))
 
         failures = validate_response(data, tools=tools or None, json_mode=json_mode)
-        if failures and not escalated:
+        if failures and esc_count < MAX_VALIDATION_ESCALATIONS:
             if "length_no_content" in failures and entry.reasoning \
                     and idx not in retried_same:
                 # Reasoning models can spend the entire output budget on
@@ -1842,6 +1852,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                     None)
             if esc_idx is not None:
                 escalated = True
+                esc_count += 1
                 last_failures = failures
                 skipped.append({"model": entry.id,
                                 "reason": "validation_failed:" + ",".join(failures)})
@@ -1931,6 +1942,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
     async def produce() -> AsyncIterator[str]:
         nonlocal candidates, spillway_reason
         escalated = False
+        esc_count = 0
         if spillway_reason is not None:
             # Selection-time spillway (v0.5.5): the row must show the
             # fallthrough even though the streaming validation machine
@@ -2072,7 +2084,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                             and assembler.has_tool_calls
                         failures = validate_response(
                             assembled, tools=tools or None, json_mode=False)
-                        if failures and not escalated:
+                        if failures and esc_count < MAX_VALIDATION_ESCALATIONS:
                             entry_q = _selection_quality(
                                 entry, task_class, bool(tools))
                             target_q = entry_q + 1
@@ -2098,6 +2110,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                     + ",".join(failures))
                             if esc_idx is not None:
                                 escalated = True
+                                esc_count += 1
                                 record.escalation_reasons = failures
                                 skipped.append({
                                     "model": entry.id,

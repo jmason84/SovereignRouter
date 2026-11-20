@@ -14,6 +14,7 @@ reports its version at `GET /health` (`version` field) and in the
 - **F4 — per-client `model_allowlist`** (registry ids or fnmatch globs). Enforced in every candidate pass including the paid spillway, in the pin force-insert, and in the 413 pre-check. Empty (default) = unrestricted, so shipping it changes nothing until the owner sets a list.
 - **Observe-only tool health:** `src/tool_health.py` and `GET /admin/tool-health` — per-model tool-loop error rate attributed to the model that made the call, with the cap an enforcing version would apply. Selection never reads it (decision J-2 stays open).
 - **`repeat_within_60s` fix:** tool-loop continuations are no longer flagged as client retries.
+- **Fix: repeated validation escalation.** A request could escalate only once after a failed validation; if the escalation target also returned an invalid tool call, the invalid call was delivered to the client even though candidates remained (pre-existing; exposed by the F3 ranking change and caught by the live e2e harness). Now up to `MAX_VALIDATION_ESCALATIONS = 2` hops in both the JSON and streaming paths. Regression tests in `tests/test_repeated_escalation.py`.
 - Docs: compose rollback comment corrected; failure-log entries F-19..F-23; proposed-not-applied settings recorded in the plan.
 
 **v0.9.2 candidate — tool-turn routing fixes F2 + F3, 2026-11-19** (from the 2026-11-19 routing diagnosis; NOT deployed, NOT pushed; F1 deliberately not applied — the 15 "DISABLED candidate" entries were enabled on the owner's 2026-11-17 ruling, see each entry's notes):

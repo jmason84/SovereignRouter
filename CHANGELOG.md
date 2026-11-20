@@ -9,6 +9,13 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+**v0.9.3 candidate — cycle 2 hardening, 2026-11-19** (stacked on PR #14; NOT deployed; no registry or live-config change; plan: `docs/cycles/cycle-02-plan.md`):
+
+- **F4 — per-client `model_allowlist`** (registry ids or fnmatch globs). Enforced in every candidate pass including the paid spillway, in the pin force-insert, and in the 413 pre-check. Empty (default) = unrestricted, so shipping it changes nothing until the owner sets a list.
+- **Observe-only tool health:** `src/tool_health.py` and `GET /admin/tool-health` — per-model tool-loop error rate attributed to the model that made the call, with the cap an enforcing version would apply. Selection never reads it (decision J-2 stays open).
+- **`repeat_within_60s` fix:** tool-loop continuations are no longer flagged as client retries.
+- Docs: compose rollback comment corrected; failure-log entries F-19..F-23; proposed-not-applied settings recorded in the plan.
+
 **v0.9.2 candidate — tool-turn routing fixes F2 + F3, 2026-11-19** (from the 2026-11-19 routing diagnosis; NOT deployed, NOT pushed; F1 deliberately not applied — the 15 "DISABLED candidate" entries were enabled on the owner's 2026-11-17 ruling, see each entry's notes):
 
 - **F3 — tool turns rank on `min(tooling, class quality)`.** The measured tooling score is now a ceiling, not a replacement (`gateway._selection_quality`). The one-shot battery saturates (60/85 enabled entries scored 5, including a 1.7B model), so ranking on it alone made every free model tie and let the fastest weak one win. A tool turn must now be good at tools AND at the request's task class. Unmeasured entries are unchanged. Offline shadow of Hermes-shaped requests: infra/chat tool turns no longer lead with particle-1 / north-mini / llama-4-scout and lead with cloudflare/gpt-oss-120b and nemotron-3-ultra-free; long-context tool turns lead with gemini-3.1-flash-lite. This REVERSES the v0.9.0 "inversion" premise (a weak-chat, tooling-5 model outranking a strong one on tool turns): `test_tool_turns_rank_on_tooling_chat_turns_do_not` and `test_tooling_floor_bites_only_on_tool_turns` were rewritten for the new rule, and `test_streaming_bad_tool_call_escalates` now escalates to deepinfra/deepseek-v4-flash-0731 (an 8B model is no longer a valid "stronger" target).

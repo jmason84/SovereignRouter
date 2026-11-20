@@ -106,6 +106,7 @@ from registry import FREE_LANES, ModelEntry, Registry, load_registry
 from sensitivity import scan_messages
 from sticky import (StickyStore, TOOL_ERROR_BREAK_AFTER,
                     conversation_key)
+from tool_health import ToolHealth
 from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
@@ -603,6 +604,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         enabled=cfg.emergency_enabled, daily_limit_usd=cfg.emergency_daily_usd,
         warn_only=cfg.emergency_warn_only))
     sticky = StickyStore()
+    tool_health = ToolHealth(cfg.state_dir / "tool_health.json")
     telemetry = Telemetry(cfg.state_dir / "routes.jsonl")
     provider_keys = cfg.load_provider_keys()
 
@@ -624,6 +626,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     app.state.store = store
     app.state.governor = governor
     app.state.sticky = sticky
+    app.state.tool_health = tool_health
     app.state.telemetry = telemetry
     app.state.classifier = classifier
     app.state.provider_keys = provider_keys
@@ -703,6 +706,11 @@ def create_app(config: Optional[GatewayConfig] = None,
                     skip("premium_not_allowed"); continue
             elif not client.lane_allowed(entry.lane):
                 skip("lane_not_allowed"); continue
+            if not client.model_allowed(entry.id):
+                # v0.9.3: the owner's per-client allowlist is a hard
+                # client constraint in every pass (spillway included);
+                # empty list = no restriction (default).
+                skip("client_model_allowlist"); continue
             if paid_off_reason and entry.lane in ("paid", "premium"):
                 skip(paid_off_reason); continue
             if not app.state.provider_keys.get(entry.provider):
@@ -924,6 +932,7 @@ def create_app(config: Optional[GatewayConfig] = None,
                                 "reason": f"pin_blocked:{reason}"}
         if explicit_entry.lane in client.lanes and not (
                 paid_off_reason and explicit_entry.lane in ("paid", "premium")) \
+                and client.model_allowed(explicit_entry.id) \
                 and app.state.provider_keys.get(explicit_entry.provider):
             candidates.insert(0, explicit_entry)
         return candidates, None
@@ -1126,6 +1135,16 @@ def create_app(config: Optional[GatewayConfig] = None,
             return _err(400, "unknown client_id", "invalid_request")
         app.state.store.set_killswitch(client_id, active)
         return {"client_id": client_id, "killswitch_active": active}
+
+    @app.get("/admin/tool-health")
+    async def admin_tool_health(request: Request) -> Any:
+        """Observe-only: per-model tool-loop outcome rates attributed to
+        the model that made the call, with the cap a future enforcement
+        (decision J-2, OPEN) WOULD apply. Selection never reads this."""
+        if not auth_admin(request):
+            return _err(401, "admin key required", "authentication_error")
+        return JSONResponse({"observe_only": True,
+                             "models": app.state.tool_health.snapshot()})
 
     @app.get("/admin/alerts")
     async def admin_alerts(request: Request, after: int = 0) -> Any:
@@ -1373,7 +1392,8 @@ def create_app(config: Optional[GatewayConfig] = None,
 
         # 413 pre-check: no lane-allowed model can EVER fit -> 413.
         lane_entries = [e for e in app.state.registry.entries
-                        if e.enabled and client.lane_allowed(e.lane)]
+                        if e.enabled and client.lane_allowed(e.lane)
+                        and client.model_allowed(e.id)]
         if lane_entries and all(
                 est_tokens + MIN_OUTPUT_TOKENS > e.context_tokens
                 for e in lane_entries):
@@ -1412,8 +1432,15 @@ def create_app(config: Optional[GatewayConfig] = None,
         # that hallucinated tool names) held a whole session or cron run.
         sticky_broken_model = None
         if sticky_entry is not None and in_tool_loop:
+            latest_err = _latest_tool_error(messages)
+            # v0.9.3 (observe-only): the sticky model made the tool call
+            # whose result just came back, so the outcome is attributed
+            # to IT — exact attribution, unlike the route row's
+            # tool_error_next_turn which lands on whichever model serves
+            # the next turn. Never read by selection (decision J-2).
+            app.state.tool_health.record(sticky_entry.model_id, latest_err)
             run = app.state.sticky.record_tool_outcome(
-                conv_key, _latest_tool_error(messages))
+                conv_key, latest_err)
             if run >= TOOL_ERROR_BREAK_AFTER:
                 sticky_broken_model = sticky_entry.model_id
                 app.state.sticky.avoid(conv_key, sticky_broken_model)
@@ -1525,7 +1552,15 @@ def create_app(config: Optional[GatewayConfig] = None,
         )
         fingerprint = telemetry.outcomes.fingerprint(
             client.id, system_text, last_user_text, [n for n in tool_names if n])
-        record.repeat_within_60s = telemetry.outcomes.check_and_record(fingerprint)
+        # v0.9.3: a tool-loop continuation (last message is a tool
+        # result) is the SAME fingerprint on every step by construction
+        # (system + last user text + tool names never change inside a
+        # loop), so it is not "a retry of a turn the client disliked".
+        # 74% of Hermes rows were flagged for exactly this. Fresh user
+        # turns are still checked.
+        record.repeat_within_60s = (
+            False if in_tool_loop
+            else telemetry.outcomes.check_and_record(fingerprint))
         if record.repeat_within_60s:
             record.signals.append("repeat_within_60s")
         if has_tool_error:

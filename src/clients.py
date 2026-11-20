@@ -29,6 +29,7 @@ Overrides are logged in the route line.
 
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import hmac
 import json
@@ -54,9 +55,23 @@ class ClientPolicy:
     # Providers the owner has cleared to receive this client's sensitive
     # prompts. Empty until the owner decides (spec: open decision).
     sensitive_cleared_providers: tuple[str, ...] = ()
+    # Optional per-client model allowlist (v0.9.3, opt-in, owner-set in
+    # clients.json). Registry ids or fnmatch patterns ("google/*").
+    # EMPTY (the default) means no restriction, so shipping this field
+    # changes nothing until the owner writes a list. When set, only
+    # matching registry entries are eligible for this client in EVERY
+    # selection pass including the paid spillway — so the list must keep
+    # at least one paid route in reach or exhaustion has nowhere to fall.
+    model_allowlist: tuple[str, ...] = ()
 
     def lane_allowed(self, lane: str) -> bool:
         return lane in self.lanes
+
+    def model_allowed(self, entry_id: str) -> bool:
+        if not self.model_allowlist:
+            return True
+        return any(fnmatch.fnmatchcase(entry_id, pat)
+                   for pat in self.model_allowlist)
 
 
 @dataclass(frozen=True)
@@ -117,6 +132,7 @@ def load_clients(path: str | Path) -> ClientStore:
             premium_monthly_alert_usd=raw.get("premium_monthly_alert_usd"),
             premium_daily_count_alert=raw.get("premium_daily_count_alert"),
             sensitive_cleared_providers=tuple(raw.get("sensitive_cleared_providers", [])),
+            model_allowlist=tuple(str(x) for x in raw.get("model_allowlist", [])),
         )
         store.clients[policy.id] = policy
     return store

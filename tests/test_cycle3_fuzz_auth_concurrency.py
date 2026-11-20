@@ -273,3 +273,24 @@ def test_toolhealth_concurrent_readers_writers_and_autopersist(tmp_path):
     assert p.exists(), "auto-persist never wrote the file"
     th.flush()
     assert ToolHealth(p).snapshot() == th.snapshot()
+
+
+def test_toolhealth_first_record_visible_and_shutdown_flushes(tmp_path):
+    p = tmp_path / "th.json"
+    th = ToolHealth(p)
+    th.record("m", True)
+    assert p.exists(), "first record must be persisted immediately"
+    for _ in range(PERSIST_EVERY - 2):   # below the autosave threshold
+        th.record("m", False)
+    th.flush()
+    assert ToolHealth(p).stats("m")["turns"] == PERSIST_EVERY - 1
+
+
+def test_app_shutdown_flushes_tool_health(app):
+    from fastapi.testclient import TestClient
+    app.state.tool_health.record("zz", True)
+    app.state.tool_health.record("zz", False)
+    path = app.state.tool_health.path
+    with TestClient(app):
+        pass  # exit triggers shutdown handlers
+    assert json.loads(path.read_text())["zz"] == [1, 0]

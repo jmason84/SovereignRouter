@@ -25,7 +25,7 @@ WINDOW = 200          # most recent tool turns kept per model
 MIN_TURNS = 50        # below this a rate is not trusted
 WARN_RATE = 0.25      # would cap tooling quality at 3
 SEVERE_RATE = 0.40    # would cap tooling quality at 2
-PERSIST_EVERY = 20
+PERSIST_EVERY = 5     # was 20: a restart lost up to 19 turns (v0.9.3 fix)
 
 
 class ToolHealth:
@@ -34,6 +34,7 @@ class ToolHealth:
         self._lock = threading.Lock()
         self._data: dict[str, deque] = {}
         self._since_save = 0
+        self._saved_once = False  # first record is written at once (visibility)
         self._load()
 
     # -- persistence ------------------------------------------------------
@@ -72,7 +73,9 @@ class ToolHealth:
             self._data.setdefault(model_id, deque(maxlen=WINDOW)).append(
                 int(bool(had_error)))
             self._since_save += 1
-            if self._since_save >= PERSIST_EVERY:
+            first = not self._saved_once
+            if first or self._since_save >= PERSIST_EVERY:
+                self._saved_once = True
                 self._save_locked()
                 self._since_save = 0
 

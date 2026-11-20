@@ -84,6 +84,8 @@ never in the registry, compose files, logs or this source tree.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 import asyncio
 import json
 import os
@@ -628,7 +630,13 @@ def create_app(config: Optional[GatewayConfig] = None,
         if sidecar_transport else None
     classifier = Classifier(sidecar_url=cfg.sidecar_url, http_client=sidecar_client)
 
-    app = FastAPI(title="Sovereign Router", version=VERSION)
+    @asynccontextmanager
+    async def _lifespan(_app):
+        yield
+        # restart must not lose unsaved tool-health turns (v0.9.3 fix)
+        _app.state.tool_health.flush()
+
+    app = FastAPI(title="Sovereign Router", version=VERSION, lifespan=_lifespan)
     app.state.cfg = cfg
     app.state.registry = registry
     app.state.clients = clients

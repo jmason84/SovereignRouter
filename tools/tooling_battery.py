@@ -54,13 +54,18 @@ Scoring rubric (mechanical; no hand-entered scores):
     30-60%, so a top score must now survive every task, including
     the production-shaped ones.
 
-The battery is also the verified_until writer: an entry that served
-at least one task itself (served model == pinned id on a non-error
-response) is probe-verified; --emit-registry-patch writes
-{entry_id: {tooling, tooling_source, verified_until}} for measured
-entries and {entry_id: {verified_until}} for served-but-unmeasured
-ones. verified_until = run date + 30 days (the investigation
-protocol's staleness horizon). Entries never served get nothing.
+The battery is also the verified_until writer — for MEASURED
+entries only: --emit-registry-patch writes
+{entry_id: {tooling, tooling_source, verified_until}} for each entry
+the run actually measured. verified_until = run date + 30 days (the
+investigation protocol's staleness horizon). Served-but-unmeasured
+entries get NO patch at all: serving a task or two is not a
+measurement, and stamping their freshness date would vouch for a
+score the battery never derived (defect found 2026-11-19: the
+2026-11-19 run's patch stamped verified_until on two
+served-but-unmeasured entries, one of which carries no tooling score
+at all; corrected the same day on Jordan's order). Entries never
+served likewise get nothing.
 
 Usage (live, from inside the gateway container or any host that can
 reach the gateway):
@@ -832,11 +837,13 @@ def main(argv: Optional[list[str]] = None) -> int:
 def build_registry_patch(results: list[dict], run_id: str,
                          today: Optional[date] = None) -> dict:
     """The battery's registry consequences, and ONLY those: measured
-    entries get their derived tooling score + provenance; every entry
-    the battery actually served (measured or not) gets a
+    entries get their derived tooling score + provenance +
     verified_until stamp 30 days out (the protocol's staleness
-    horizon). Never-served entries get nothing — the battery does not
-    vouch for routes it could not reach."""
+    horizon). Served-but-unmeasured entries get NOTHING — no
+    verified_until, no tooling_source: a freshness stamp asserts a
+    measurement happened, and for those entries none did (defect
+    found and fixed 2026-11-19). Never-served entries get nothing —
+    the battery does not vouch for routes it could not reach."""
     until = ((today or date.today()) + timedelta(days=30)).isoformat()
     patch: dict[str, dict] = {}
     for r in results:
@@ -845,8 +852,6 @@ def build_registry_patch(results: list[dict], run_id: str,
                 "tooling": r["tooling_score"],
                 "tooling_source": f"tooling-battery:{run_id}",
                 "verified_until": until}
-        elif r["served_self"]:
-            patch[r["entry"]] = {"verified_until": until}
     return patch
 
 

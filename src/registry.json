@@ -799,7 +799,7 @@
         "reasoning": 3
       },
       "reasoning": true,
-      "verified_until": "2026-12-19"
+      "verified_until": null
     },
     {
       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -2910,7 +2910,7 @@
       },
       "quota_pool_id": "openrouter-free",
       "reasoning": true,
-      "verified_until": "2026-12-19",
+      "verified_until": "2026-12-15",
       "tooling_source": "tooling-battery:2026-11-15"
     },
     {

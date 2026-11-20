@@ -136,6 +136,16 @@ def always_escalated(messages, tools, pin):
                    "other/model", escalated=True)
 
 
+def mostly_unreachable(messages, tools, pin):
+    """Serves itself correctly on T1 only; every other task errors
+    out (no evidence). Lands served-but-unmeasured: fewer than 3
+    available components, but served_self is True — the exact shape
+    of the two entries the 2026-11-19 run wrongly stamped."""
+    if _task_of(messages) == "t1_exact_args":
+        return good_model(messages, tools, pin)
+    return _result(None, pin, error="upstream_timeout")
+
+
 # ----------------------------------------------------------------------
 
 def test_good_model_scores_five():
@@ -172,6 +182,31 @@ def test_never_served_is_unmeasured_and_unstamped():
     patch = tb.build_registry_patch([r], "2026-11-13",
                                     today=date(2026, 11, 13))
     assert patch == {}
+
+
+def test_served_but_unmeasured_gets_no_patch():
+    # Regression (2026-11-19): the battery used to stamp
+    # verified_until on served-but-unmeasured entries, vouching for
+    # a measurement that never happened. A served-but-unmeasured
+    # entry must produce NO registry patch at all.
+    r = tb.run_entry(mostly_unreachable, "thin/model", "2026-11-19")
+    assert r["served_self"] and not r["measured"]
+    assert r["tooling_score"] is None
+    patch = tb.build_registry_patch([r], "2026-11-19",
+                                    today=date(2026, 11, 19))
+    assert patch == {}
+
+
+def test_patch_skips_unmeasured_in_mixed_results():
+    good = tb.run_entry(good_model, "good/model", "2026-11-19")
+    thin = tb.run_entry(mostly_unreachable, "thin/model", "2026-11-19")
+    gone = tb.run_entry(never_serves, "gone/model", "2026-11-19")
+    patch = tb.build_registry_patch([good, thin, gone], "2026-11-19",
+                                    today=date(2026, 11, 19))
+    assert patch == {"good/model": {
+        "tooling": 5,
+        "tooling_source": "tooling-battery:2026-11-19",
+        "verified_until": "2026-12-19"}}
 
 
 def test_escalated_away_is_failed_validation_not_no_evidence():

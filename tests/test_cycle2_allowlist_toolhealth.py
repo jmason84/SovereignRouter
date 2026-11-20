@@ -69,8 +69,8 @@ def test_allowlist_blocks_explicit_pin(tmp_path):
         r = c.post("/v1/chat/completions",
                    json=chat_body("hi", model="deepinfra/deepseek-v4-flash-0731"),
                    headers=auth("hermes"))
-        if r.status_code == 200:
-            assert r.headers["X-Sovereign-Model"].startswith("groq/")
+        assert r.status_code == 200, r.text   # must serve, not fail
+        assert r.headers["X-Sovereign-Model"].startswith("groq/")
 
 
 # ---------------- ToolHealth ----------------

@@ -118,8 +118,23 @@ def test_secret_requests_only_use_private_free(client, app, who, secret,
 def test_pin_cannot_pull_a_secret_onto_a_paid_model(client, app, who):
     body = chat_body(SECRETS[0], model="deepinfra/deepseek-v4-flash-0731")
     r = client.post("/v1/chat/completions", json=body, headers=auth(who))
-    if r.status_code == 200:
+    assert r.status_code == 200, r.text
+    assert r.headers["X-Sovereign-Lane"] == "private-free"
+
+
+@pytest.mark.parametrize("who", ["hermes", "openclaw", "n8n"])
+@pytest.mark.parametrize("with_tools", [False, True])
+def test_streaming_secret_requests_only_use_private_free(client, app, who,
+                                                         with_tools):
+    body = chat_body(SECRETS[0] + " stream it", stream=True)
+    if with_tools:
+        body["tools"] = TOOLS
+    with client.stream("POST", "/v1/chat/completions", json=body,
+                       headers=auth(who)) as r:
+        assert r.status_code == 200
         assert r.headers["X-Sovereign-Lane"] == "private-free"
+        r.read()
+    assert app.state.telemetry.recent(0)[-1].data_class == "sensitive"
 
 
 def test_shadow_never_offers_a_non_private_first_candidate_for_secrets(client):

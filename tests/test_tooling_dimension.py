@@ -160,14 +160,16 @@ def test_tool_turns_rank_on_tooling_chat_turns_do_not(tmp_path):
                               "groq/beta"]
 
         tool_order, data = _shadow_order(client, {**body, "tools": TOOLS})
-        # tools: beta's MEASURED 5 outranks on the tooling dimension
-        # (latency breaks its tie with alpha's fallback 5); gamma
-        # ranks on its measured 2 — last, and reported as 2 in the
-        # shadow candidate list — while delta is gated out by
-        # supports_tools despite its measured 5.
-        assert tool_order == ["groq/beta", "groq/alpha", "groq/gamma"]
+        # tools (v0.9.2 / F3): the measured tooling score is a CEILING —
+        # a tool turn ranks on min(tooling, class quality). Beta's
+        # saturated tooling 5 no longer lifts a model that is weak at
+        # the task (class quality 2 -> 2); alpha (unmeasured, falls
+        # back to its class quality 5) leads. Beta and gamma tie at 2
+        # and latency breaks it (beta is faster). Delta is still gated
+        # out by supports_tools despite its measured 5.
+        assert tool_order == ["groq/alpha", "groq/beta", "groq/gamma"]
         reported = {c["model"]: c["quality"] for c in data["candidates"]}
-        assert reported == {"groq/beta": 5, "groq/alpha": 5,
+        assert reported == {"groq/alpha": 5, "groq/beta": 2,
                             "groq/gamma": 2}
         skipped = {s["model"]: s["reason"] for s in data["skipped"]}
         assert skipped["groq/delta"] == "tools_unsupported"
@@ -185,7 +187,39 @@ def test_tooling_floor_bites_only_on_tool_turns(tmp_path):
 
         tool_order, _ = _shadow_order(client, {**body, "tools": TOOLS},
                                       headers=lvl4)
-        # On tool turns the floor reads the tooling dimension instead:
-        # beta(5) in, gamma(2) out — the exact inversion.
-        assert "groq/beta" in tool_order
-        assert "groq/gamma" not in tool_order
+        # v0.9.2 / F3: on tool turns the floor reads min(tooling, class
+        # quality). Beta (tooling 5 but class 2) and gamma (class 4 but
+        # tooling 2) are BOTH out at the L4 floor; only a model that is
+        # good at tools AND at the task clears it (alpha).
+        assert tool_order == ["groq/alpha"]
+
+
+def test_saturated_tooling_does_not_let_a_weak_model_outrank_a_strong_one(
+        tmp_path):
+    """Regression for the 2026-11-19 routing diagnosis: with tooling
+    scores saturated at 5, the fastest weak free model won every tool
+    turn. A strong model with the same tooling score must outrank a weak
+    one regardless of latency, and the weak one must fail an L4 floor."""
+    def m(id_, cls, tooling, latency):
+        return {"id": id_, "provider": "groq", "model": f"m-{id_}",
+                "lane": "private-free",
+                "quality": {"chat": cls, "infra": cls, "code": cls,
+                            "reasoning": cls, "long-context": cls,
+                            "tooling": tooling},
+                "tooling_source": "tooling-battery:2026-11-19",
+                "context_tokens": 131072, "latency_p50_ms": latency,
+                "input_usd_per_million": 0.0, "output_usd_per_million": 0.0}
+    reg = tmp_path / "sat.json"
+    reg.write_text(json.dumps({"models": [
+        m("groq/weak-fast", 2, 5, 50),
+        m("groq/strong-slow", 5, 5, 900),
+    ]}))
+    app = build_app(tmp_path / "s", registry_path=reg)
+    body = {"model": "auto", "tools": TOOLS,
+            "messages": [{"role": "user", "content": "hello there"}]}
+    with TestClient(app) as client:
+        order, _ = _shadow_order(client, body)
+        assert order == ["groq/strong-slow", "groq/weak-fast"]
+        lvl4 = {**auth("hermes"), "X-Sovereign-Level": "4"}
+        order4, _ = _shadow_order(client, body, headers=lvl4)
+        assert order4 == ["groq/strong-slow"]

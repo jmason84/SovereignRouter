@@ -175,4 +175,10 @@ def test_streaming_bad_tool_call_escalates(tmp_path):
     # the first server is pinned (groq/gpt-oss-120b, a scripted-bad
     # FREE_MODELS entry) because auto-selection's first pick for a
     # tool turn moved off the scripted set with the new rankings.
-    assert rec.model == "deepinfra/llama-3.1-8b-turbo"
+    # v0.9.2 (F3): the measured tooling score is now a ceiling
+    # (min(tooling, class quality)). deepinfra/llama-3.1-8b-turbo is
+    # tooling 5 but class quality 2 — an 8B model is no longer a valid
+    # "stronger" escalation target — so the cheapest route that is good
+    # at tools AND at the task is deepinfra/deepseek-v4-flash-0731
+    # (tooling 5, infra 5, $0.06/$0.18).
+    assert rec.model == "deepinfra/deepseek-v4-flash-0731"

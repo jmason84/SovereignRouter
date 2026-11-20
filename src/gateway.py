@@ -104,7 +104,8 @@ from pools import (DemotionTracker, classify_failure,
 from quota import AttemptEvent, QuotaStore, UsageEvent
 from registry import FREE_LANES, ModelEntry, Registry, load_registry
 from sensitivity import scan_messages
-from sticky import StickyStore, conversation_key
+from sticky import (StickyStore, TOOL_ERROR_BREAK_AFTER,
+                    conversation_key)
 from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
@@ -180,6 +181,28 @@ def _default_max_tokens(body: dict[str, Any]) -> int:
     return DEFAULT_MAX_TOKENS
 
 
+def _tool_text_has_error(text: str) -> bool:
+    low = text.lower()
+    return '"error"' in low or low.strip().startswith("error")
+
+
+def _latest_tool_error(messages: list[dict]) -> bool:
+    """True when the tool result(s) the model is about to react to carry
+    an error — the trailing run of tool-role messages only.
+
+    F2 needs this narrower signal. ``has_tool_error`` (telemetry) looks at
+    the last three messages, so a single tool error stays inside that
+    window on the NEXT request too and is counted twice; driving the
+    sticky break from it would abandon a model after ONE isolated error
+    followed by a clean turn."""
+    trailing: list[dict] = []
+    for m in reversed(messages):
+        if m.get("role") != "tool":
+            break
+        trailing.append(m)
+    return any(_tool_text_has_error(_message_text(m)) for m in trailing)
+
+
 def _selection_quality(entry: ModelEntry, task_class: str,
                        has_tools: bool) -> int:
     """The quality selection ranks and floors on (v0.9.0, Cycle 1
@@ -195,12 +218,21 @@ def _selection_quality(entry: ModelEntry, task_class: str,
     the request's classified class — so adding the dimension never
     silently re-ranks an unmeasured entry. Non-tool requests are
     untouched. The binary supports_tools gate is unchanged and still
-    applies first (build_candidates)."""
+    applies first (build_candidates).
+
+    v0.9.2 (F3, 2026-11-19 routing diagnosis): the measured tooling score
+    is a CEILING, not a replacement. The one-shot battery saturates —
+    60 of 85 enabled entries scored 5, including a 1.7B model — so
+    ranking on it alone made every free model tie and let the fastest
+    weak one win. A tool turn now ranks on min(tooling, quality for the
+    request's class): the model must be good at tools AND good at the
+    task. Unmeasured entries are unchanged (quality_for(task_class))."""
+    base = entry.quality_for(task_class)
     if has_tools:
         measured = entry.tooling_quality()
         if measured is not None:
-            return measured
-    return entry.quality_for(task_class)
+            return min(measured, base)
+    return base
 FAILOVER_STATUSES = {401, 403, 408, 413, 429, 500, 502, 503, 504}
 # Escalation reason recorded on every turn the paid spillway serves
 # (v0.5.5 free-first / paid-spillway waterfall, owner ruling 2026-11-07).
@@ -1374,6 +1406,20 @@ def create_app(config: Optional[GatewayConfig] = None,
         # reason to abandon the sticky model; tool results never are.
         new_higher_level = bool(
             sticky_entry and not in_tool_loop and level > sticky_entry.level)
+        # F2 (v0.9.2): a sticky model whose tool results keep carrying
+        # errors is abandoned and not returned to. Tool errors used to
+        # never break stickiness, so one bad first pick (e.g. a model
+        # that hallucinated tool names) held a whole session or cron run.
+        sticky_broken_model = None
+        if sticky_entry is not None and in_tool_loop:
+            run = app.state.sticky.record_tool_outcome(
+                conv_key, _latest_tool_error(messages))
+            if run >= TOOL_ERROR_BREAK_AFTER:
+                sticky_broken_model = sticky_entry.model_id
+                app.state.sticky.avoid(conv_key, sticky_broken_model)
+                app.state.sticky.invalidate(conv_key)
+                sticky_entry = None
+                new_higher_level = False
 
         # ---- governor steering -------------------------------------------
         steering = app.state.governor.steering(
@@ -1419,6 +1465,19 @@ def create_app(config: Optional[GatewayConfig] = None,
         # J-1 (2026-11-12): the force-insert respects the two hard
         # boundaries — a disabled entry is never resurrected by a pin,
         # and a pin cannot carry sensitive data past the sensitive wall.
+        # F2: drop models this conversation was moved off for repeated
+        # tool errors — but never the last candidate left (an avoided
+        # model is still better than a 5xx), and an explicit pin below
+        # re-inserts its model regardless.
+        avoided_models = app.state.sticky.avoided(conv_key)
+        if avoided_models:
+            kept = [c for c in candidates if c.id not in avoided_models]
+            if kept:
+                for c in candidates:
+                    if c.id in avoided_models:
+                        skipped.append({"model": c.id,
+                                        "reason": "conversation_tool_errors"})
+                candidates = kept
         candidates, pin_blocked = apply_pin(
             candidates, explicit_entry, client, data_class, paid_off_reason)
         if pin_blocked:
@@ -1471,6 +1530,8 @@ def create_app(config: Optional[GatewayConfig] = None,
             record.signals.append("repeat_within_60s")
         if has_tool_error:
             record.signals.append("tool_error_next_turn")
+        if sticky_broken_model:
+            record.signals.append("sticky_broken_tool_errors")
 
         # Free-first / paid spillway (v0.5.5, owner ruling 2026-11-07):
         # normal selection above is the free-first pass and is

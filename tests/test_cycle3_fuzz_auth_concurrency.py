@@ -294,3 +294,21 @@ def test_app_shutdown_flushes_tool_health(app):
     with TestClient(app):
         pass  # exit triggers shutdown handlers
     assert json.loads(path.read_text())["zz"] == [1, 0]
+
+
+def test_tokenizer_load_failure_is_cached_not_retried(monkeypatch):
+    import sys, types
+    import gateway
+    calls = {"n": 0}
+
+    def boom(name):
+        calls["n"] += 1
+        raise OSError("download blocked")
+
+    fake = types.SimpleNamespace(get_encoding=boom)
+    monkeypatch.setitem(sys.modules, "tiktoken", fake)
+    monkeypatch.setattr(gateway, "_ENCODING", None)
+    monkeypatch.setattr(gateway, "_ENCODING_FAILED", False)
+    for _ in range(50):
+        assert gateway._encode_len("hello world, this is text") >= 1
+    assert calls["n"] == 1, "failed tokenizer load must not be retried per call"

@@ -63,6 +63,13 @@ class ClientPolicy:
     # selection pass including the paid spillway — so the list must keep
     # at least one paid route in reach or exhaustion has nowhere to fall.
     model_allowlist: tuple[str, ...] = ()
+    # Optional per-client override of how many CONSECUTIVE tool-error turns
+    # abandon the sticky model (v0.9.3, opt-in). None (default) keeps the
+    # global TOOL_ERROR_BREAK_AFTER. Offline replay (docs/cycles/
+    # replay-ab-20261120.md): 2 halves long error runs where errors cluster
+    # (Hermes) but costs ~1.6 points where they barely do (OpenClaw-like),
+    # where 3 is neutral. Values below 1 are ignored.
+    tool_error_break_after: Optional[int] = None
 
     def lane_allowed(self, lane: str) -> bool:
         return lane in self.lanes
@@ -133,6 +140,8 @@ def load_clients(path: str | Path) -> ClientStore:
             premium_daily_count_alert=raw.get("premium_daily_count_alert"),
             sensitive_cleared_providers=tuple(raw.get("sensitive_cleared_providers", [])),
             model_allowlist=tuple(str(x) for x in raw.get("model_allowlist", [])),
+            tool_error_break_after=(int(raw["tool_error_break_after"])
+                                    if raw.get("tool_error_break_after") else None),
         )
         store.clients[policy.id] = policy
     return store

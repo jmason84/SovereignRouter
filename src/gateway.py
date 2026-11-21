@@ -294,17 +294,24 @@ TOKEN_ESTIMATE_FACTOR = 1.05       # carried from v0.3 (o200k_base x1.05)
 # token estimation (tiktoken o200k_base, as v0.3; heuristic fallback)
 # ----------------------------------------------------------------------
 _ENCODING = None
+_ENCODING_FAILED = False   # v0.9.3: a failed load is remembered, not retried
 
 
 def _encode_len(text: str) -> int:
-    global _ENCODING
-    try:
-        import tiktoken
-        if _ENCODING is None:
-            _ENCODING = tiktoken.get_encoding("o200k_base")
-        return len(_ENCODING.encode(text))
-    except Exception:
-        return max(1, len(text) // 4)
+    """Token count. The tokenizer load can block (it may try to download
+    its vocabulary); a failure is cached so it costs ONE delay per
+    process, not one per call (seen: ~1 s on every request when the
+    download is blocked)."""
+    global _ENCODING, _ENCODING_FAILED
+    if not _ENCODING_FAILED:
+        try:
+            if _ENCODING is None:
+                import tiktoken
+                _ENCODING = tiktoken.get_encoding("o200k_base")
+            return len(_ENCODING.encode(text))
+        except Exception:
+            _ENCODING_FAILED = True
+    return max(1, len(text) // 4)
 
 
 def estimate_input_tokens(body: dict[str, Any]) -> int:
@@ -1458,7 +1465,8 @@ def create_app(config: Optional[GatewayConfig] = None,
             app.state.tool_health.record(sticky_entry.model_id, latest_err)
             run = app.state.sticky.record_tool_outcome(
                 conv_key, latest_err)
-            if run >= TOOL_ERROR_BREAK_AFTER:
+            break_after = client.tool_error_break_after or TOOL_ERROR_BREAK_AFTER
+            if run >= max(1, break_after):
                 sticky_broken_model = sticky_entry.model_id
                 app.state.sticky.avoid(conv_key, sticky_broken_model)
                 app.state.sticky.invalidate(conv_key)

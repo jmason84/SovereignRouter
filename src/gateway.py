@@ -515,6 +515,34 @@ def _usage_from_response(resp: dict[str, Any], est_input: int,
     return in_tok, out_tok, cached, entry.estimate_cost(in_tok, out_tok, cached)
 
 
+def _attempt_usage_extras(
+        usage: Any) -> tuple[Optional[float], Optional[int]]:
+    """(provider_cost_usd, reasoning_tokens) an upstream reported for
+    one attempt — the borrowed per-attempt contract (LiteLLM hook
+    shape, 2026-11-24; J-3(i) / R3 telemetry).
+
+    Provider-reported cost is honoured ONLY where the upstream sends
+    it in the usage object (OpenRouter's ``cost`` field is the live
+    example); it is captured verbatim for the ledger and NEVER used
+    to reprice the turn — the registry-priced estimate stays the
+    cost of record. Reasoning tokens come from the OpenAI/DeepSeek
+    ``completion_tokens_details.reasoning_tokens`` shape. Absent or
+    malformed usage yields (None, None): a missing report is a NULL
+    in the ledger, never a zero and never an error.
+    """
+    if not isinstance(usage, dict):
+        return None, None
+    cost: Optional[float] = None
+    raw_cost = usage.get("cost")
+    if isinstance(raw_cost, (int, float)) and not isinstance(raw_cost, bool):
+        cost = float(raw_cost)
+    reasoning: Optional[int] = None
+    details = usage.get("completion_tokens_details")
+    if isinstance(details, dict):
+        reasoning = _as_int(details.get("reasoning_tokens")) or None
+    return cost, reasoning
+
+
 # ======================================================================
 # app factory (tests build isolated apps through this)
 # ======================================================================
@@ -1634,7 +1662,8 @@ def _record_attempt(app: FastAPI, record: RouteRecord, client: ClientPolicy,
                     status: Optional[int] = None, body_text: str = "",
                     headers: Any = None, transport: bool = False,
                     units: float = 0.0,
-                    truncated_tool_call: bool = False) -> None:
+                    truncated_tool_call: bool = False,
+                    usage: Any = None) -> None:
     """Write one attempt to the pool ledger (v0.8.0, aspect E).
 
     Every upstream attempt lands here exactly once: failures are
@@ -1662,6 +1691,14 @@ def _record_attempt(app: FastAPI, record: RouteRecord, client: ClientPolicy,
             failure = classify_truncated_tool_call(entry)
         annotations = app.state.demotions.observe(
             entry=entry, failure=failure, now=time.time(), units=units)
+        # Borrowed per-attempt contract (2026-11-24): the attempt's
+        # ordinal within the turn rides on the route record as a plain
+        # attribute (not a serialized field — routes.jsonl is unchanged);
+        # provider-reported cost / reasoning tokens come from the
+        # attempt's own usage object when the upstream sent one.
+        depth = getattr(record, "attempt_ordinal", 0)
+        record.attempt_ordinal = depth + 1  # type: ignore[attr-defined]
+        p_cost, r_tokens = _attempt_usage_extras(usage)
         app.state.store.record_attempt(AttemptEvent(
             ts=time.time(), client_id=client.id, provider=entry.provider,
             model_id=entry.id, pool_id=pool.id, outcome=outcome,
@@ -1669,7 +1706,9 @@ def _record_attempt(app: FastAPI, record: RouteRecord, client: ClientPolicy,
             failure_class=failure.failure_class if failure else None,
             scope=failure.scope if failure else None,
             scope_target=failure.target if failure else None,
-            would_demote=json.dumps(annotations) if annotations else None))
+            would_demote=json.dumps(annotations) if annotations else None,
+            fallback_depth=depth, provider_cost_usd=p_cost,
+            reasoning_tokens=r_tokens))
         seen = {(a["scope"], a["target"]) for a in record.would_demote}
         for ann in annotations:
             if (ann["scope"], ann["target"]) not in seen:
@@ -1784,7 +1823,9 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                     data, est_tokens, entry)
                 _record_attempt(app, record, client, entry,
                                 outcome="served", units=_r_in + _r_out,
-                                truncated_tool_call=truncated_tc)
+                                truncated_tool_call=truncated_tc,
+                                usage=data.get("usage")
+                                or data.get("usageMetadata"))
                 continue
             # Escalate once: next candidate at quality+1 (spec). Fallback
             # (found by live E2E, 2026-11-02): when no candidate reaches
@@ -1814,7 +1855,9 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                     data, est_tokens, entry)
                 _record_attempt(app, record, client, entry,
                                 outcome="served", units=_r_in + _r_out,
-                                truncated_tool_call=truncated_tc)
+                                truncated_tool_call=truncated_tc,
+                                usage=data.get("usage")
+                                or data.get("usageMetadata"))
                 idx = esc_idx
                 continue
             # No stronger candidate: return the answer we have, logged.
@@ -1844,7 +1887,8 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             data_class=record.data_class))
         _record_attempt(app, record, client, entry,
                         outcome="served", units=in_tok + out_tok,
-                        truncated_tool_call=truncated_tc)
+                        truncated_tool_call=truncated_tc,
+                        usage=data.get("usage") or data.get("usageMetadata"))
         note_sensitive_paid_serve(app, record, client, entry, cost)
         app.state.sticky.set(conv_key, entry.id, level)
         app.state.governor.evaluate_alerts(
@@ -2076,7 +2120,8 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                 app, record, client, entry,
                                 outcome="served",
                                 units=_r_in + _r_out,
-                                truncated_tool_call=truncated_tc)
+                                truncated_tool_call=truncated_tc,
+                                usage=usage_data)
                             continue
                         for sse_line in buffered:
                             yield sse_line
@@ -2091,7 +2136,8 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                          level, task_class, in_tok, out_tok, cost,
                                          escalated or spillway_reason is not None,
                                          truncated_tool_call=truncated_tc,
-                                         cached_tokens=cached)
+                                         cached_tokens=cached,
+                                         usage=usage_data)
                         finalized = True
                         return
                     # text path finished (already committed live)
@@ -2111,7 +2157,8 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                     _finalize_stream(app, record, entry, client, conv_key,
                                      level, task_class, in_tok, out_tok, cost,
                                      escalated or spillway_reason is not None,
-                                     cached_tokens=cached)
+                                     cached_tokens=cached,
+                                     usage=usage_data)
                     finalized = True
                     return
             except (httpx.TimeoutException, httpx.TransportError,
@@ -2185,7 +2232,8 @@ def _finalize_stream(app: FastAPI, record: RouteRecord, entry: ModelEntry,
                      task_class: str, in_tok: int, out_tok: int, cost: float,
                      escalated: bool,
                      truncated_tool_call: bool = False,
-                     cached_tokens: int = 0) -> None:
+                     cached_tokens: int = 0,
+                     usage: Any = None) -> None:
     record.model = entry.id
     record.lane = entry.lane
     record.escalated = escalated
@@ -2202,7 +2250,8 @@ def _finalize_stream(app: FastAPI, record: RouteRecord, entry: ModelEntry,
         cost_usd=cost, estimated=False, data_class=record.data_class))
     _record_attempt(app, record, client, entry,
                     outcome="served", units=in_tok + out_tok,
-                    truncated_tool_call=truncated_tool_call)
+                    truncated_tool_call=truncated_tool_call,
+                    usage=usage)
     note_sensitive_paid_serve(app, record, client, entry, cost)
     app.state.sticky.set(conv_key, entry.id, level)
     app.state.telemetry.write(record)

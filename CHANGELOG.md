@@ -9,6 +9,14 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+**LiteLLM borrow package, 2026-11-24** (branch `feature/litellm-borrows`; from the 2026-11-24 LiteLLM-vs-Sovereign comparison; NOT deployed — lands as a PR for the owner's merge call):
+
+- **Borrow #1 — price-drift tripwire (`tools/price_check.py`).** Compares priced registry entries against LiteLLM's `model_prices_and_context_window.json` and reports drift; cache/tiered field schema adopted for the comparison. Report-only by construction (tests assert the registry file is byte-identical across runs): F-04 stands — aggregators nominate, providers decide.
+- **Borrow #2 — per-attempt telemetry contract.** Attempt rows gain `fallback_depth` (0-based attempt ordinal within the turn), `provider_cost_usd` (provider-reported cost captured verbatim when sent — J-3(i) logging only, never repriced, cost of record unchanged) and `reasoning_tokens` (R3). Additive schema migration on the data_class precedent; selection reads none of it.
+- **Borrow #3 — discovery tripwire (`tools/discovery_tripwire.py`).** Diffs the LiteLLM cost map (and optionally the changelog feed) against the registry and emits candidate nominations into the existing gated pipeline. Report-only; fleet-provider filter by default.
+- **Secondary borrows as design notes only** (`docs/litellm-secondary-borrows-design-notes.md`): Presidio-class second detector, exact-match cache for the non-agentic slice, breaker thresholds as registry fields at the J-2 gate. No code — S-3 in particular waits on the owner's J-2 ruling.
+- Tests: `tests/test_attempt_telemetry.py` (6), `tests/test_litellm_borrows_tools.py` (6).
+
 ## [0.9.2] — 2026-11-24
 
 **v0.9.2 — tool-turn routing fixes F2 + F3, 2026-11-24** (PR #14, merged and deployed 2026-11-24 on the owner's "Do all 3" order + merge retry tap; from the 2026-11-19 routing diagnosis; F1 deliberately not applied — the 15 "DISABLED candidate" entries were enabled on the owner's 2026-11-17 ruling, see each entry's notes):

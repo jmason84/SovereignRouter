@@ -9,7 +9,9 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
-**LiteLLM borrow package, 2026-11-24** (branch `feature/litellm-borrows`; from the 2026-11-24 LiteLLM-vs-Sovereign comparison; NOT deployed — lands as a PR for the owner's merge call):
+## [0.10.0] — 2026-11-24
+
+**v0.10.0 — LiteLLM borrow package, 2026-11-24** (PR #18, merged and deployed 2026-11-24 on the owner's order to incorporate the LiteLLM borrows to GitHub and live; from the 2026-11-24 LiteLLM-vs-Sovereign comparison — verdict: stay on Sovereign, borrow the commodity patterns. Version label 0.10.0 chosen deliberately: 0.9.3 is burned by the removed PR15 canary):
 
 - **Borrow #1 — price-drift tripwire (`tools/price_check.py`).** Compares priced registry entries against LiteLLM's `model_prices_and_context_window.json` and reports drift; cache/tiered field schema adopted for the comparison. Report-only by construction (tests assert the registry file is byte-identical across runs): F-04 stands — aggregators nominate, providers decide.
 - **Borrow #2 — per-attempt telemetry contract.** Attempt rows gain `fallback_depth` (0-based attempt ordinal within the turn), `provider_cost_usd` (provider-reported cost captured verbatim when sent — J-3(i) logging only, never repriced, cost of record unchanged) and `reasoning_tokens` (R3). Additive schema migration on the data_class precedent; selection reads none of it.

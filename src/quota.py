@@ -87,6 +87,16 @@ class AttemptEvent:
     scope: Optional[str] = None        # model | pool | account | request
     scope_target: Optional[str] = None
     would_demote: Optional[str] = None  # JSON annotation list, or None
+    # Borrowed per-attempt contract (LiteLLM hook shape, 2026-11-24):
+    # fallback_depth is this attempt's 0-based ordinal within its
+    # logical request (0 = first upstream call, +1 per retry/fallback);
+    # provider_cost_usd is the cost the PROVIDER reported for the
+    # attempt when it sent one (J-3(i) capture — logging only, never
+    # repriced, never read by selection); reasoning_tokens is the
+    # upstream-reported hidden-reasoning token count when sent (R3).
+    fallback_depth: int = 0
+    provider_cost_usd: Optional[float] = None
+    reasoning_tokens: Optional[int] = None
 
 
 _SCHEMA = """
@@ -144,7 +154,10 @@ CREATE TABLE IF NOT EXISTS attempt_events (
     failure_class TEXT,
     scope TEXT,
     scope_target TEXT,
-    would_demote TEXT
+    would_demote TEXT,
+    fallback_depth INTEGER NOT NULL DEFAULT 0,
+    provider_cost_usd REAL,
+    reasoning_tokens INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_attempt_ts ON attempt_events(ts);
 CREATE INDEX IF NOT EXISTS idx_attempt_provider_ts ON attempt_events(provider, ts);
@@ -178,6 +191,26 @@ class QuotaStore:
                 self._conn.execute(
                     "ALTER TABLE usage_events ADD COLUMN data_class "
                     "TEXT NOT NULL DEFAULT 'internal'")
+            self._conn.commit()
+            # Borrowed per-attempt contract (2026-11-24): attempt rows
+            # gain fallback_depth / provider_cost_usd / reasoning_tokens.
+            # Additive only; pre-existing rows read back with the
+            # defaults (depth 0, NULL, NULL) — their depth was never
+            # recorded and is not reconstructed.
+            acols = {r[1] for r in self._conn.execute(
+                "PRAGMA table_info(attempt_events)").fetchall()}
+            if "fallback_depth" not in acols:
+                self._conn.execute(
+                    "ALTER TABLE attempt_events ADD COLUMN "
+                    "fallback_depth INTEGER NOT NULL DEFAULT 0")
+            if "provider_cost_usd" not in acols:
+                self._conn.execute(
+                    "ALTER TABLE attempt_events ADD COLUMN "
+                    "provider_cost_usd REAL")
+            if "reasoning_tokens" not in acols:
+                self._conn.execute(
+                    "ALTER TABLE attempt_events ADD COLUMN "
+                    "reasoning_tokens INTEGER")
             self._conn.commit()
             # First-seen timestamp drives the governor's "first 14 days"
             # fixed-threshold window (spec: runaway alarm).
@@ -402,12 +435,15 @@ class QuotaStore:
             self._conn.execute(
                 "INSERT INTO attempt_events(ts, client_id, provider,"
                 " model_id, pool_id, outcome, status, failure_class,"
-                " scope, scope_target, would_demote)"
-                " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                " scope, scope_target, would_demote, fallback_depth,"
+                " provider_cost_usd, reasoning_tokens)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     ev.ts, ev.client_id, ev.provider, ev.model_id,
                     ev.pool_id, ev.outcome, ev.status, ev.failure_class,
                     ev.scope, ev.scope_target, ev.would_demote,
+                    ev.fallback_depth, ev.provider_cost_usd,
+                    ev.reasoning_tokens,
                 ),
             )
             self._conn.commit()
@@ -417,7 +453,8 @@ class QuotaStore:
             rows = self._conn.execute(
                 "SELECT ts, client_id, provider, model_id, pool_id,"
                 " outcome, status, failure_class, scope, scope_target,"
-                " would_demote FROM attempt_events WHERE ts>=?"
+                " would_demote, fallback_depth, provider_cost_usd,"
+                " reasoning_tokens FROM attempt_events WHERE ts>=?"
                 " ORDER BY id ASC", (since,),
             ).fetchall()
             return [dict(r) for r in rows]

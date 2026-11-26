@@ -72,8 +72,12 @@ class AttemptEvent:
     ledger records EVERY attempt with its pool, failure class and
     scope, plus the would_demote annotation the demotion tracker
     computed (observe-only in v0.8.0 — enforcement is decision J-2).
-    No prompt/response text is stored; the classifier's signal match
-    happens in memory and only the class/scope lands here.
+    No prompt text and no SERVED response text is stored; the
+    classifier's signal match happens in memory and only the
+    class/scope lands here. Since v0.10.1 a FAILED attempt also
+    stores the upstream's error body (bounded, scrubbed — see
+    error_body below): the 2026-11-25 census found failure diagnosis
+    impossible without it.
     """
 
     ts: float
@@ -97,6 +101,12 @@ class AttemptEvent:
     fallback_depth: int = 0
     provider_cost_usd: Optional[float] = None
     reasoning_tokens: Optional[int] = None
+    # v0.10.1 (2026-11-25 census): the upstream error body for FAILED
+    # attempts only, bounded to 500 chars and scrubbed of
+    # credential-shaped material by the gateway before persistence.
+    # Diagnosis fuel (the gemini thought-signature 400s were invisible
+    # without it); never read by classification or selection.
+    error_body: Optional[str] = None
 
 
 _SCHEMA = """
@@ -157,7 +167,8 @@ CREATE TABLE IF NOT EXISTS attempt_events (
     would_demote TEXT,
     fallback_depth INTEGER NOT NULL DEFAULT 0,
     provider_cost_usd REAL,
-    reasoning_tokens INTEGER
+    reasoning_tokens INTEGER,
+    error_body TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_attempt_ts ON attempt_events(ts);
 CREATE INDEX IF NOT EXISTS idx_attempt_provider_ts ON attempt_events(provider, ts);
@@ -211,6 +222,14 @@ class QuotaStore:
                 self._conn.execute(
                     "ALTER TABLE attempt_events ADD COLUMN "
                     "reasoning_tokens INTEGER")
+            # v0.10.1: failed attempts gain the bounded, scrubbed
+            # upstream error body. Additive only; pre-existing rows
+            # read back NULL — their bodies were discarded at record
+            # time and are not reconstructed.
+            if "error_body" not in acols:
+                self._conn.execute(
+                    "ALTER TABLE attempt_events ADD COLUMN "
+                    "error_body TEXT")
             self._conn.commit()
             # First-seen timestamp drives the governor's "first 14 days"
             # fixed-threshold window (spec: runaway alarm).
@@ -436,14 +455,14 @@ class QuotaStore:
                 "INSERT INTO attempt_events(ts, client_id, provider,"
                 " model_id, pool_id, outcome, status, failure_class,"
                 " scope, scope_target, would_demote, fallback_depth,"
-                " provider_cost_usd, reasoning_tokens)"
-                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " provider_cost_usd, reasoning_tokens, error_body)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     ev.ts, ev.client_id, ev.provider, ev.model_id,
                     ev.pool_id, ev.outcome, ev.status, ev.failure_class,
                     ev.scope, ev.scope_target, ev.would_demote,
                     ev.fallback_depth, ev.provider_cost_usd,
-                    ev.reasoning_tokens,
+                    ev.reasoning_tokens, ev.error_body,
                 ),
             )
             self._conn.commit()
@@ -454,10 +473,51 @@ class QuotaStore:
                 "SELECT ts, client_id, provider, model_id, pool_id,"
                 " outcome, status, failure_class, scope, scope_target,"
                 " would_demote, fallback_depth, provider_cost_usd,"
-                " reasoning_tokens FROM attempt_events WHERE ts>=?"
+                " reasoning_tokens, error_body"
+                " FROM attempt_events WHERE ts>=?"
                 " ORDER BY id ASC", (since,),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def failure_rollup(self, since: float, until: float) -> dict[str, Any]:
+        """Attempt-failure aggregates for the governor's daily
+        failure_rollup_digest (v0.10.1): entry_missing totals with
+        top models, pool-scope congested totals with top pools, and
+        the request_fault total, over [since, until)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT failure_class, scope, scope_target, model_id,"
+                " COUNT(*) AS n FROM attempt_events"
+                " WHERE outcome='failed' AND ts>=? AND ts<?"
+                " GROUP BY failure_class, scope, scope_target, model_id",
+                (since, until),
+            ).fetchall()
+        em_total = 0
+        em_models: dict[str, int] = {}
+        pool_total = 0
+        pool_targets: dict[str, int] = {}
+        rf_total = 0
+        for r in rows:
+            n = int(r["n"])
+            if r["failure_class"] == "entry_missing":
+                em_total += n
+                em_models[r["model_id"]] = \
+                    em_models.get(r["model_id"], 0) + n
+            elif r["failure_class"] == "congested" \
+                    and r["scope"] == "pool":
+                pool_total += n
+                tgt = r["scope_target"] or "?"
+                pool_targets[tgt] = pool_targets.get(tgt, 0) + n
+            elif r["failure_class"] == "request_fault":
+                rf_total += n
+        top = lambda d: sorted(d.items(), key=lambda kv: -kv[1])[:3]  # noqa: E731
+        return {
+            "entry_missing_total": em_total,
+            "entry_missing_models": top(em_models),
+            "pool_congested_total": pool_total,
+            "pool_congested_targets": top(pool_targets),
+            "request_fault_total": rf_total,
+        }
 
     def attempt_counts(self, since: float) -> dict[str, int]:
         """Outcome counts for quick health reads: served / failed /

@@ -9,6 +9,15 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+## [0.10.1] — 2026-11-25
+
+**v0.10.1 — error-visibility fixes, 2026-11-25** (from the owner's past-week error census order, 2026-11-25; census of Denver days Nov 18–24 + Nov 25 so-far: 8,065/8,066 finals HTTP 200, but 5,667 failed attempts underneath, dominated by classes no alert kind covered):
+
+- **Upstream error-body capture.** Failed attempts now persist the upstream error body in `attempt_events.error_body` — bounded to 500 chars, scrubbed of credential-shaped material before persistence, additive schema migration; served attempts store nothing, and classification/selection never read the column. Before this, the body was classified in memory and discarded, leaving every 400-class failure undiagnosable from stored data (the census's capture-gap finding). Tests: `tests/test_error_body_capture.py` (5).
+- **Gemini 3 thought-signature bypass.** The chronic `google/gemini-3.1-flash-lite` 400s (112 request_fault attempts in the census week) are root-caused: Gemini 3 rejects replayed function calls that lack a `thought_signature`, and a model-switching router replays tool calls originated by other models. For direct-Google Gemini 3 entries only, `upstream_body` now attaches Google's documented bypass value (`skip_thought_signature_validator`, per Google's thought-signatures documentation for history transferred from models without signatures) as `extra_content.google.thought_signature` on assistant tool calls that lack one — copy-on-write, real signatures never overwritten, no other provider touched. Tests: `tests/test_gemini_thought_signature.py` (6).
+- **Governor failure-rollup digest.** New daily digest kind `failure_rollup_digest` (same once-per-day dedup as the F-15 posture digest): trailing-24h counts for entry_missing (with top models), pool-scope congested (with top pools), and request_fault. The census week's two dominant failure classes previously generated no alerts at all — entry_missing ran six days unnoticed. Silent on a clean day. Tests: `tests/test_failure_rollup_digest.py` (4).
+- **Not in this release (census findings, deliberately):** no registry entries were disabled — live probes proved `openrouter/north-mini-code-free` and `openrouter/dots-3-note-preview-free` still serve; their 404s are intermittent (OpenRouter free-endpoint availability), and with error bodies now captured, the 404 split (no-endpoints vs truly-gone) can be classified from evidence before any demote/registry action. That follow-up rides the J-2 observation data, not a guess.
+
 ## [0.10.0] — 2026-11-24
 
 **v0.10.0 — LiteLLM borrow package, 2026-11-24** (PR #18, merged and deployed 2026-11-24 on the owner's order to incorporate the LiteLLM borrows to GitHub and live; from the 2026-11-24 LiteLLM-vs-Sovereign comparison — verdict: stay on Sovereign, borrow the commodity patterns. Version label 0.10.0 chosen deliberately: 0.9.3 is burned by the removed PR15 canary):

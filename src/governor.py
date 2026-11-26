@@ -302,6 +302,7 @@ class Governor:
                 )
 
         self._sensitive_posture_digest(clients, sensitive_cleared_entries, now)
+        self._failure_rollup_digest(now)
         self._runaway_alarm(clients, now)
         self._slow_leak_alerts(clients, provider_alerts, now)
 
@@ -349,6 +350,46 @@ class Governor:
         self.store.add_alert(
             "sensitive_posture_digest", "all", "sensitive_posture_digest",
             f"Sensitive posture digest (daily, F-15): {summary} {cleared_txt}",
+            now,
+        )
+
+    # ------------------------------------------------------------------
+    def _failure_rollup_digest(self, now: float) -> None:
+        """v0.10.1 (2026-11-25 census): the week's dominant attempt-level
+        failure classes — entry_missing (441) and pool-scope congested
+        (thousands) — matched NO alert kind, so dead/intermittently-dead
+        registry entries burned attempts for six days before a manual
+        census noticed. This daily digest (same once-per-day dedup as
+        the F-15 posture digest) summarizes the trailing 24h for the
+        three classes an operator must not learn about by accident:
+        entry_missing (registry points at models upstreams 404),
+        pool-scope congested (a shared free pool is exhausted), and
+        request_fault (upstreams rejecting our request shape). Silent
+        on a clean day — a rollup, not a pager."""
+        roll = self.store.failure_rollup(now - DAY_S, now + 1)
+        parts = []
+        if roll["entry_missing_total"]:
+            models = ", ".join(
+                f"{m} ×{n}" for m, n in roll["entry_missing_models"])
+            parts.append(
+                f"{roll['entry_missing_total']} entry_missing ({models})")
+        if roll["pool_congested_total"]:
+            pools = ", ".join(
+                f"{t} ×{n}" for t, n in roll["pool_congested_targets"])
+            parts.append(
+                f"{roll['pool_congested_total']} pool-scope congested "
+                f"({pools})")
+        if roll["request_fault_total"]:
+            parts.append(
+                f"{roll['request_fault_total']} request_fault")
+        if not parts:
+            return
+        self.store.add_alert(
+            "failure_rollup_digest", "all", "failure_rollup_digest",
+            "Failure rollup (daily, trailing 24h): "
+            + "; ".join(parts)
+            + ". Attempt-level classes the alert chain did not cover "
+              "before v0.10.1; turn-level impact is in routes.jsonl.",
             now,
         )
 

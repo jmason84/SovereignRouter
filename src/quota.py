@@ -173,6 +173,15 @@ CREATE TABLE IF NOT EXISTS attempt_events (
 CREATE INDEX IF NOT EXISTS idx_attempt_ts ON attempt_events(ts);
 CREATE INDEX IF NOT EXISTS idx_attempt_provider_ts ON attempt_events(provider, ts);
 CREATE INDEX IF NOT EXISTS idx_attempt_pool_ts ON attempt_events(pool_id, ts);
+
+CREATE TABLE IF NOT EXISTS tool_outcomes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL NOT NULL,
+    model_id TEXT NOT NULL,
+    error INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_tool_outcomes_ts ON tool_outcomes(ts);
+CREATE INDEX IF NOT EXISTS idx_tool_outcomes_model_ts ON tool_outcomes(model_id, ts);
 """
 
 
@@ -534,6 +543,49 @@ class QuotaStore:
                     else f"{r['outcome']}:{r['failure_class']}"
                 out[key] = int(r["n"])
             return out
+
+    # ------------------------------------------------------------------
+    # tool-outcome ledger (v0.10.2): judged tool turns per entry
+    # ------------------------------------------------------------------
+    # One row per JUDGED tool turn: when a tool-loop continuation
+    # request arrives, its trailing tool results judge the previous
+    # serve (error or clean) and the gateway records the outcome
+    # against the model that served it. This is the production
+    # tool-error signal the owner ruled (2026-11-27) may feed
+    # tool-bearing selection (see toolstats.ToolErrorTracker).
+    # Bounded by construction: rows older than the tracker's window
+    # are pruned on write, and the fleet judges ~hundreds of turns a
+    # day. No prompt or response text — model id, timestamp, flag.
+    def record_tool_outcome(self, model_id: str, error: bool,
+                            ts: Optional[float] = None,
+                            prune_before: Optional[float] = None) -> None:
+        ts = ts or time.time()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO tool_outcomes(ts, model_id, error)"
+                " VALUES(?,?,?)",
+                (ts, model_id, 1 if error else 0),
+            )
+            if prune_before is not None:
+                self._conn.execute(
+                    "DELETE FROM tool_outcomes WHERE ts<?",
+                    (prune_before,),
+                )
+            self._conn.commit()
+
+    def tool_outcome_stats(self, since: float,
+                           until: float) -> dict[str, dict[str, int]]:
+        """{model_id: {samples, errors}} over [since, until)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT model_id, COUNT(*) AS n,"
+                " COALESCE(SUM(error),0) AS e FROM tool_outcomes"
+                " WHERE ts>=? AND ts<? GROUP BY model_id",
+                (since, until),
+            ).fetchall()
+            return {r["model_id"]: {"samples": int(r["n"]),
+                                    "errors": int(r["e"])}
+                    for r in rows}
 
     # ------------------------------------------------------------------
     # stream-abort cooldowns (v0.8.2, F-11)

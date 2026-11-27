@@ -108,10 +108,11 @@ from sensitivity import scan_messages
 from sticky import (StickyStore, TOOL_ERROR_BREAK_AFTER,
                     conversation_key)
 from telemetry import RouteRecord, Telemetry
+from toolstats import ToolErrorTracker
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.10.1"
+VERSION = "0.10.2"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -234,6 +235,70 @@ def _with_thought_signature_bypass(messages: Any) -> Any:
             new_msg["tool_calls"] = new_calls
             out[i] = new_msg
     return out if out is not None else messages
+
+
+# ----------------------------------------------------------------------
+# DeepSeek thinking-mode reasoning_content pad (v0.10.2, 2026-11-27)
+# ----------------------------------------------------------------------
+# Same family as the Gemini bug above: direct DeepSeek thinking-mode
+# entries (deepseek/deepseek-v4-pro) hard-400 when a tool-shaped
+# request replays assistant history whose reasoning_content is
+# missing — "The `reasoning_content` in the thinking mode must be
+# passed back to the API" (attempt_events.error_body, 3x in the 72h
+# before 2026-11-27). DeepSeek's Thinking Mode documentation states
+# the rule: for requests carrying the `tools` parameter, the
+# reasoning_content of ALL previous turns must be passed back — even
+# turns that made no tool call — or the API returns 400. A
+# model-switching router replays assistant turns originated by other
+# models, which carry no DeepSeek reasoning at all, and clients whose
+# serialisers drop the extra field lose it for DeepSeek's own turns.
+# The established fix shape (the one Hermes itself shipped for this
+# error) is a defensive pad: an assistant message lacking a
+# reasoning_content carries an empty string, which DeepSeek accepts;
+# a real value the client preserved is never overwritten.
+def _needs_reasoning_content_pad(entry: ModelEntry) -> bool:
+    """True only for direct-DeepSeek reasoning entries — the upstreams
+    that enforce the pass-back rule. Aggregator-fronted DeepSeek
+    (DeepInfra, OpenRouter) is served by those stacks' own rules and
+    is not touched."""
+    return entry.provider == "deepseek" and entry.reasoning
+
+
+def _with_reasoning_content_pad(messages: Any) -> Any:
+    """Return `messages` with reasoning_content="" on every assistant
+    message that lacks a real one (absent or null). Copy-on-write:
+    the client's list and dicts are never mutated, so a later
+    fallback attempt to a different provider cannot inherit the pad."""
+    if not isinstance(messages, list):
+        return messages
+    out: Optional[list] = None
+    for i, msg in enumerate(messages):
+        if not isinstance(msg, dict) or msg.get("role") != "assistant":
+            continue
+        if isinstance(msg.get("reasoning_content"), str):
+            continue  # a real value (even ""): leave it exactly as sent
+        if out is None:
+            out = list(messages)
+        new_msg = dict(msg)
+        new_msg["reasoning_content"] = ""
+        out[i] = new_msg
+    return out if out is not None else messages
+
+
+def _tool_shaped(body: dict[str, Any]) -> bool:
+    """The request carries tools, or its history already contains a
+    tool loop (assistant tool calls / tool results). DeepSeek's
+    pass-back rule binds on the `tools` parameter; the history shapes
+    cover a continuation whose client dropped the tools array but is
+    still replaying a tool loop at a thinking entry."""
+    if body.get("tools"):
+        return True
+    for msg in body.get("messages") or []:
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") == "tool" or msg.get("tool_calls"):
+            return True
+    return False
 
 
 # ----------------------------------------------------------------------
@@ -755,6 +820,12 @@ def create_app(config: Optional[GatewayConfig] = None,
     app.state.governor = governor
     app.state.sticky = sticky
     app.state.telemetry = telemetry
+    # v0.10.2 (owner ruling 2026-11-27): production tool-error rates
+    # feed tool-bearing selection. The tracker reads the quota store's
+    # tool_outcomes ledger (written by the chat handler's judging
+    # hook); build_candidates demotes flagged entries within their
+    # cost tier. See toolstats.py for gates and basis.
+    app.state.toolstats = ToolErrorTracker(store)
     app.state.classifier = classifier
     app.state.provider_keys = provider_keys
     app.state.http = upstream_client
@@ -903,11 +974,31 @@ def create_app(config: Optional[GatewayConfig] = None,
                 skip("cooldown_stream_abort"); continue
             candidates.append(entry)
 
-        def sort_key(e: ModelEntry) -> tuple[float, int, int]:
+        # v0.10.2 (owner ruling 2026-11-27): production tool-error
+        # demotion, tool-bearing requests only. A flagged entry (see
+        # toolstats.py: >=25% production tool-error rate on >=50
+        # judged turns, rolling 72h) is reordered behind every
+        # non-flagged entry IN ITS COST TIER — the sort key gains a
+        # tier bucket and a flag bit ahead of cost — so free-first is
+        # absolute (a flagged free entry still precedes every paid
+        # candidate; demotion can never push a turn to paid while a
+        # non-flagged free entry exists) and the entry is never
+        # removed: it remains in the list, reachable by failover and
+        # by pin, and still serves when it is all that is left.
+        # Non-tool requests take the exact pre-v0.10.2 key.
+        tool_flagged = app.state.toolstats.flagged() if has_tools \
+            else set()
+
+        def sort_key(e: ModelEntry) -> tuple:
             est_out = max_tokens // 2
-            return (e.estimate_cost(est_tokens, est_out),
-                    -_selection_quality(e, task_class, has_tools),
-                    e.latency_p50_ms or 99_999)
+            cost = e.estimate_cost(est_tokens, est_out)
+            quality = -_selection_quality(e, task_class, has_tools)
+            latency = e.latency_p50_ms or 99_999
+            if tool_flagged:
+                return (0 if e.lane in FREE_LANES else 1,
+                        1 if e.id in tool_flagged else 0,
+                        cost, quality, latency)
+            return (cost, quality, latency)
 
         candidates.sort(key=sort_key)
         if not candidates and cooled:
@@ -921,6 +1012,11 @@ def create_app(config: Optional[GatewayConfig] = None,
             for e in candidates:
                 skipped.append({"model": e.id,
                                 "reason": "cooldown_bypassed_only_candidate"})
+        if tool_flagged:
+            for e in candidates:
+                if e.id in tool_flagged:
+                    skipped.append({"model": e.id,
+                                    "reason": "tool_error_rate_demoted"})
         return candidates, skipped
 
     def build_spillway_candidates(
@@ -1101,6 +1197,14 @@ def create_app(config: Optional[GatewayConfig] = None,
             # thought_signature and hard-400 on replay; attach the
             # documented bypass value where a signature is absent.
             out["messages"] = _with_thought_signature_bypass(
+                out.get("messages"))
+        if _needs_reasoning_content_pad(entry) and _tool_shaped(out):
+            # DeepSeek thinking-mode pass-back (v0.10.2): assistant
+            # history without reasoning_content hard-400s on
+            # tool-shaped requests; pad the empty string where a real
+            # value is absent (DeepSeek's documented requirement,
+            # Hermes' shipped fix shape).
+            out["messages"] = _with_reasoning_content_pad(
                 out.get("messages"))
         if stream:
             opts = dict(out.get("stream_options") or {})
@@ -1539,6 +1643,21 @@ def create_app(config: Optional[GatewayConfig] = None,
         # ---- sticky check -------------------------------------------------
         conv_key = conversation_key(client.id, first_user_text, system_text)
         sticky_entry = app.state.sticky.get(conv_key)
+        # v0.10.2: judge the previous serve. A tool-loop continuation's
+        # trailing tool results are the outcome of the turn the sticky
+        # model just served; record that outcome against that model —
+        # the production tool-error signal tool-bearing selection now
+        # reads (owner ruling 2026-11-27; see toolstats.py). Recorded
+        # before the F2 block below can invalidate the binding, uses
+        # the F2 trailing-run signal (each continuation judges exactly
+        # one serve — the telemetry 3-message window would count a
+        # single error twice), and is never on the critical path.
+        if in_tool_loop and sticky_entry is not None:
+            try:
+                app.state.toolstats.record(
+                    sticky_entry.model_id, _latest_tool_error(messages))
+            except Exception:  # noqa: BLE001 — telemetry never breaks serving
+                pass
         # A new user message at a higher level is the only classification
         # reason to abandon the sticky model; tool results never are.
         new_higher_level = bool(

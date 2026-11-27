@@ -133,7 +133,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import SRC, _sha, auth, chat_body
+from conftest import SRC, _sha, auth, chat_body, registry_variant
 from clients import load_clients
 from gateway import GatewayConfig, create_app
 from registry import LANES, TASK_CLASSES, load_registry
@@ -229,6 +229,13 @@ V091_DISABLED_IDS = ("aion/aion-3.5-mini", "aion/aion-2.0")
 # SENSITIVE_EXCLUDED_IDS: enabling does not clear the aggregator
 # for sensitive spillway.
 NROUTER_DISABLED_IDS = ()
+# 2026-11-27 (v0.10.2, owner's order): the two OpenRouter free routes
+# whose upstreams were proven DELETED by their captured error bodies
+# ("no longer available on OpenRouter: no provider serves this model
+# anymore") — 713 wasted attempts in the prior 72h. Disabled, not
+# deleted: the entries and their notes stay as the record.
+V0102_DISABLED_IDS = ("openrouter/north-mini-code-free",
+                      "openrouter/dots-3-note-preview-free")
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -326,7 +333,10 @@ def test_registry_counts_and_unique_ids():
     # 98 - 11 = 87. Same-day correction: qwen3.5-397b and
     # claude-haiku-4-5 re-disabled on failed pin-smokes:
     # 98 - 13 = 85.
-    assert sum(1 for e in REG.entries if e.enabled) == 85
+    # 2026-11-27 (v0.10.2): north-mini-code-free and
+    # dots-3-note-preview-free disabled (upstreams deleted):
+    # 98 - 15 = 83.
+    assert sum(1 for e in REG.entries if e.enabled) == 83
 
 
 def test_registry_get_by_id_is_exact_for_every_entry():
@@ -353,7 +363,7 @@ def test_disabled_entries_are_exactly_the_known_set():
     assert disabled == {"siliconflow/deepseek-v4-pro"} | \
         set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS) | \
         set(NOV15_DISABLED_IDS) | set(V091_DISABLED_IDS) | \
-        set(NROUTER_DISABLED_IDS)
+        set(NROUTER_DISABLED_IDS) | set(V0102_DISABLED_IDS)
     # the siliconflow entry is a duplicate ROUTE, not a distinct
     # model: DeepSeek V4 Pro is still reachable via the direct entry
     assert BY_ID["siliconflow/deepseek-v4-pro"].model == \
@@ -830,9 +840,12 @@ def _completion(model: str) -> dict:
     }
 
 
-def build_smoke_app(tmp_path: Path):
+def build_smoke_app(tmp_path: Path, registry_path=None):
     """Production registry + Nov-12-intent clients + a fake key for
-    EVERY provider, upstream recording which model was called."""
+    EVERY provider, upstream recording which model was called.
+    `registry_path` overrides the production file for tests whose
+    premise is a configuration fact that changed (the registry_variant
+    pattern — e.g. the v0.10.2-disabled north-mini entry)."""
     clients = json.loads(json.dumps(INTENT_CLIENTS))
     clients["clients"].append(
         {"id": "publicprobe", "key_sha256": _sha("publicprobe-test-key"),
@@ -851,7 +864,7 @@ def build_smoke_app(tmp_path: Path):
     cfg = GatewayConfig(
         state_dir=tmp_path / "state",
         clients_path=clients_file,
-        registry_path=SRC / "registry.json",
+        registry_path=registry_path or (SRC / "registry.json"),
         provider_keys=dict(ALL_PROVIDER_KEYS),
     )
     app = create_app(cfg, upstream_transport=httpx.MockTransport(handler))
@@ -1091,7 +1104,13 @@ DRAFTING_TEXT = (
 
 
 def test_shadow_drafting_class_excludes_north_mini_code(tmp_path):
-    app, _calls = build_smoke_app(tmp_path)
+    # Premise (2026-11-27, v0.10.2): north-mini is DISABLED in the
+    # production registry (upstream deleted); the mechanism under
+    # test is the 2026-11-12 quality correction, so the variant
+    # re-enables the entry and the exclusion must come from quality.
+    app, _calls = build_smoke_app(
+        tmp_path, registry_path=registry_variant(
+            tmp_path, enable=("openrouter/north-mini-code-free",)))
     with TestClient(app) as tc:
         r = tc.post("/v1/shadow", json=chat_body(DRAFTING_TEXT),
                     headers=_auth("hermes"))
@@ -1110,7 +1129,11 @@ def test_shadow_simple_chat_can_include_north_mini_code(tmp_path):
     # L1 simple chat has required floor 2 — exactly its corrected
     # chat score — so the model stays reachable for the trivial
     # turns it is genuinely fine at (and its code class is intact).
-    app, _calls = build_smoke_app(tmp_path)
+    # Premise (2026-11-27, v0.10.2): re-enabled via variant — the
+    # production entry is disabled (upstream deleted).
+    app, _calls = build_smoke_app(
+        tmp_path, registry_path=registry_variant(
+            tmp_path, enable=("openrouter/north-mini-code-free",)))
     with TestClient(app) as tc:
         r = tc.post("/v1/shadow",
                     json=chat_body("hello, how are you today?"),

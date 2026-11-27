@@ -43,9 +43,24 @@ def _last_route(tmp_path):
 # ----------------------------------------------------------------------
 # F-16: the two OpenRouter free routes are out of the sensitive wall
 # ----------------------------------------------------------------------
-def test_f16_sensitive_shadow_excludes_both_entries(client):
-    r = client.post("/v1/shadow", json=chat_body(SENSITIVE_TEXT),
-                    headers=auth("hermes"))
+# Premise for the three F-16 tests (2026-11-27, v0.10.2): both
+# entries are DISABLED in the production registry (upstreams proven
+# deleted), which would mask the F-16 mechanism entirely — a disabled
+# entry is excluded for the wrong reason and invisible to non-
+# sensitive selection. The variant re-enables both so the wall
+# behaviour under test is what the assertions measure.
+def _f16_client(tmp_path):
+    app = build_app(
+        tmp_path,
+        registry_path=registry_variant(tmp_path, enable=(DOTS3, NORTH)))
+    return app
+
+
+def test_f16_sensitive_shadow_excludes_both_entries(tmp_path):
+    app = _f16_client(tmp_path)
+    with TestClient(app) as client:
+        r = client.post("/v1/shadow", json=chat_body(SENSITIVE_TEXT),
+                        headers=auth("hermes"))
     assert r.status_code == 200
     body = r.json()
     assert body["data_class"] == "sensitive"
@@ -56,22 +71,26 @@ def test_f16_sensitive_shadow_excludes_both_entries(client):
     assert (NORTH, "sensitive_spillway_excluded") in reasons
 
 
-def test_f16_nonsensitive_shadow_still_sees_both_entries(client):
+def test_f16_nonsensitive_shadow_still_sees_both_entries(tmp_path):
     # The exclusion is sensitive-only: ordinary traffic keeps both
     # routes (north-mini is the default first pick for plain chat in
     # this registry — see test_gateway.py).
-    r = client.post("/v1/shadow",
-                    json=chat_body("restart the nginx container"),
-                    headers=auth("hermes"))
+    app = _f16_client(tmp_path)
+    with TestClient(app) as client:
+        r = client.post("/v1/shadow",
+                        json=chat_body("restart the nginx container"),
+                        headers=auth("hermes"))
     assert r.status_code == 200
     cand_ids = [c["model"] for c in r.json()["candidates"]]
     assert NORTH in cand_ids
 
 
-def test_f16_sensitive_pin_to_dots3_is_dropped(client, app, tmp_path):
-    r = client.post("/v1/chat/completions",
-                    json=chat_body(SENSITIVE_TEXT, model=DOTS3),
-                    headers=auth("hermes"))
+def test_f16_sensitive_pin_to_dots3_is_dropped(tmp_path):
+    app = _f16_client(tmp_path)
+    with TestClient(app) as client:
+        r = client.post("/v1/chat/completions",
+                        json=chat_body(SENSITIVE_TEXT, model=DOTS3),
+                        headers=auth("hermes"))
     assert r.status_code == 200
     assert r.headers["X-Sovereign-Model"] != DOTS3
     rec = _last_route(tmp_path)

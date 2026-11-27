@@ -58,7 +58,10 @@ def test_route_headers_present(client):
     # 2026-11-09: Groq carries real Developer-plan prices now, so the
     # $0 OpenRouter free model wins a small infra turn on cost (Groq
     # still takes turns whose quality floor or caps demand it).
-    assert r.headers["X-Sovereign-Model"] == "openrouter/north-mini-code-free"
+    # 2026-11-27 (v0.10.2): north-mini-code-free is DISABLED (the
+    # upstream model was deleted on OpenRouter — error-body proof),
+    # so the win passes to the next $0 OpenRouter free route.
+    assert r.headers["X-Sovereign-Model"] == "openrouter/free-router"
     assert r.headers["X-Sovereign-Level"] == "3"
     assert r.headers["X-Sovereign-Task"] == "infra"
     assert r.headers["X-Sovereign-Lane"] == "private-free"

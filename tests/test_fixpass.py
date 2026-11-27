@@ -202,12 +202,30 @@ def test_reasoning_retry_only_once_then_escalates(tmp_path):
 def _registry_without_reasoning(tmp_path: Path, model_id: str) -> Path:
     """Copy of the production registry with one model's reasoning flag
     stripped — lets mechanism tests pin behaviour for a non-reasoning
-    entry without depending on production flag state."""
+    entry without depending on production flag state. 2026-11-27
+    (v0.10.2): the entry is also re-enabled — north-mini is disabled
+    in production (upstream deleted), and a disabled entry would make
+    the routing premise below vacuous (zero calls, trivially <= 1)."""
     data = json.loads((SRC / "registry.json").read_text())
     for m in data["models"]:
         if m["id"] == model_id:
             m.pop("reasoning", None)
+            m.pop("enabled", None)
     p = tmp_path / "registry.json"
+    p.write_text(json.dumps(data))
+    return p
+
+
+def _registry_enabled(tmp_path: Path, model_id: str) -> Path:
+    """Copy of the production registry with one entry re-enabled —
+    for mechanism tests whose subject is that entry's behaviour
+    while its production state is disabled (2026-11-27, v0.10.2:
+    north-mini-code-free, upstream deleted)."""
+    data = json.loads((SRC / "registry.json").read_text())
+    for m in data["models"]:
+        if m["id"] == model_id:
+            m.pop("enabled", None)
+    p = tmp_path / "registry-enabled.json"
     p.write_text(json.dumps(data))
     return p
 
@@ -255,7 +273,12 @@ def test_north_mini_length_failure_retries_same_model(tmp_path):
                                                         finish="length"))
         return httpx.Response(200, json=_completion(model, f"answer from {model}"))
 
-    app, calls = build_recording_app(tmp_path, handler)
+    # Premise (2026-11-27, v0.10.2): north-mini is disabled in the
+    # production registry (upstream deleted), which would drop the
+    # pin under J-1; the variant re-enables it so the retry mechanic
+    # is what is measured.
+    reg = _registry_enabled(tmp_path, "openrouter/north-mini-code-free")
+    app, calls = build_recording_app(tmp_path, handler, registry_path=reg)
     big = "word " * 15000
     with TestClient(app) as client:
         r = client.post("/v1/chat/completions",

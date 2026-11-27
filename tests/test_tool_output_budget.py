@@ -42,7 +42,7 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from conftest import RAW_KEYS, _chunk, _completion, _sha, _sse, auth, chat_body  # noqa: E402
+from conftest import RAW_KEYS, _chunk, _completion, _sha, _sse, auth, chat_body, registry_variant  # noqa: E402
 from gateway import (  # noqa: E402
     DEFAULT_MAX_TOKENS,
     TOOL_DEFAULT_MAX_TOKENS,
@@ -59,7 +59,11 @@ PROVIDER_KEYS = {"openrouter": "fake", "openai": "fake", "groq": "fake",
                  "zai": "fake"}
 
 # The F-09 entry itself: the free lane's 512k-context server for
-# Hermes' longest sessions.
+# Hermes' longest sessions. Premise (2026-11-27, v0.10.2): the entry
+# is DISABLED in the production registry (its upstream was deleted on
+# OpenRouter), so the recording app below runs on a variant that
+# re-enables it — the budget mechanics under test are the entry's
+# wire behaviour, not its production enablement.
 DOTS3 = "openrouter/dots-3-note-preview-free"
 DOTS3_MODEL = "dots-studio/dots-3-note-preview:free"
 
@@ -77,6 +81,8 @@ def build_recording_app(tmp_path: Path, registry_path: Path = PROD_REGISTRY):
     """Gateway app (production-shaped client lanes) + the list of
     upstream bodies it sent, in attempt order."""
     tmp_path.mkdir(parents=True, exist_ok=True)
+    if registry_path == PROD_REGISTRY:
+        registry_path = registry_variant(tmp_path, enable=(DOTS3,))
     clients_file = tmp_path / "clients.json"
     clients_file.write_text(json.dumps({
         "admin_key_sha256": _sha(RAW_KEYS["admin"]),
@@ -221,6 +227,7 @@ def test_tool_bearing_unset_clamp_still_wins(tmp_path):
     for m in data["models"]:
         if m["id"] == DOTS3:
             m["context_tokens"] = 4096
+            m.pop("enabled", None)  # v0.10.2 premise: see DOTS3 note
     variant = tmp_path / "registry-tight.json"
     variant.write_text(json.dumps(data))
     app, sent = build_recording_app(tmp_path / "v", registry_path=variant)

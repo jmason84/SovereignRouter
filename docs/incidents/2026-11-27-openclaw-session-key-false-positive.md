@@ -25,7 +25,7 @@ The value `agent:main:main` (or `agent:main:telegram:direct:<chat id>`, `agent:d
 - **OpenClaw's workspace bootstrap files are clean.** All 80 were scanned with zero hits.
 
 ## Fix (v0.10.4)
-`sensitivity.py`: for the `session` noun only, skip values that fully match `^agent:[A-Za-z0-9_.-]+(?::[A-Za-z0-9_.@+-]+)+$`. Random cookie and token values do not start with `agent:` and still flag. Other nouns are not affected. Tests: `tests/test_session_key_exclusion.py`.
+`sensitivity.py`: for the `session` noun only, skip values that fully match `^agent:[A-Za-z0-9_.-]+(?::[A-Za-z0-9_.@+-]+)+$`. Random cookie and token values do not start with `agent:` and still flag. Other nouns are not affected. Values wrapped in markdown or punctuation are unwrapped first. A `cookie` earlier on the same line always keeps the flag, and that check is O(n log n). Tests: `tests/test_session_key_exclusion.py`. E2E harness and differential fuzz: `tests/e2e_session_key/` (results are in the CHANGELOG).
 
 ## Residual / follow-ups (owner decisions, not in this release)
 - `sessionid=` / `session_token=` assignments are not in the noun list and were never flagged by `credential_assignment`.

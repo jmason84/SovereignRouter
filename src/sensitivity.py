@@ -20,6 +20,7 @@ so the false-positive rate can be measured before the scan affects lanes.
 
 from __future__ import annotations
 
+import bisect
 import re
 from dataclasses import dataclass, field
 
@@ -100,6 +101,32 @@ _OPENCLAW_SESSION_KEY_RE = re.compile(
     r"^agent:[A-Za-z0-9_.\-]+(?::[A-Za-z0-9_.@+\-]+)+$"
 )
 
+# Markdown/prose wrapping around the value ("`session=agent:main:main`",
+# "**…**", "(…)", a sentence-final period) is not part of the key.
+_SESSION_KEY_WRAP_LEFT = "`*([{<\"'"
+_SESSION_KEY_WRAP_RIGHT = "`*)]}>\"'.!?|"
+# Cookie headers are never exempt: "Cookie: session=agent:…" keeps
+# flagging, whatever the value looks like (E2E fuzz finding, 2026-11-27).
+_COOKIE_CONTEXT_RE = re.compile(r"cookie", re.IGNORECASE)
+
+
+def _is_openclaw_session_key(text: str, m: "re.Match[str]",
+                             cookie_starts: list[int]) -> bool:
+    """True only for an OpenClaw session key (agent:<id>:<scope>[:…]) in
+    a non-cookie context. Applies to the bare ``session`` noun only.
+    ``cookie_starts`` is the sorted list of every "cookie" offset in
+    ``text`` (computed once per scan, so many matches on one huge line
+    stay O(n log n) -- an unbounded per-match search was quadratic: 34 s
+    for a 900k-char single-line prompt in the E2E perf run, 2026-11-27)."""
+    value = m.group(2).lstrip(_SESSION_KEY_WRAP_LEFT).rstrip(_SESSION_KEY_WRAP_RIGHT)
+    if not _OPENCLAW_SESSION_KEY_RE.match(value):
+        return False
+    i = bisect.bisect_right(cookie_starts, m.start()) - 1
+    if i >= 0 and text.find("\n", cookie_starts[i], m.start()) == -1:
+        return False   # a "cookie" earlier on the same line: never exempt
+    return True
+
+
 # Hyphenated English that follows credential nouns in ordinary prose
 # but is never a credential value.
 _PROSE_VALUE_STOPLIST = {"case-sensitive", "case-insensitive"}
@@ -156,10 +183,13 @@ def scan_text(text: str) -> ScanResult:
     for name, pattern in _PREFIX_PATTERNS:
         if pattern.search(text):
             hits.append(name)
+    cookie_starts: list[int] | None = None
     for m in _ASSIGNMENT_RE.finditer(text):
-        if m.group(1).lower() == "session" and _OPENCLAW_SESSION_KEY_RE.match(
-                m.group(2).strip().strip("\"'")):
-            continue   # OpenClaw session key, not a credential (v0.10.4)
+        if m.group(1).lower() == "session":
+            if cookie_starts is None:
+                cookie_starts = [c.start() for c in _COOKIE_CONTEXT_RE.finditer(text)]
+            if _is_openclaw_session_key(text, m, cookie_starts):
+                continue   # OpenClaw session key, not a credential (v0.10.4)
         if not _is_excluded_value(m.group(2)):
             hits.append("credential_assignment")
             break

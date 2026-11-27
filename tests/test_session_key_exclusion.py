@@ -88,3 +88,37 @@ def test_prose_session_cookie_still_flags():
 def test_known_format_detectors_unaffected():
     assert scan_text("Authorization: Bearer abcdef1234567890ABCDEF").sensitive
     assert scan_text("gsk_abcdefghijklmnopqrstuvwxyz0123456789").sensitive
+
+
+# --- E2E loop round 1 (2026-11-27): wrapping + cookie-context guard -------
+
+@pytest.mark.parametrize("text", [
+    "my runtime says `session=agent:main:main` - what does it mean?",
+    "**session=agent:main:main**",
+    "(session=agent:main:main)",
+    "The OpenClaw session=agent:main:main.",
+    "set session='agent:main:main' in the config",
+])
+def test_wrapped_openclaw_session_key_not_flagged(text):
+    assert not scan_text(text).sensitive
+
+
+@pytest.mark.parametrize("text", [
+    "Cookie: session=agent:main:main",
+    "Set-Cookie: session=agent:x:y; Path=/",
+    "cookie header -> session=agent:devops-agent:main",
+])
+def test_cookie_context_never_exempt(text):
+    r = scan_text(text)
+    assert r.sensitive and "credential_assignment" in r.detectors
+
+
+def test_many_session_keys_on_one_huge_line_is_linear():
+    # E2E perf finding 2026-11-27: unbounded cookie look-back was quadratic.
+    import time
+    big = "lorem ipsum session=agent:main:main | dolor " * 20000   # ~900k chars, one line
+    t0 = time.perf_counter()
+    r = scan_text(big)
+    assert time.perf_counter() - t0 < 2.0
+    assert not r.sensitive
+    assert scan_text(big + f" password={FAKE_TOKEN}").sensitive

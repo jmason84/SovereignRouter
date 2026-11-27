@@ -84,6 +84,22 @@ _PROSE_CREDENTIAL_RE = re.compile(
     re.IGNORECASE,
 )
 
+# OpenClaw session keys (v0.10.4, 2026-11-27). OpenClaw's system prompt
+# carries a runtime line on EVERY request -- "Runtime: agent=main |
+# session=agent:main:main | host=... | model=sovereign/auto" -- and its
+# /status output prints "Session: agent:devops-agent:main". The value is
+# a colon-delimited routing identifier (agent:<agentId>:<scope>[:...]),
+# not a credential, but the bare ``session`` noun (added in v0.9.1, F-18)
+# matched it, flagging ~97% of OpenClaw traffic sensitive from
+# 2026-11-15 04:00 MST (Job ROUTER-J1-20261127: 1,173/1,207 requests in
+# 7 days, every one credential_assignment). The exclusion is applied to
+# the ``session`` noun ONLY and only to this exact shape: random cookie
+# or token values (session=<random>, session=s:<id>.<sig>, Cookie:
+# session=...) do not start with "agent:" and keep flagging (g180).
+_OPENCLAW_SESSION_KEY_RE = re.compile(
+    r"^agent:[A-Za-z0-9_.\-]+(?::[A-Za-z0-9_.@+\-]+)+$"
+)
+
 # Hyphenated English that follows credential nouns in ordinary prose
 # but is never a credential value.
 _PROSE_VALUE_STOPLIST = {"case-sensitive", "case-insensitive"}
@@ -141,6 +157,9 @@ def scan_text(text: str) -> ScanResult:
         if pattern.search(text):
             hits.append(name)
     for m in _ASSIGNMENT_RE.finditer(text):
+        if m.group(1).lower() == "session" and _OPENCLAW_SESSION_KEY_RE.match(
+                m.group(2).strip().strip("\"'")):
+            continue   # OpenClaw session key, not a credential (v0.10.4)
         if not _is_excluded_value(m.group(2)):
             hits.append("credential_assignment")
             break

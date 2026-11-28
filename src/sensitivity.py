@@ -272,13 +272,32 @@ def scan_messages(messages: list[dict]) -> ScanResult:
 #     separators) that pass the Luhn checksum AND carry a major-network
 #     prefix (Visa 4, Mastercard 51-55/2221-2720, Amex 34/37,
 #     Discover 6011/65) — order IDs and phone numbers fail one or both.
-# Routing effect is decided by the gateway flag SOVEREIGN_PII_DETECTORS
-# (default off = log-only signal on the route row), because promoting
-# PII to ``sensitive`` moves those turns off the free public lanes and
-# can raise paid spend — that trade is the owner's call.
+# Routing effect is decided by the gateway flag SOVEREIGN_PII_DETECTORS.
+# v0.10.10 shipped it default-off (log-only); v0.10.11 turns it ON by
+# default on the owner's go (2026-11-28 1:40 AM MT) — a hit makes the
+# turn ``sensitive`` (public lanes refused). SOVEREIGN_PII_DETECTORS=0
+# restores the log-only behaviour.
 # ----------------------------------------------------------------------
-_SSN_RE = re.compile(r"(?<![\d-])(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}(?![\d-])")
-_CARD_RE = re.compile(r"(?<![\d-])\d(?:[ -]?\d){12,18}(?![\d-])")
+# v0.10.11 (owner go 2026-11-28 1:40 AM MT: detectors ON by default):
+# boundaries tightened against false positives. A match may not touch a
+# word character, hyphen, dot, slash or plus on either side, so part
+# numbers (SKU-123-45-6789), decimals, paths, URLs, phone numbers with a
+# country code and digit runs glued to letters are not PII hits. Card
+# numbers must be one contiguous run, or the real-world groupings with
+# ONE consistent separator (4-4-4-4, 4-4-4-4-3, Amex 4-6-5); a 16-digit
+# number made of a phone number plus an extension no longer passes.
+_EDGE_L = r"(?<![\w.+/-])"
+_EDGE_R = r"(?![\w+/-]|\.\w)"
+_SSN_RE = re.compile(_EDGE_L + r"(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}" + _EDGE_R)
+_CARD_RE = re.compile(
+    # cards additionally refuse a neighbouring "<sep><digit>": a 16-digit
+    # window inside a longer grouped number (USPS/FedEx tracking, bank
+    # references) is not a card.
+    _EDGE_L + r"(?<!\d[ -])(?:"
+    r"\d{13,19}"
+    r"|\d{4}(?P<s1>[ -])\d{4}(?P=s1)\d{4}(?P=s1)\d{4}(?:(?P=s1)\d{3})?"
+    r"|\d{4}(?P<s2>[ -])\d{6}(?P=s2)\d{5}"
+    r")" + r"(?![\w+/-]|\.\w|[ -]\d)")
 
 
 def _luhn_ok(digits: str) -> bool:
@@ -316,6 +335,9 @@ def scan_pii_text(text: str) -> list[str]:
         hits.append("pii_ssn")
     for m in _CARD_RE.finditer(text):
         digits = re.sub(r"[ -]", "", m.group(0))
+        if len(set(digits)) == 1:
+            # one repeated digit (padding / masks): not a card.
+            continue
         if _card_prefix_ok(digits) and _luhn_ok(digits):
             hits.append("pii_payment_card")
             break

@@ -20,6 +20,8 @@ Job ROUTER-STRESS-20261128. The stress matrix confirmed OPERATIONS-REVIEW-2026-1
 
 ### Fixed — v0.10.9 stress-test ingress hardening (2026-11-28; gateway VERSION 0.10.9)
 
+- Full stress-test report (live 0.10.3 vs branch vs fix matrices, Hermes/OpenClaw runs, live load ramp 1-40, provider-down scenarios, open owner decisions): `docs/STRESS-TEST-2026-11-28.md`.
+
 Job ROUTER-STRESS-20261128 (Jordan: "Test, retest, and keep testing until solid … Try to break it and fix it" / "Stress test it"). Every item below was reproduced against the LIVE v0.10.3 gateway (fingerprint-matched to commit 1133f38) and against the v0.10.8 branch in a local stack; full results in `docs/STRESS-TEST-2026-11-28.md`. Not deployed.
 
 - **500s on malformed bodies are now 400s.** A non-object `messages` item (`["hi"]`, `[null]`) raised AttributeError; a non-numeric `max_tokens` raised ValueError; a lone UTF-16 surrogate (`"\ud800"`, legal JSON) raised UnicodeEncodeError in the sticky hash and would have crashed every upstream call. `_normalize_chat_body` (both `/v1/chat/completions` and `/v1/shadow`) now validates message objects/roles/content types, `max_tokens`/`max_completion_tokens` (positive integers), and scrubs lone surrogates to U+FFFD. Text parts whose `text` is not a string are ignored instead of crashing the text join.

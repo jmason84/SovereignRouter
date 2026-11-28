@@ -290,4 +290,4 @@ def test_shadow_error_never_breaks_serving(tmp_path, monkeypatch):
 
 
 def test_version():
-    assert gateway.VERSION == "0.10.9"  # v0.10.9 (stress hardening) on top of the v0.10.7 consolidated release, which carries the v0.10.6 tier shadow
+    assert gateway.VERSION == "0.10.10"  # v0.10.10 (PII detectors, log-only by default) + v0.10.9 (stress hardening) on top of the v0.10.7 consolidated release, which carries the v0.10.6 tier shadow

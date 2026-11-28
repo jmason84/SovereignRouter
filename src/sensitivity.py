@@ -257,3 +257,82 @@ def scan_messages(messages: list[dict]) -> ScanResult:
                     shapes.append(f"{msg.get('role')}:{sh}")
     return ScanResult(sensitive=bool(detectors), detectors=sorted(detectors),
                       match_shapes=shapes)
+
+
+# ----------------------------------------------------------------------
+# PII detectors (v0.10.10, ROUTER-STRESS-20261128) — OWNER POLICY GATE.
+# The 2026-11-28 stress matrix confirmed the gap noted in
+# OPERATIONS-REVIEW-2026-11-11 item 8: a US SSN or a payment-card number
+# is not a credential, so the scan above leaves it ``internal`` and it
+# can be first-routed to a public-only-free lane. Two tight detectors:
+#   * pii_ssn: hyphenated NNN-NN-NNNN only (bare 9-digit runs are too
+#     common in IDs), with the SSA's never-issued blocks excluded
+#     (area 000/666/9xx, group 00, serial 0000);
+#   * pii_payment_card: 13-19 digits (optional single space/hyphen
+#     separators) that pass the Luhn checksum AND carry a major-network
+#     prefix (Visa 4, Mastercard 51-55/2221-2720, Amex 34/37,
+#     Discover 6011/65) — order IDs and phone numbers fail one or both.
+# Routing effect is decided by the gateway flag SOVEREIGN_PII_DETECTORS
+# (default off = log-only signal on the route row), because promoting
+# PII to ``sensitive`` moves those turns off the free public lanes and
+# can raise paid spend — that trade is the owner's call.
+# ----------------------------------------------------------------------
+_SSN_RE = re.compile(r"(?<![\d-])(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}(?![\d-])")
+_CARD_RE = re.compile(r"(?<![\d-])\d(?:[ -]?\d){12,18}(?![\d-])")
+
+
+def _luhn_ok(digits: str) -> bool:
+    total, alt = 0, False
+    for ch in reversed(digits):
+        d = ord(ch) - 48
+        if alt:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+        alt = not alt
+    return total % 10 == 0
+
+
+def _card_prefix_ok(d: str) -> bool:
+    n = len(d)
+    if d[0] == "4" and n in (13, 16, 19):
+        return True
+    if n == 16 and (51 <= int(d[:2]) <= 55 or 2221 <= int(d[:4]) <= 2720):
+        return True
+    if n == 15 and d[:2] in ("34", "37"):
+        return True
+    if n in (16, 19) and (d.startswith("6011") or d.startswith("65")):
+        return True
+    return False
+
+
+def scan_pii_text(text: str) -> list[str]:
+    """PII detector names found in one text blob (names only)."""
+    if not text or not any(c.isdigit() for c in text):
+        return []
+    hits: list[str] = []
+    if _SSN_RE.search(text):
+        hits.append("pii_ssn")
+    for m in _CARD_RE.finditer(text):
+        digits = re.sub(r"[ -]", "", m.group(0))
+        if _card_prefix_ok(digits) and _luhn_ok(digits):
+            hits.append("pii_payment_card")
+            break
+    return hits
+
+
+def scan_pii_messages(messages: list[dict]) -> list[str]:
+    """PII detector names across every text part of a messages list."""
+    found: set[str] = set()
+    for msg in messages or []:
+        if not isinstance(msg, dict):
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            found.update(scan_pii_text(content))
+        elif isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and isinstance(part.get("text"), str):
+                    found.update(scan_pii_text(part["text"]))
+    return sorted(found)

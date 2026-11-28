@@ -14,12 +14,16 @@ from registry import load_registry  # noqa: E402
 REG = load_registry(SRC / "registry.json")
 BY_ID = {e.id: e for e in REG.entries}
 
+# Probed 2026-11-27 (minimal direct calls: chat + tool + code). Seven passed
+# every test and are READY-TO-ENABLE; qwen3-coder-30b failed the first code
+# test and is verbose, so it stays NOT-READY. ALL remain disabled.
 PENDING_PROBE = {
     "deepinfra/qwen3-coder-480b-turbo", "deepinfra/qwen3-coder-30b",
     "deepinfra/deepseek-v4.1-flash", "deepinfra/nemotron-3-ultra",
     "deepinfra/kimi-k2.6", "huggingface/qwen3-coder-480b",
     "nvidia/nemotron-3-ultra", "nvidia/kimi-k3.1-pro",
 }
+READY = PENDING_PROBE - {"deepinfra/qwen3-coder-30b"}
 PENDING_KEY = {
     "orcarouter/deepseek-v4.1-flash-free", "orcarouter/glm-5.3-flash-free",
     "kilo/auto-free", "kilo/beam-free",
@@ -53,7 +57,10 @@ def test_pending_markers_match_key_presence():
     for i in PENDING_PROBE:
         e = BY_ID[i]
         assert e.provider in KEYED_PROVIDERS, i
-        assert "PENDING-PROBE" in e.notes, i
+        assert "probe 2026-11-27" in e.notes, i
+        marker = "READY-TO-ENABLE" if i in READY else "NOT-READY"
+        assert marker in e.notes, i
+        assert "Stays DISABLED until Jordan says go" in e.notes, i
     for i in PENDING_KEY:
         e = BY_ID[i]
         assert e.provider not in KEYED_PROVIDERS, i
@@ -111,3 +118,7 @@ def test_deprecated_or_sunset_candidates_not_imported():
 def test_registry_file_is_valid_json_with_new_count():
     data = json.loads((SRC / "registry.json").read_text(encoding="utf-8"))
     assert len(data["models"]) == 110
+
+
+def test_slow_nvidia_kimi_latency_reflects_probe():
+    assert BY_ID["nvidia/kimi-k3.1-pro"].latency_p50_ms >= 30000

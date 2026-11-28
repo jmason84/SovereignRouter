@@ -46,7 +46,15 @@ TIERS = ("free", "cheap", "premium")
 CLASS_PREFERRED: dict[str, dict[str, tuple[str, ...]]] = {
     "code": {
         "free": ("unorouter/codestral-latest",),
-        "cheap": ("nrouter/qwen3-coder-480b-a35b",),
+        # Order is the preference order (v0.10.7): the owner-default
+        # nrouter coder, then DeepInfra's Qwen3-Coder-480B Turbo (direct
+        # account, verified $0.30/$1.00), then the HF-billed copy as the
+        # backup coder (separate billing pool; non-sensitive only). The
+        # last two ship disabled, so the order only matters once Jordan
+        # enables them; an ineligible entry is simply skipped.
+        "cheap": ("nrouter/qwen3-coder-480b-a35b",
+                  "deepinfra/qwen3-coder-480b-turbo",
+                  "huggingface/qwen3-coder-480b"),
     },
 }
 

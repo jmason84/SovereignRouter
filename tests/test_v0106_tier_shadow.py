@@ -103,6 +103,42 @@ def test_owner_default_coders_preferred_in_their_tiers():
     assert not any(x.preferred for x in r)
 
 
+def test_backup_coder_order_codestral_then_nrouter_deepinfra_then_hf():
+    # v0.10.7: free Codestral first; then within cheap the preference
+    # order nrouter > deepinfra turbo > HF backup, ahead of a cheaper
+    # unlisted coder with a higher score.
+    c = [_e("x/cheap5", "paid", {"code": 5}, price=0.01),
+         _e("huggingface/qwen3-coder-480b", "paid", {"code": 5}, price=0.30),
+         _e("deepinfra/qwen3-coder-480b-turbo", "paid", {"code": 5}, price=0.30),
+         _e("nrouter/qwen3-coder-480b-a35b", "paid", {"code": 5}, price=0.22),
+         _e("unorouter/codestral-latest", "public-only-free", {"code": 4})]
+    ids = [x.entry.id for x in tiering.rank(
+        c, task_class="code", has_tools=False, has_images=False,
+        quality_fn=_q, est_tokens=100, max_tokens=100)]
+    assert ids[:4] == ["unorouter/codestral-latest",
+                       "nrouter/qwen3-coder-480b-a35b",
+                       "deepinfra/qwen3-coder-480b-turbo",
+                       "huggingface/qwen3-coder-480b"]
+    # nrouter ineligible (e.g. cooldown): DeepInfra, then HF
+    ids = [x.entry.id for x in tiering.rank(
+        [e for e in c if not e.id.startswith("nrouter")], task_class="code",
+        has_tools=False, has_images=False, quality_fn=_q,
+        est_tokens=100, max_tokens=100)]
+    assert ids[:3] == ["unorouter/codestral-latest",
+                       "deepinfra/qwen3-coder-480b-turbo",
+                       "huggingface/qwen3-coder-480b"]
+
+
+def test_hf_backup_coder_is_non_sensitive_and_disabled_in_registry():
+    from registry import load_registry
+    from pathlib import Path
+    reg = load_registry(Path(__file__).resolve().parent.parent / "src" / "registry.json")
+    e = {x.id: x for x in reg.entries}["huggingface/qwen3-coder-480b"]
+    assert e.spillway_sensitive_excluded is True and e.enabled is False
+    for pref in tiering.CLASS_PREFERRED["code"]["cheap"]:
+        assert pref in {x.id for x in reg.entries}
+
+
 def test_vision_tag_requires_supports_vision():
     c = [_e("a/text", "public-only-free", {"chat": 5}),
          _e("a/vis", "public-only-free", {"chat": 3}, vision=True)]

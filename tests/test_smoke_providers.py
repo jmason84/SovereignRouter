@@ -236,6 +236,14 @@ NROUTER_DISABLED_IDS = ()
 # deleted: the entries and their notes stay as the record.
 V0102_DISABLED_IDS = ("openrouter/north-mini-code-free",
                       "openrouter/dots-3-note-preview-free")
+# 2026-11-27 (v0.10.3, cleanup loop): five more lanes disabled on
+# error-body proof — the three Meta muse-spark entries (402
+# billing_not_configured, account_dead), ollama/gpt-oss-120b (402)
+# and novita/gpt-oss-120b (403 ACCESS_DENY). Each burned cascade
+# attempts daily; each entry's note records the evidence.
+V0103_DISABLED_IDS = ("meta/muse-spark-1.1", "meta/muse-spark-1.2",
+                      "meta/muse-spark-1.3", "ollama/gpt-oss-120b",
+                      "novita/gpt-oss-120b")
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -336,7 +344,9 @@ def test_registry_counts_and_unique_ids():
     # 2026-11-27 (v0.10.2): north-mini-code-free and
     # dots-3-note-preview-free disabled (upstreams deleted):
     # 98 - 15 = 83.
-    assert sum(1 for e in REG.entries if e.enabled) == 83
+    # 2026-11-27 (v0.10.3): the five error-body-proven dead lanes
+    # (meta x3, ollama, novita) disabled: 98 - 20 = 78.
+    assert sum(1 for e in REG.entries if e.enabled) == 78
 
 
 def test_registry_get_by_id_is_exact_for_every_entry():
@@ -363,7 +373,8 @@ def test_disabled_entries_are_exactly_the_known_set():
     assert disabled == {"siliconflow/deepseek-v4-pro"} | \
         set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS) | \
         set(NOV15_DISABLED_IDS) | set(V091_DISABLED_IDS) | \
-        set(NROUTER_DISABLED_IDS) | set(V0102_DISABLED_IDS)
+        set(NROUTER_DISABLED_IDS) | set(V0102_DISABLED_IDS) | \
+        set(V0103_DISABLED_IDS)
     # the siliconflow entry is a duplicate ROUTE, not a distinct
     # model: DeepSeek V4 Pro is still reachable via the direct entry
     assert BY_ID["siliconflow/deepseek-v4-pro"].model == \
@@ -439,7 +450,12 @@ NEW_ENTRIES = {
 def test_new_entry_lane_prices_context(entry_id):
     lane, prices, context = NEW_ENTRIES[entry_id]
     e = BY_ID[entry_id]
-    assert e.enabled is True
+    if entry_id in V0103_DISABLED_IDS:
+        # v0.10.3: disabled on error-body proof (see
+        # V0103_DISABLED_IDS); lane/prices/context remain the record.
+        assert e.enabled is False
+    else:
+        assert e.enabled is True
     assert e.lane == lane
     assert (e.input_usd_per_million, e.output_usd_per_million) == prices
     assert e.context_tokens == context
@@ -494,8 +510,12 @@ def test_mistral_is_paid_and_sensitive_excluded():
 
 
 def test_meta_muse_spark_enabled_in_premium():
+    # Renamed premise, kept name: the entry's premium shape is still
+    # pinned below, but v0.10.3 (2026-11-27) DISABLED it — Meta's
+    # account died again (402 billing_not_configured on every call,
+    # error_body-proven in the cleanup loop).
     e = BY_ID["meta/muse-spark-1.1"]
-    assert e.lane == "premium" and e.enabled is True
+    assert e.lane == "premium" and e.enabled is False
     assert e.cached_input_usd_per_million == pytest.approx(0.15)
     assert e.effective_base_url == "https://api.meta.ai/v1"
     assert e.quality_for("chat") == 5 and e.quality_for("reasoning") == 5
@@ -627,8 +647,8 @@ PHASE2_ENTRIES = {
     "groq/qwen3.6-27b": ("private-free", True, 131072, (0.60, 3.00)),
     "zai/glm-4.6": ("paid", True, 204800, (0.60, 2.20)),
     "zai/glm-5.3-flash": ("paid", True, 1048576, (0.15, 0.50)),
-    "meta/muse-spark-1.2": ("premium", True, 1048576, (1.25, 4.25)),
-    "meta/muse-spark-1.3": ("premium", True, 1048576, (1.25, 4.25)),
+    "meta/muse-spark-1.2": ("premium", False, 1048576, (1.25, 4.25)),  # v0.10.3: disabled (402 billing_not_configured)
+    "meta/muse-spark-1.3": ("premium", False, 1048576, (1.25, 4.25)),  # v0.10.3: disabled (402 billing_not_configured)
     "cerebras/qwen-3.8-27b": ("paid", True, 65536, (0.99, 1.49)),
     "aion/aion-3.5-mini": ("public-only-free", False, 262144, (0.0, 0.0)),  # v0.9.1 F-17: disabled
     "aion/aion-2.0": ("public-only-free", False, 131072, (0.0, 0.0)),  # v0.9.1 F-17: disabled
@@ -980,14 +1000,17 @@ def test_public_client_auto_request_served_by_public_only_free(tmp_path):
 # pin target -> the client whose lane list admits the entry
 PIN_CASES = {
     "cerebras/gpt-oss-120b": "hermes",
-    "novita/gpt-oss-120b": "hermes",
+    # novita/gpt-oss-120b left this map 2026-11-27 (v0.10.3):
+    # disabled on error-body proof — a disabled route has no serve
+    # to pin (J-1 covers the dropped-pin behavior)
     "zai/glm-4.7-flash": "hermes",
     "google/gemini-3.5-flash-lite": "hermes",
     "cloudflare/gpt-oss-120b": "hermes",
     "cloudflare/glm-4.7-flash": "hermes",
     "mistral/mistral-large": "hermes",
     "mistral/codestral": "hermes",
-    "meta/muse-spark-1.1": "openclaw",
+    # meta/muse-spark-1.1 left this map 2026-11-27 (v0.10.3):
+    # disabled on error-body proof — no serve to pin
     # free-catalog expansion 2026-11-12 — enabled routes only (the
     # five disabled ones have no serve to pin)
     "zai/glm-4.5-flash": "hermes",
@@ -1036,7 +1059,8 @@ PIN_CASES = {
     "groq/qwen3.6-27b": "hermes",
     "zai/glm-4.6": "hermes",
     "zai/glm-5.3-flash": "hermes",
-    "meta/muse-spark-1.2": "openclaw",
+    # meta/muse-spark-1.2 left this map 2026-11-27 (v0.10.3):
+    # disabled on error-body proof — no serve to pin
     "cerebras/qwen-3.8-27b": "hermes",
     # aion/aion-3.5-mini + aion/aion-2.0 left this map 2026-11-15
     # (v0.9.1, F-17): disabled — a disabled route has no serve to pin
@@ -1146,7 +1170,12 @@ def test_shadow_simple_chat_can_include_north_mini_code(tmp_path):
 
 
 @pytest.mark.parametrize("entry_id", ["cerebras/gpt-oss-120b",
-                                      "novita/gpt-oss-120b",
+                                      # novita/gpt-oss-120b retired
+                                      # 2026-11-27 (v0.10.3): the entry is
+                                      # DISABLED now, so its pin drops as
+                                      # pin_blocked:disabled (J-1) before
+                                      # the sensitive-exclusion premise
+                                      # this test exercises
                                       "mistral/mistral-large",
                                       "mistral/codestral",
                                       # phase 2 flagged entries

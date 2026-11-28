@@ -9,6 +9,15 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+## [0.10.3] — 2026-11-27
+
+**v0.10.3 — last-resort request shaping + dead-lane registry cleanup, 2026-11-27** (from the owner's cleanup loop over the Nov 26 soak breaches; every remedy below is quoted from the upstream's own captured error body, persisted since v0.10.1. Rebased onto v0.10.4 — merged earlier the same day, see its entry below; the label order follows the reservation recorded there, and this build ships both changes):
+
+- **reasoning_effort value shaping (`_shape_reasoning_effort`).** Two premium last resorts reject specific reasoning_effort *values* with hard 400s — and 400 is not in FAILOVER_STATUSES, so the poisoned value fails the whole turn when the cascade reaches these entries with nothing behind them. Narrow by provider+model, on the per-attempt upstream body: **premium/gpt-5.5 with tools → reasoning_effort forced to "none"** (OpenAI: function tools with a graded reasoning_effort are not supported for gpt-5.5 in /v1/chat/completions; an omitted field defaults server-side to a graded effort, so the value is set even when absent — tool-free turns keep the client's effort); **zai/glm-5.3 "none" → "low"** (Z.ai error 1210: the model always thinks and accepts only low/high/max; an absent field stays absent). Tests: `tests/test_reasoning_effort_shaping.py`.
+- **Temperature guard for premium/gpt-5.5 (`_temperature_stripped`).** The same entry also rejects a client *temperature*: "Unsupported value: 'temperature' does not support 0.2 with this model" (error_body, 2026-11-27 19:22 UTC — three n8n L5 turns died end-to-end when the free pass exhausted on the OpenRouter daily cap + Cloudflare neuron wall and the premium step then 400'd on the forwarded 0.2). GPT-5-class reasoning models run at their default temperature only, so for direct-OpenAI gpt-5.5 the gateway omits the field and lets the upstream default apply; every other entry keeps the client's temperature exactly as sent. Folded into this release as its third commit on the owner's ruling. Tests: `tests/test_reasoning_effort_shaping.py`.
+- **Registry: five proven-dead lanes disabled.** `meta/muse-spark-1.1`, `meta/muse-spark-1.2`, `meta/muse-spark-1.3` (402 `billing_not_configured`, account_dead), `ollama/gpt-oss-120b` (402) and `novita/gpt-oss-120b` (403 ACCESS_DENY) — each burned cascade attempts on every turn that reached it; disabled on error-body proof, not deleted, each entry's note records the evidence. Enabled count 83 → 78; coupled test premises (pin maps, disabled-set unions, the siliconflow slot and effort/gemma mechanism tests) updated in the same pass via the `registry_variant(enable=…)` knob.
+- **Registry: long-context scores measured, not seeded (second commit).** The Nov 27 escalation master cause was sensitive L4 long-context turns with no qualified private-free candidate: the private-free lane's long-context scores were seeds. A purpose-built long-context battery (~76–111k-token synthetic tasks, calibrator-controlled) measured them: `groq/qwen3.6-27b` and `groq/qwen3.8-27b` long-context 3 → 4, `groq/gpt-oss-20b` 2 → 3, `groq/gpt-oss-120b` stamped at 3 — all `long_context_source: long-context-battery:2026-11-27`, `verified_until: 2026-12-27`. Live-proven before this release shipped: an unpinned hermes sensitive L4 turn at 74,714 tokens served on `groq/qwen3.6-27b`, private-free, escalated:false. `openrouter/free-router` and `openrouter/nemotron-3-ultra` remain UNMEASURED (every battery pin hit the OpenRouter free-pool upstream 429) — re-run in a quieter window.
+
 ## [0.10.4] — 2026-11-27
 
 **v0.10.4 — OpenClaw session-key false positive fixed in the credential detector, 2026-11-27** (owner go 2026-11-27 14:23 MST, Tier 2, exactly this one change; Job ROUTER-J1B-20261127, following the read-only Job 1 check ROUTER-J1-20261127). Version label 0.10.4 chosen deliberately: 0.10.3 is reserved for the parked reasoning_effort shaping build (built, not pushed — it must rebase onto this release).
@@ -25,7 +34,6 @@ reports its version at `GET /health` (`version` field) and in the
   - Differential fuzz over 60,000 cases found 0 superset violations and 0 unexplained differences.
   - The same harness against v0.10.2 fails 59/59 OpenClaw runtime-line checks.
 - Tests: `tests/test_session_key_exclusion.py` (25). Suite 833 (808 + 25).
-
 
 ## [0.10.2] — 2026-11-27
 

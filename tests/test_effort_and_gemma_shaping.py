@@ -32,7 +32,8 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from conftest import RAW_KEYS, _completion, _sha, auth, chat_body  # noqa: E402
+from conftest import (RAW_KEYS, _completion, _sha, auth, chat_body,  # noqa: E402
+                      registry_variant)
 from gateway import GatewayConfig, _reasoning_effort_stripped, create_app  # noqa: E402
 from registry import load_registry  # noqa: E402
 
@@ -95,6 +96,10 @@ def variant_without_extra_body(tmp_path: Path, entry_id: str) -> Path:
     for m in data["models"]:
         if m["id"] == entry_id:
             m.pop("extra_body", None)
+            # v0.10.3 (2026-11-27): the muse-spark entries are
+            # DISABLED in production (402 billing_not_configured);
+            # the mechanism tests re-enable the entry under test.
+            m.pop("enabled", None)
     p = tmp_path / "registry-variant.json"
     p.write_text(json.dumps(data))
     return p
@@ -122,29 +127,38 @@ def test_client_reasoning_effort_reaches_meta_upstream(tmp_path):
 # ----------------------------------------------------------------------
 # (3) entry profile: lands on ordinary turns; precedence is entry-wins
 # ----------------------------------------------------------------------
-def test_meta_entry_profile_applies_on_ordinary_turns(rec):
-    tc, sent = rec
-    r = tc.post("/v1/chat/completions",
-                json=chat_body("what is the capital of France",
-                               model="meta/muse-spark-1.1"),
-                headers=auth("openclaw"))
+def test_meta_entry_profile_applies_on_ordinary_turns(tmp_path):
+    # v0.10.3 premise: muse-spark-1.1 is disabled in production
+    # (billing_not_configured); the profile mechanism is proven
+    # against a variant with the entry re-enabled.
+    variant = registry_variant(tmp_path, enable=("meta/muse-spark-1.1",))
+    app, sent = build_recording_app(tmp_path / "v", registry_path=variant)
+    with TestClient(app) as tc:
+        r = tc.post("/v1/chat/completions",
+                    json=chat_body("what is the capital of France",
+                                   model="meta/muse-spark-1.1"),
+                    headers=auth("openclaw"))
     assert r.status_code == 200
     bodies = bodies_for(sent, "muse-spark-1.1")
     assert bodies and bodies[0]["reasoning_effort"] == "minimal"
 
 
-def test_entry_profile_wins_over_client_sent_effort(rec):
+def test_entry_profile_wins_over_client_sent_effort(tmp_path):
     # Documented precedence (upstream_body merge semantics): an entry's
     # extra_body overwrites the client field. This is the same rule
     # that makes OpenRouter's data_collection=deny unoverridable, so
     # the registry effort profile is an operator guardrail, not a
     # default the client can silently raise.
-    tc, sent = rec
-    r = tc.post("/v1/chat/completions",
-                json=chat_body("what is the capital of France",
-                               model="meta/muse-spark-1.1",
-                               reasoning_effort="high"),
-                headers=auth("openclaw"))
+    # v0.10.3 premise: entry re-enabled via variant (disabled in
+    # production — see test_meta_entry_profile_applies_on_ordinary_turns).
+    variant = registry_variant(tmp_path, enable=("meta/muse-spark-1.1",))
+    app, sent = build_recording_app(tmp_path / "v", registry_path=variant)
+    with TestClient(app) as tc:
+        r = tc.post("/v1/chat/completions",
+                    json=chat_body("what is the capital of France",
+                                   model="meta/muse-spark-1.1",
+                                   reasoning_effort="high"),
+                    headers=auth("openclaw"))
     assert r.status_code == 200
     bodies = bodies_for(sent, "muse-spark-1.1")
     assert bodies and bodies[0]["reasoning_effort"] == "minimal"
@@ -293,6 +307,10 @@ def test_disabled_set_matches_owner_decisions():
     # muse-spark-1.3 shipped disabled in the fix package and was
     # RE-ENABLED 2026-11-12 by the owner's deploy decision, at the
     # minimal-effort profile pinned above (see its registry note).
-    assert entries["meta/muse-spark-1.3"].get("enabled", True) is True
-    assert entries["meta/muse-spark-1.1"].get("enabled", True) is True
-    assert entries["meta/muse-spark-1.2"].get("enabled", True) is True
+    # v0.10.3 (2026-11-27): ALL THREE muse-spark entries disabled
+    # again — Meta's account died a second time (402
+    # billing_not_configured on every call, error_body-proven in
+    # the cleanup loop; each registry note records the evidence).
+    assert entries["meta/muse-spark-1.3"].get("enabled", True) is False
+    assert entries["meta/muse-spark-1.1"].get("enabled", True) is False
+    assert entries["meta/muse-spark-1.2"].get("enabled", True) is False

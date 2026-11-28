@@ -44,7 +44,7 @@ def test_starting_registry_matches_spec_table():
     # Jordan's order 23:06 MST): 8 PENDING-PROBE on providers whose
     # VM103 key already exists (deepinfra x5, huggingface x1, nvidia
     # x2) and 4 PENDING-KEY (orcarouter x2, kilo x2). Routing unchanged.
-    assert len(reg.entries) == 110
+    assert len(reg.entries) == 111  # +1 disabled v0.10.8 orcarouter add (2026-11-27)
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4

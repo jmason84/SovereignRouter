@@ -89,7 +89,7 @@ def test_file_report_missing_fails(tmp_path):
 def test_file_report_real_registry(tmp_path):
     report = preflight.file_report(ROOT / "src" / "registry.json")
     assert report["ok"] is True
-    assert report["entries"] == 110  # +12 disabled v0.10.7 imports
+    assert report["entries"] == 111  # +12 disabled v0.10.7 imports, +1 disabled v0.10.8 orcarouter add
 
 
 # ----------------------------------------------------------------------

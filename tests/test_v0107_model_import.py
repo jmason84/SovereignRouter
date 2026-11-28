@@ -117,7 +117,7 @@ def test_deprecated_or_sunset_candidates_not_imported():
 
 def test_registry_file_is_valid_json_with_new_count():
     data = json.loads((SRC / "registry.json").read_text(encoding="utf-8"))
-    assert len(data["models"]) == 110
+    assert len(data["models"]) == 111  # +1 v0.10.8 orcarouter add
 
 
 def test_slow_nvidia_kimi_latency_reflects_probe():

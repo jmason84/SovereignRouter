@@ -302,7 +302,7 @@ def test_admin_costs_shape(client):
 def test_admin_reload(client):
     r = client.post("/admin/reload", headers=auth("admin"))
     assert r.status_code == 200
-    assert r.json()["models"] == 110  # +12 disabled v0.10.7 model-import entries (2026-11-27)
+    assert r.json()["models"] == 111  # +1 disabled v0.10.8 orcarouter add (2026-11-27); +12 disabled v0.10.7 model-import entries (2026-11-27)
 
 
 def test_routes_log_has_no_prompt_text(client, app, tmp_path):

@@ -2121,6 +2121,7 @@ def create_app(config: Optional[GatewayConfig] = None,
             model=None, lane=None, skipped=skipped, stream=stream,
             sticky=sticky_used, data_class=data_class,
             sensitive_detectors=scan.detectors if scan.sensitive else [],
+            sensitive_match_shapes=scan.match_shapes if scan.sensitive else [],
             sidecar_fallback=classification.sidecar_fallback,
             override=("header" if level_override else f"alias:{alias}" if alias else None),
             latency_classify_ms=round(classify_ms, 2),
@@ -2696,6 +2697,18 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                     # guard and pre-commit failover apply unchanged.
                     line_iter = resp.aiter_lines().__aiter__()
                     first_line = True
+                    # v0.10.9 (ROUTER-STRESS-20261128): chunks before
+                    # the first content/tool chunk (role-only deltas,
+                    # keep-alives) are held, not committed, and an
+                    # in-stream error event before any content is a
+                    # FAILED ATTEMPT that fails over. Live: Groq's
+                    # tool_use_failed arrives as a data: {"error":...}
+                    # event after a role chunk; the role chunk used to
+                    # commit the stream, so the error was handed to
+                    # OpenClaw ("LLM request rejected: Tool call
+                    # validation failed") instead of the next model.
+                    pre_content: list[str] = []
+                    stream_error: Optional[str] = None
                     while True:
                         bound = cfg.stream_first_chunk_timeout_s \
                             if first_line else cfg.stream_stall_timeout_s
@@ -2721,6 +2734,10 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                             # at chunk level, not inside a usage object.
                             usage_data = {**usage_data,
                                           "usageMetadata": chunk["usageMetadata"]}
+                        if chunk.get("error") and not committed \
+                                and decided != "tool":
+                            stream_error = payload_str[:2000]
+                            break
                         choice = (chunk.get("choices") or [{}])[0]
                         delta = choice.get("delta") or {}
                         is_tool = bool(delta.get("tool_calls"))
@@ -2733,6 +2750,9 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         if decided == "tool":
                             # Buffer tool-call chunks to completion; the
                             # client sees nothing until validation passes.
+                            if pre_content:
+                                buffered.extend(pre_content)
+                                pre_content = []
                             assembler.feed(chunk)
                             buffered.append(sse_line)
                             continue
@@ -2740,9 +2760,28 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         if is_text:
                             saw_content = True
                             content_chars += len(delta["content"])
+                        if not committed and not is_text:
+                            pre_content.append(sse_line)
+                            continue
+                        if pre_content:
+                            for held in pre_content:
+                                yield held
+                            pre_content = []
                         committed = True
                         yield sse_line
                     record.latency_upstream_ms += (time.perf_counter() - t_u0) * 1000
+                    if stream_error is not None:
+                        skipped.append({"model": entry.id,
+                                        "reason": "upstream_stream_error"})
+                        record.signals.append(
+                            f"stream_error_before_commit:{entry.id}")
+                        _record_attempt(app, record, client, entry,
+                                        outcome="failed", status=None,
+                                        body_text=stream_error)
+                        idx += 1
+                        continue
+                    for held in pre_content:
+                        yield held
 
                     if decided == "tool":
                         assembled = assembler.assembled_response()

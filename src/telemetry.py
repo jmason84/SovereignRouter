@@ -59,6 +59,7 @@ class RouteRecord:
     sticky: bool = False
     data_class: str = "internal"
     sensitive_detectors: list[str] = field(default_factory=list)  # names only
+    sensitive_match_shapes: list[str] = field(default_factory=list)  # v0.10.9: char-class shapes, never values
     sidecar_fallback: bool = False
     override: Optional[str] = None       # alias / header that overrode routing
     repeat_within_60s: bool = False

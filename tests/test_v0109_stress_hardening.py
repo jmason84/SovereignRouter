@@ -152,3 +152,84 @@ def test_reasoning_effort_normalised(tmp_path, monkeypatch, value, expected):
             assert "reasoning_effort" not in b, b.get("reasoning_effort")
         else:
             assert b.get("reasoning_effort") == expected
+
+
+# ---- diagnostics: credential hits carry a value SHAPE, never the value ----
+def test_route_row_carries_match_shape_not_value(tmp_path):
+    from fastapi.testclient import TestClient
+    import conftest
+    app = conftest.build_app(tmp_path)
+    secret = "Zq9vLmT3xK"
+    with TestClient(app) as tc:
+        r = tc.post(URL, json=chat_body(f"deploy with password={secret} please"), headers=auth("hermes"))
+    assert r.status_code in (200, 429)
+    row = [json.loads(l) for l in (tmp_path / "state" / "routes.jsonl").read_text().splitlines() if l.strip()][-1]
+    assert row["data_class"] == "sensitive"
+    assert row["sensitive_match_shapes"] and row["sensitive_match_shapes"][0].startswith("user:password=")
+    assert secret not in json.dumps(row)
+
+
+def test_value_shape_is_lossy():
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+    from sensitivity import value_shape
+    assert value_shape("agent:main:main") == "a5:a4:a~"
+    assert value_shape("abc") == "a3"
+    assert "Zq9" not in value_shape("Zq9vLmT3xK")
+
+
+# ---- streaming: an in-stream error before any content fails over ------
+# Live 2026-11-28 (OpenClaw, groq/gpt-oss-120b): Groq delivers
+# tool_use_failed as `data: {"error": ...}` after a role-only chunk. The
+# role chunk committed the stream, so the client got the error instead
+# of the next model's answer.
+def _stream_app(tmp_path, monkeypatch, first_error_after_content=False):
+    import httpx
+    import conftest
+    calls = []
+
+    def up(request):
+        body = json.loads(request.content)
+        if not body.get("stream"):
+            return conftest.fake_upstream(request)
+        calls.append(body["model"])
+        m = body["model"]
+        role = {"id": "x", "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]}
+        err = {"error": {"message": "tool call validation failed: attempted to call tool 'JSON'",
+                         "type": "invalid_request_error", "code": "tool_use_failed"}}
+        text = {"id": "x", "choices": [{"index": 0, "delta": {"content": f"hello from {m}"}, "finish_reason": None}]}
+        stop = {"id": "x", "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
+        if len(calls) == 1:
+            chunks = [role, text, err] if first_error_after_content else [role, err]
+        else:
+            chunks = [role, text, stop]
+        data = "".join(f"data: {json.dumps(c)}\n\n" for c in chunks) + "data: [DONE]\n\n"
+        return httpx.Response(200, content=data.encode(), headers={"content-type": "text/event-stream"})
+    monkeypatch.setattr(conftest, "fake_upstream", up)
+    return conftest.build_app(tmp_path), calls
+
+
+def test_stream_error_before_content_fails_over(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    app, calls = _stream_app(tmp_path, monkeypatch)
+    with TestClient(app) as tc:
+        r = tc.post(URL, json=chat_body("say hi", stream=True), headers=auth("hermes"))
+    assert r.status_code == 200
+    assert len(calls) >= 2, calls
+    assert "tool_use_failed" not in r.text
+    assert f"hello from {calls[1]}" in r.text
+    assert r.text.index('"role"') < r.text.index("hello from")
+    row = [json.loads(l) for l in (tmp_path / "state" / "routes.jsonl").read_text().splitlines() if l.strip()][-1]
+    assert any(s.startswith("stream_error_before_commit:") for s in row["signals"])
+    assert any(s["reason"] == "upstream_stream_error" for s in row["skipped"])
+
+
+def test_stream_error_after_content_is_not_spliced(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    app, calls = _stream_app(tmp_path, monkeypatch, first_error_after_content=True)
+    with TestClient(app) as tc:
+        r = tc.post(URL, json=chat_body("say hi", stream=True), headers=auth("hermes"))
+    assert r.status_code == 200
+    assert len(calls) == 1          # committed: never a second model's output
+    assert "tool_use_failed" in r.text

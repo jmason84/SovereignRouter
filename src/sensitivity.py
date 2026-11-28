@@ -156,6 +156,30 @@ _PLACEHOLDERS = {
 class ScanResult:
     sensitive: bool
     detectors: list[str] = field(default_factory=list)   # names only, never the match
+    # v0.10.9 diagnostics: for assignment-style hits, "<noun>=<shape>"
+    # where shape is the value's first 12 chars reduced to character
+    # classes with run lengths ("agent:main:main" -> "a5:a4:a3"). Never
+    # the value itself. Lets a false-positive source be found from the
+    # route log alone (ROUTER-STRESS-20261128: 227/243 OpenClaw turns in
+    # 24 h still flagged credential_assignment on live v0.10.3).
+    match_shapes: list[str] = field(default_factory=list)
+
+
+def value_shape(value: str, limit: int = 12) -> str:
+    out: list[str] = []
+    prev, run = "", 0
+    for ch in value[:limit]:
+        c = "9" if ch.isdigit() else "A" if ch.isupper() else "a" if ch.isalpha() \
+            else ch if ch in ":=._-/@+" else "?"
+        if c == prev and c in "9Aa":
+            run += 1
+            continue
+        if prev:
+            out.append(prev + (str(run) if prev in "9Aa" and run > 1 else ""))
+        prev, run = c, 1
+    if prev:
+        out.append(prev + (str(run) if prev in "9Aa" and run > 1 else ""))
+    return "".join(out) + ("~" if len(value) > limit else "")
 
 
 def _is_excluded_value(value: str) -> bool:
@@ -180,6 +204,7 @@ def scan_text(text: str) -> ScanResult:
     if not text:
         return ScanResult(sensitive=False)
     hits: list[str] = []
+    shapes: list[str] = []
     for name, pattern in _PREFIX_PATTERNS:
         if pattern.search(text):
             hits.append(name)
@@ -192,6 +217,7 @@ def scan_text(text: str) -> ScanResult:
                 continue   # OpenClaw session key, not a credential (v0.10.4)
         if not _is_excluded_value(m.group(2)):
             hits.append("credential_assignment")
+            shapes.append(f"{m.group(1).lower()}={value_shape(m.group(2))}")
             break
     for m in _PROSE_CREDENTIAL_RE.finditer(text):
         value = m.group("value")
@@ -204,13 +230,16 @@ def scan_text(text: str) -> ScanResult:
                 continue
         if not _is_excluded_value(value) and _looks_like_credential_value(value):
             hits.append("credential_prose_assignment")
+            shapes.append(f"{m.group('noun').lower()}~{value_shape(value)}")
             break
-    return ScanResult(sensitive=bool(hits), detectors=sorted(set(hits)))
+    return ScanResult(sensitive=bool(hits), detectors=sorted(set(hits)),
+                      match_shapes=shapes)
 
 
 def scan_messages(messages: list[dict]) -> ScanResult:
     """Scan every text part of an OpenAI-style messages list."""
     detectors: set[str] = set()
+    shapes: list[str] = []
     for msg in messages or []:
         content = msg.get("content")
         texts: list[str] = []
@@ -221,5 +250,10 @@ def scan_messages(messages: list[dict]) -> ScanResult:
                 if isinstance(part, dict) and isinstance(part.get("text"), str):
                     texts.append(part["text"])
         for t in texts:
-            detectors.update(scan_text(t).detectors)
-    return ScanResult(sensitive=bool(detectors), detectors=sorted(detectors))
+            r = scan_text(t)
+            detectors.update(r.detectors)
+            for sh in r.match_shapes:
+                if len(shapes) < 3 and sh not in shapes:
+                    shapes.append(f"{msg.get('role')}:{sh}")
+    return ScanResult(sensitive=bool(detectors), detectors=sorted(detectors),
+                      match_shapes=shapes)

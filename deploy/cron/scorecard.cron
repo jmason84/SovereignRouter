@@ -1,0 +1,7 @@
+# Sovereign Router nightly scorecard (Job D; tools-only, gateway VERSION unchanged) — SHIPPED INACTIVE.
+# Proposals only: the tool opens quota.db read-only and never writes the
+# registry. Activating this schedule is a separate owner decision; to
+# activate, uncomment the line below and install it with `crontab -e` on
+# VM103 (host timezone is UTC: 09:15 UTC = 02:15 MST).
+#
+# 15 9 * * * cd /root/sovereign-router-v05 && /usr/bin/python3 tools/scorecard.py --state /root/sovereign-router-v05/state --hours 24 --out /root/sovereign-router-v05/reports/scorecard >/dev/null 2>&1

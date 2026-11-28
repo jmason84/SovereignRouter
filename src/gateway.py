@@ -104,6 +104,7 @@ from pools import (DemotionTracker, classify_failure,
                    classify_truncated_tool_call, pool_for)
 from quota import AttemptEvent, QuotaStore, UsageEvent
 from registry import FREE_LANES, ModelEntry, Registry, load_registry
+import tiering
 from sensitivity import scan_messages
 from sticky import (StickyStore, TOOL_ERROR_BREAK_AFTER,
                     conversation_key)
@@ -112,7 +113,7 @@ from toolstats import ToolErrorTracker
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.10.3"
+VERSION = "0.10.7"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -398,9 +399,108 @@ def _default_max_tokens(body: dict[str, Any]) -> int:
     return DEFAULT_MAX_TOKENS
 
 
+# v0.10.5 (Job B, owner go 2026-11-27 8:25 PM MT): the tool-result
+# error detector. Pre-v0.10.5 this was a bare substring test for
+# '"error"', so a SUCCESS payload such as {"error": null, "data": ...}
+# or {"result": "ok", "error": ""} counted as a tool error. That fed
+# tool_error_next_turn, the F2 sticky break and (via the route rows)
+# the v0.10.2 production tool-error ledger — false positives demoted
+# healthy models. The detector now parses JSON when it can and only
+# counts an error field that actually carries a value.
+_ERROR_FIELD_KEYS = ("error", "errors", "error_message", "errormessage",
+                     "exception", "traceback", "stderr_error")
+_ERROR_FLAG_KEYS = ("is_error", "iserror")
+_SUCCESS_FALSE_KEYS = ("ok", "success", "succeeded")
+_ERROR_STATUS_VALUES = {"error", "errored", "failed", "failure", "fail",
+                        "exception", "fatal"}
+_TEXT_ERROR_PREFIXES = ("error", "traceback (most recent call last)",
+                        "exception", "fatal:", "failed:", "failure:")
+# A JSON-ish "error" field with a non-empty value, for payloads that are
+# not valid JSON as a whole (truncated output, JSON lines, prose + JSON).
+_ERROR_FIELD_VALUE_RE = re.compile(
+    r'"(?:error|errors|error_message|exception)"\s*:\s*'
+    r'(?!null\b|false\b|""|\[\s*\]|\{\s*\}|0\b)\S')
+_ZERO_ERRORS_RE = re.compile(
+    r"^errors?(?:\s+count)?\s*[:=]\s*(?:0|none|null|false|\[\s*\])\s*(?:$|[,;\n])")
+_ERROR_FLAG_TRUE_RE = re.compile(r'"(?:is_error|isError)"\s*:\s*true\b')
+_STATUS_ERROR_RE = re.compile(
+    r'"status"\s*:\s*"(?:error|errored|failed|failure|fail|exception|fatal)"',
+    re.IGNORECASE)
+
+
+def _value_is_set(value: Any) -> bool:
+    """An error field 'carries a value' unless it is null/false/empty/0."""
+    if value is None or value is False:
+        return False
+    if isinstance(value, (str, list, dict, tuple)) and not value:
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool) \
+            and value == 0:
+        return False
+    if isinstance(value, str) and value.strip().lower() in (
+            "", "none", "null", "false", "0", "ok", "no error"):
+        return False
+    return True
+
+
+def _json_obj_has_error(obj: Any, depth: int = 0) -> bool:
+    if depth > 2:
+        return False
+    if isinstance(obj, list):
+        # MCP-style content arrays / batched results: any item errors.
+        return any(_json_obj_has_error(o, depth + 1) for o in obj[:20])
+    if not isinstance(obj, dict):
+        return False
+    lower = {str(k).lower(): v for k, v in obj.items()}
+    for k in _ERROR_FLAG_KEYS:
+        if lower.get(k) is True:
+            return True
+    for k in _ERROR_FIELD_KEYS:
+        if k in lower and _value_is_set(lower[k]):
+            return True
+    for k in _SUCCESS_FALSE_KEYS:
+        if k in lower and lower[k] is False:
+            return True
+    status = lower.get("status")
+    if isinstance(status, str) and status.strip().lower() in _ERROR_STATUS_VALUES:
+        return True
+    # One level of common wrappers.
+    for k in ("result", "data", "response", "output", "content"):
+        if k in lower and isinstance(lower[k], (dict, list)):
+            if _json_obj_has_error(lower[k], depth + 1):
+                return True
+    return False
+
+
 def _tool_text_has_error(text: str) -> bool:
-    low = text.lower()
-    return '"error"' in low or low.strip().startswith("error")
+    """True when a tool result reports a failure.
+
+    Parsed JSON: an error-ish key with a real value, an is_error/isError
+    flag, ok/success == false, or status in an error vocabulary. Plain
+    text: a leading Error/Traceback/Exception/Fatal line, or an error
+    field with a non-empty value embedded in otherwise unparseable
+    JSON. A success payload that merely contains the word "error" (or an
+    ``"error": null`` field) is NOT an error."""
+    if not text:
+        return False
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if stripped[0] in "{[":
+        try:
+            parsed = json.loads(stripped)
+        except ValueError:
+            parsed = None
+        if parsed is not None:
+            return _json_obj_has_error(parsed)
+    low = stripped.lower()
+    if _ZERO_ERRORS_RE.match(low):
+        return False
+    if low.startswith(_TEXT_ERROR_PREFIXES):
+        return True
+    if _ERROR_FLAG_TRUE_RE.search(stripped) or _STATUS_ERROR_RE.search(stripped):
+        return True
+    return bool(_ERROR_FIELD_VALUE_RE.search(low))
 
 
 def _latest_tool_error(messages: list[dict]) -> bool:
@@ -451,6 +551,16 @@ def _selection_quality(entry: ModelEntry, task_class: str,
             return min(measured, base)
     return base
 FAILOVER_STATUSES = {401, 403, 408, 413, 429, 500, 502, 503, 504}
+# v0.10.5 (Job B, owner go 2026-11-27): fallback-depth cap. A turn makes
+# at most this many upstream calls across the free-first pass, the
+# same-model length retry, validation escalation and the paid spillway.
+# When a spillway may still engage, the first pass stops early enough to
+# leave SPILLWAY_RESERVED_ATTEMPTS for it, so the cap never converts a
+# servable turn into a 429 just because the free pools are congested.
+MAX_UPSTREAM_ATTEMPTS = 6
+SPILLWAY_RESERVED_ATTEMPTS = 2
+DEPTH_CAP_REASON = "fallback_depth_cap"
+PREMIUM_NOT_REQUIRED_REASON = "premium_not_required_congestion"
 # Escalation reason recorded on every turn the paid spillway serves
 # (v0.5.5 free-first / paid-spillway waterfall, owner ruling 2026-11-07).
 SPILLWAY_REASON = "free_exhausted_paid_fallthrough"
@@ -559,6 +669,16 @@ class GatewayConfig:
     stream_abort_cooldown_s: float = float(
         os.environ.get("SOVEREIGN_STREAM_ABORT_COOLDOWN_S",
                        STREAM_ABORT_COOLDOWN_S))
+    # v0.10.5 (Job B): hard cap on upstream attempts per turn (all
+    # passes together; the 72h census to 2026-11-27 saw depths of 21).
+    max_upstream_attempts: int = int(
+        os.environ.get("SOVEREIGN_MAX_UPSTREAM_ATTEMPTS",
+                       MAX_UPSTREAM_ATTEMPTS))
+    # v0.10.6 (Job C): per-class tiered ranking in SHADOW mode — logs
+    # what the free > cheap > premium policy would pick next to the live
+    # pick on every route row (``tier_shadow``). Never changes routing.
+    # SOVEREIGN_TIER_SHADOW=0 turns the logging off.
+    tier_shadow: bool = os.environ.get("SOVEREIGN_TIER_SHADOW", "1") != "0"
     provider_keys: dict[str, str] = field(default_factory=dict)  # tests/dev injection
 
     def resolved_registry_path(self) -> Path:
@@ -876,6 +996,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     # hook); build_candidates demotes flagged entries within their
     # cost tier. See toolstats.py for gates and basis.
     app.state.toolstats = ToolErrorTracker(store)
+    app.state.tier_tool_stats = tiering.ToolStatsCache(app.state.toolstats)
     app.state.classifier = classifier
     app.state.provider_keys = provider_keys
     app.state.http = upstream_client
@@ -1074,6 +1195,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         required_quality: int, est_tokens: int, max_tokens: int,
         has_tools: bool, data_class: str, paid_off_reason: str,
         exclude_ids: frozenset = frozenset(),
+        premium_permitted: bool = False,
     ) -> tuple[list[ModelEntry], list[dict[str, str]]]:
         """Free-first / paid-spillway pass (v0.5.5, owner ruling
         2026-11-07: "allow paid models when we burn up the free — but
@@ -1141,9 +1263,54 @@ def create_app(config: Optional[GatewayConfig] = None,
                 candidates = candidates2
                 skipped = skipped + skipped2 + [
                     {"model": "-", "reason": "level5_fallback_quality4"}]
+        floor = required_quality
+        if any(sk.get("reason") == "level5_fallback_quality4" for sk in skipped):
+            floor = 4
         if exclude_ids:
             candidates = [c for c in candidates if c.id not in exclude_ids]
+        # v0.10.5 (Job B, owner go 2026-11-27 8:25 PM MT): never
+        # escalate to premium just because the free pools are
+        # congested. Premium stays in this pass only when the request
+        # itself requires it (premium_permitted: client allows premium
+        # AND level 5 or an explicit premium ask), or when NO paid entry
+        # can meet the quality floor at all — a capability requirement,
+        # not a congestion one. "Can meet" is judged on capability
+        # (enabled, key, tools, quality, context, sensitive exclusion,
+        # emergency veto), not on momentary rate limits or failures, so
+        # a busy-but-capable paid pool keeps premium out.
+        if not premium_permitted and any(
+                c.lane == "premium" for c in candidates):
+            if _paid_capable(task_class=task_class, floor=floor,
+                             est_tokens=est_tokens, has_tools=has_tools,
+                             data_class=data_class,
+                             paid_off_reason=paid_off_reason):
+                for c in candidates:
+                    if c.lane == "premium":
+                        skipped.append({"model": c.id,
+                                        "reason": PREMIUM_NOT_REQUIRED_REASON})
+                candidates = [c for c in candidates if c.lane != "premium"]
         return candidates, skipped
+
+    def _paid_capable(*, task_class: str, floor: int, est_tokens: int,
+                      has_tools: bool, data_class: str,
+                      paid_off_reason: str) -> bool:
+        if paid_off_reason:
+            return False
+        for e in app.state.registry.entries:
+            if e.lane != "paid" or not e.enabled:
+                continue
+            if data_class == "sensitive" and e.spillway_sensitive_excluded:
+                continue
+            if not app.state.provider_keys.get(e.provider):
+                continue
+            if has_tools and not e.supports_tools:
+                continue
+            if _selection_quality(e, task_class, has_tools) < floor:
+                continue
+            if est_tokens + MIN_OUTPUT_TOKENS > e.context_tokens:
+                continue
+            return True
+        return False
 
     # ------------------------------------------------------------------
     # explicit model pins (Cycle 1 aspect G; ruling J-1, 2026-11-12)
@@ -1567,15 +1734,30 @@ def create_app(config: Optional[GatewayConfig] = None,
                 client=client, level=level, task_class=task_class,
                 required_quality=required_quality, est_tokens=est_tokens,
                 max_tokens=max_tokens, has_tools=bool(tools),
-                data_class=data_class, paid_off_reason=paid_off_reason)
+                data_class=data_class, paid_off_reason=paid_off_reason,
+                premium_permitted=premium_permitted)
             if spill_candidates:
                 candidates = spill_candidates
                 skipped = skipped + [{"model": "-", "reason": "paid_spillway_pass"}] \
                     + spill_skipped
 
         first = candidates[0] if candidates else None
+        tiered = None
+        if cfg.tier_shadow:
+            try:
+                tiered = tiering.decide(
+                    candidates, task_class=task_class, has_tools=bool(tools),
+                    has_images=has_images, json_mode=json_mode,
+                    quality_fn=_selection_quality, est_tokens=est_tokens,
+                    max_tokens=max_tokens,
+                    classifier_confidence=float(classification.confidence or 0.0),
+                    tool_stats=app.state.tier_tool_stats.get() if tools else None,
+                ).to_dict()
+            except Exception:  # noqa: BLE001
+                tiered = {"error": "tier_shadow_error"}
         return {
             "shadow": True,
+            "tiered_shadow": tiered,
             "client": client.id,
             "requested_model": requested_model,
             "level": level,
@@ -1665,10 +1847,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         last_user_text = next((_message_text(m) for m in reversed(messages)
                                if m.get("role") == "user"), "")
         in_tool_loop = bool(messages) and messages[-1].get("role") == "tool"
+        # v0.10.5: one detector for telemetry, F2 and the ledger.
         has_tool_error = any(
-            m.get("role") == "tool" and (
-                '"error"' in _message_text(m).lower()
-                or _message_text(m).strip().lower().startswith("error"))
+            m.get("role") == "tool" and _tool_text_has_error(_message_text(m))
             for m in messages[-3:])
 
         # 413 pre-check: no lane-allowed model can EVER fit -> 413.
@@ -1874,7 +2055,7 @@ def create_app(config: Optional[GatewayConfig] = None,
                 required_quality=required_quality, est_tokens=est_tokens,
                 max_tokens=max_tokens, has_tools=bool(tools),
                 data_class=data_class, paid_off_reason=paid_off_reason,
-                exclude_ids=exclude_ids)
+                exclude_ids=exclude_ids, premium_permitted=premium_permitted)
 
         spillway_reason: Optional[str] = None
         if not candidates:
@@ -1886,6 +2067,25 @@ def create_app(config: Optional[GatewayConfig] = None,
                 candidates = spill_candidates
                 spillway_reason = SPILLWAY_REASON
                 record.signals.append(f"paid_spillway:{spill_candidates[0].id}")
+
+        # v0.10.6 (Job C) SHADOW ONLY: what the per-class tiered policy
+        # would pick from this same walled candidate list. Reads the
+        # list, never reorders it; any failure folds into a signal.
+        if cfg.tier_shadow:
+            try:
+                record.tier_shadow = tiering.decide(
+                    candidates, task_class=task_class, has_tools=bool(tools),
+                    has_images=has_images, json_mode=json_mode,
+                    quality_fn=_selection_quality, est_tokens=est_tokens,
+                    max_tokens=max_tokens,
+                    classifier_confidence=float(classification.confidence or 0.0),
+                    tool_stats=app.state.tier_tool_stats.get() if tools else None,
+                    reason=("pinned" if explicit_entry is not None
+                            else "sticky" if sticky_used
+                            else "spillway" if spillway_reason else ""),
+                ).to_dict()
+            except Exception:  # noqa: BLE001 — shadow never breaks serving
+                record.signals.append("tier_shadow_error")
 
         if not candidates:
             if data_class == "sensitive":
@@ -2006,6 +2206,49 @@ def _record_attempt(app: FastAPI, record: RouteRecord, client: ClientPolicy,
         record.signals.append("attempt_ledger_error")
 
 
+class _DepthBudget:
+    """Per-turn upstream-attempt budget (v0.10.5, Job B).
+
+    ``calls`` counts every upstream call the turn makes. ``exhausted``
+    stops the turn at ``cap``. ``reserve_reached`` tells the free-first
+    pass to hand over to the paid spillway once only
+    SPILLWAY_RESERVED_ATTEMPTS calls are left, so a congested free pool
+    cannot use the whole budget; if no spillway candidate exists the
+    first pass simply continues up to the cap."""
+
+    def __init__(self, cap: int) -> None:
+        self.cap = max(1, int(cap))
+        self.calls = 0
+        self.early_probe_done = False
+
+    def exhausted(self) -> bool:
+        return self.calls >= self.cap
+
+    def reserve_reached(self) -> bool:
+        reserve = SPILLWAY_RESERVED_ATTEMPTS if self.cap > SPILLWAY_RESERVED_ATTEMPTS else 0
+        return reserve > 0 and self.calls >= self.cap - reserve
+
+
+def _keep_premium_skips(skipped: list[dict[str, str]],
+                        extra_skipped: list[dict[str, str]]) -> None:
+    """An empty spillway pass discards its skip list, but the v0.10.5
+    premium-not-required decision must stay visible on the route row."""
+    seen = {(s.get("model"), s.get("reason")) for s in skipped}
+    for s in extra_skipped:
+        if s.get("reason") == PREMIUM_NOT_REQUIRED_REASON and \
+                (s.get("model"), s.get("reason")) not in seen:
+            skipped.append(s)
+            seen.add((s.get("model"), s.get("reason")))
+
+
+def _note_depth_cap(record: RouteRecord, skipped: list[dict[str, str]],
+                    budget: "_DepthBudget") -> None:
+    sig = f"{DEPTH_CAP_REASON}:{budget.cap}"
+    if sig not in record.signals:
+        record.signals.append(sig)
+        skipped.append({"model": "-", "reason": DEPTH_CAP_REASON})
+
+
 async def _json_response(*, app: FastAPI, body: dict[str, Any],
                          candidates: list[ModelEntry], record: RouteRecord,
                          client: ClientPolicy, conv_key: str, level: int,
@@ -2027,12 +2270,24 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
     # already set), or it engages in the loop guard below when every
     # first-pass candidate failed upstream (v0.5.5).
     spillway_engaged = spillway_reason is not None
+    budget = _DepthBudget(app.state.cfg.max_upstream_attempts)
     idx = 0
     while True:
-        if idx >= len(candidates):
+        if budget.exhausted():
+            _note_depth_cap(record, skipped, budget)
+            break
+        early = (idx < len(candidates) and spillway_builder is not None
+                 and not spillway_engaged and not budget.early_probe_done
+                 and budget.reserve_reached())
+        if idx >= len(candidates) or early:
+            if early:
+                budget.early_probe_done = True
             if spillway_builder is not None and not spillway_engaged:
                 extra, extra_skipped = spillway_builder(frozenset(attempted))
                 if extra:
+                    if early:
+                        record.signals.append(
+                            f"fallback_depth_reserve_spillway:{budget.calls}")
                     spillway_engaged = True
                     spillway_reason = SPILLWAY_REASON
                     skipped.append({"model": "-", "reason": "paid_spillway_pass"})
@@ -2043,12 +2298,15 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                     retried_same = set()
                     budget_override = None
                     continue
-            break
+                _keep_premium_skips(skipped, extra_skipped)
+            if not early:
+                break
         entry = candidates[idx]
         attempted.add(entry.id)
         payload = upstream_body(body, entry, est_tokens, stream=False,
                                 max_tokens_override=budget_override)
         budget_override = None
+        budget.calls += 1
         t_u0 = time.perf_counter()
         try:
             resp = await call_upstream(entry, payload)
@@ -2238,17 +2496,30 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
         attempted: set[str] = set()
         # Engages at most once per turn (see _json_response).
         spillway_engaged = spillway_reason is not None
+        budget = _DepthBudget(app.state.cfg.max_upstream_attempts)
         idx = 0
         finalized = False
         while True:
-            if idx >= len(candidates):
-                # Every candidate failed upstream: engage the paid
-                # spillway once rather than ending the stream in a
-                # 429 (v0.5.5; mirrors the JSON path's loop guard).
+            if budget.exhausted():
+                _note_depth_cap(record, skipped, budget)
+                break
+            early = (idx < len(candidates) and spillway_builder is not None
+                     and not spillway_engaged and not budget.early_probe_done
+                     and budget.reserve_reached())
+            if idx >= len(candidates) or early:
+                # Every candidate failed upstream (or the v0.10.5 depth
+                # reserve is reached): engage the paid spillway once
+                # rather than ending the stream in a 429 (v0.5.5;
+                # mirrors the JSON path's loop guard).
+                if early:
+                    budget.early_probe_done = True
                 if spillway_builder is not None and not spillway_engaged:
                     extra, extra_skipped = spillway_builder(
                         frozenset(attempted))
                     if extra:
+                        if early:
+                            record.signals.append(
+                                f"fallback_depth_reserve_spillway:{budget.calls}")
                         spillway_engaged = True
                         spillway_reason = SPILLWAY_REASON
                         if SPILLWAY_REASON not in record.escalation_reasons:
@@ -2262,10 +2533,13 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                         candidates = extra
                         idx = 0
                         continue
-                break
+                    _keep_premium_skips(skipped, extra_skipped)
+                if not early:
+                    break
             entry = candidates[idx]
             attempted.add(entry.id)
             payload = upstream_body(body, entry, est_tokens, stream=True)
+            budget.calls += 1
             url = f"{entry.effective_base_url}/chat/completions"
             hdrs = {"Content-Type": "application/json"}
             key = app.state.provider_keys.get(entry.provider)

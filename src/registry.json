@@ -3435,6 +3435,403 @@
       },
       "spillway_sensitive_excluded": true,
       "verified_until": null
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": null,
+      "id": "deepinfra/qwen3-coder-480b-turbo",
+      "provider": "deepinfra",
+      "model": "Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo",
+      "lane": "paid",
+      "quality": {
+        "chat": 3,
+        "code": 5,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "context_tokens": 262144,
+      "input_usd_per_million": 0.3,
+      "output_usd_per_million": 1.0,
+      "latency_p50_ms": 1500,
+      "reasoning": false,
+      "supports_tools": true,
+      "spend_alert_usd": 10.0,
+      "price_source": "deepinfra:/models/list public pricing fields (cents_per_input/output_token); cross-checked against the huggingface router /v1/models deepinfra listing ($0.30/$1.00)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-27",
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). READY-TO-ENABLE (probe 2026-11-27, VM103 key read-only, minimal direct calls): chat 397ms PONG; tool call get_weather{city:Denver} valid 772ms; code is_prime executed and passed 974ms (85 tokens); est. cost $0.00021 for all three. Stays DISABLED until Jordan says go. VERIFIED 2026-11-27 from DeepInfra's public model list: $0.30 in / $1.00 out per 1M, 262,144 ctx, tags tools/json/structured-output/non-reasoning. Direct-keyed (not an aggregator) second route for Qwen3-Coder-480B next to nrouter/qwen3-coder-480b-a35b ($0.22/$1.80): cheaper output, so a candidate cheap-tier coder. The non-Turbo variant lists $0.40/$1.60 (not added). Data posture: same direct DeepInfra account as the enabled deepinfra/* entries. TIERING 2026-11-27: second in the code/cheap preference (after the owner-default nrouter coder), ahead of the HF backup."
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": null,
+      "id": "deepinfra/qwen3-coder-30b",
+      "provider": "deepinfra",
+      "model": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "lane": "paid",
+      "quality": {
+        "chat": 3,
+        "code": 4,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "context_tokens": 262144,
+      "input_usd_per_million": 0.07,
+      "output_usd_per_million": 0.26,
+      "latency_p50_ms": 800,
+      "reasoning": false,
+      "supports_tools": true,
+      "spend_alert_usd": 5.0,
+      "price_source": "deepinfra:/models/list public pricing fields",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-27",
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). NOT-READY (retest/caveat) (probe 2026-11-27, VM103 key read-only, minimal direct calls): FIRST run: chat PONG 10.7s (408 tokens), tool call valid 2.3s, CODE FAILED (finish=length at 1500 tokens, 24s, no complete function). SECOND run: chat 3.5s (454 tokens for one word), tool valid 1.2s, code passed 10.7s but 1332 tokens for is_prime. It works but is verbose/flaky: do not enable until a larger sample; est. cost $0.0005 per run. Stays DISABLED until Jordan says go. VERIFIED 2026-11-27 (DeepInfra public model list): $0.07 in / $0.26 out per 1M, 262,144 ctx, tags tools/json/structured_output. Small fast coder (3.3B active) for L1 code turns at near-free cost."
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": null,
+      "id": "deepinfra/deepseek-v4.1-flash",
+      "provider": "deepinfra",
+      "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+      "lane": "paid",
+      "quality": {
+        "chat": 4,
+        "code": 5,
+        "infra": 5,
+        "long-context": 5,
+        "reasoning": 4
+      },
+      "context_tokens": 1048576,
+      "input_usd_per_million": 0.2,
+      "output_usd_per_million": 0.6,
+      "latency_p50_ms": 1200,
+      "reasoning": true,
+      "supports_tools": true,
+      "supports_vision": true,
+      "spend_alert_usd": 10.0,
+      "price_source": "deepinfra:/models/list public pricing fields (list rate; a 30% discount field is published, effective $0.14/$0.42 also shown on the huggingface router listing)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-27",
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). READY-TO-ENABLE (probe 2026-11-27, VM103 key read-only, minimal direct calls): chat 687ms PONG (3 tokens, no reasoning burn); tool call valid 759ms; code passed 1029ms (83 tokens); est. cost $0.00015. Stays DISABLED until Jordan says go. VERIFIED 2026-11-27 (DeepInfra public model list): list $0.20 in / $0.60 out per 1M with a published 0.3 discount (effective $0.14/$0.42, matching the HF router listing); 1,048,576 ctx; tags tools/reasoning/can-disable-reasoning/multimodal/structured-output. Registry carries the LIST rate (conservative). Successor to the enabled deepinfra/deepseek-v4-flash workhorse (REPORTED by OrcaRouter's catalog text: surpasses V4 Pro; unverified). Direct-keyed alternative to nrouter/deepseek-v4.1-flash ($0.25/$2.00)."
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": null,
+      "id": "deepinfra/nemotron-3-ultra",
+      "provider": "deepinfra",
+      "model": "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
+      "lane": "paid",
+      "quality": {
+        "chat": 5,
+        "code": 4,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 5
+      },
+      "context_tokens": 262144,
+      "input_usd_per_million": 0.5,
+      "output_usd_per_million": 2.2,
+      "latency_p50_ms": 2500,
+      "reasoning": true,
+      "supports_tools": true,
+      "spend_alert_usd": 10.0,
+      "price_source": "deepinfra:/models/list public pricing fields",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-27",
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). READY-TO-ENABLE (probe 2026-11-27, VM103 key read-only, minimal direct calls): chat 872ms PONG (31 tokens); tool call valid 714ms; code passed 1432ms (240 tokens); est. cost $0.00087. Stays DISABLED until Jordan says go. VERIFIED 2026-11-27 (DeepInfra public model list): $0.50 in / $2.20 out per 1M, 262,144 ctx, tags tools/reasoning/structured-output. Paid, private (direct account) twin of the free-but-public openrouter/nemotron-3-ultra-free: lets reasoning/chat turns that cannot use the public lane reach the same 550B weights at cheap-tier cost. Quality mirrored from the OR free entry's chat/reasoning seeds."
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": null,
+      "id": "deepinfra/kimi-k2.6",
+      "provider": "deepinfra",
+      "model": "moonshotai/Kimi-K2.6",
+      "lane": "paid",
+      "quality": {
+        "chat": 4,
+        "code": 4,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 5
+      },
+      "context_tokens": 262144,
+      "input_usd_per_million": 0.75,
+      "output_usd_per_million": 3.5,
+      "latency_p50_ms": 5000,
+      "reasoning": true,
+      "supports_tools": true,
+      "supports_vision": true,
+      "spend_alert_usd": 5.0,
+      "price_source": "deepinfra:/models/list public pricing fields",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-27",
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). READY-TO-ENABLE (probe 2026-11-27, VM103 key read-only, minimal direct calls): chat 1022ms PONG (91 tokens, light reasoning, no burn); tool call valid 793ms; code passed 2348ms (462 tokens); est. cost $0.0022. The OR-copy reasoning-burn did not reproduce here, but watch completion tokens. Stays DISABLED until Jordan says go. VERIFIED 2026-11-27 (DeepInfra public model list): $0.75 in / $3.50 out per 1M, 262,144 ctx, tags tools/reasoning/can-disable-reasoning/multimodal. CAVEAT: openrouter/kimi-k2.6 was disabled for reasoning-burn; probe with reasoning disabled before any enable. Cloudflare's @cf/moonshotai/kimi-k2.6 was NOT added: paid-plan only and marked Deprecated 11/20/2026 on Cloudflare's model page (verified 2026-11-27)."
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": null,
+      "id": "huggingface/qwen3-coder-480b",
+      "provider": "huggingface",
+      "model": "Qwen/Qwen3-Coder-480B-A35B-Instruct:deepinfra",
+      "base_url": "https://router.huggingface.co/v1",
+      "lane": "paid",
+      "quality": {
+        "chat": 3,
+        "code": 5,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 3
+      },
+      "context_tokens": 262144,
+      "input_usd_per_million": 0.3,
+      "output_usd_per_million": 1.0,
+      "latency_p50_ms": 1600,
+      "reasoning": false,
+      "supports_tools": true,
+      "spillway_sensitive_excluded": true,
+      "spend_alert_usd": 5.0,
+      "price_source": "huggingface:router /v1/models providers[deepinfra].pricing (pass-through, no HF markup per HF pricing docs)",
+      "price_confidence": "verified",
+      "price_verified_at": "2026-11-27",
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). READY-TO-ENABLE (probe 2026-11-27, VM103 key read-only, minimal direct calls): chat 685ms PONG; tool call valid 927ms; code passed 1136ms; est. cost $0.00021. Serves through the HF router pinned to :deepinfra (HTTP 200 on all three). Backup coder (see tiering CLASS_PREFERRED code/cheap, third place). Stays DISABLED until Jordan says go. VERIFIED 2026-11-27 (HF router public /v1/models): deepinfra live at $0.30/$1.00, 262,144 ctx, supports_tools true; the only other live HF provider is venice ($0.35/$1.50). Backend PINNED :deepinfra per the HF posture invariant. Separate billing pool (the HF account) for the code class, same pattern as huggingface/deepseek-v4-flash. NON-SENSITIVE ONLY (spillway_sensitive_excluded), provider-wide HF rule. Not free: HF free accounts get no monthly Inference credits (PRO $2/month), verified on HF's pricing page 2026-11-27. TIERING 2026-11-27: third in the code/cheap preference (after nrouter/qwen3-coder-480b-a35b and deepinfra/qwen3-coder-480b-turbo), i.e. the backup coder; non-sensitive turns only (spillway_sensitive_excluded)."
+    },
+    {
+      "enabled": false,
+      "limits": {
+        "rpm": 15
+      },
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": 0.0,
+      "id": "nvidia/nemotron-3-ultra",
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "lane": "public-only-free",
+      "quality": {
+        "chat": 5,
+        "code": 4,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 5
+      },
+      "context_tokens": 262144,
+      "input_usd_per_million": 0.0,
+      "output_usd_per_million": 0.0,
+      "latency_p50_ms": 4000,
+      "reasoning": true,
+      "supports_tools": true,
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). READY-TO-ENABLE (probe 2026-11-27, VM103 key read-only, minimal direct calls): chat 1453ms PONG; tool call valid 1269ms; code passed 2823ms; $0 (free; trial terms: evaluation only, logged -> public lane). Account CAN reach this model (listing != access was checked by the call itself). Stays DISABLED until Jordan says go. VERIFIED 2026-11-27: model id listed in NVIDIA's public integrate.api.nvidia.com/v1/models. Listing != account access (kimi-k2.6 listed but 404'd for this account on 2026-11-12), hence probe first. NVIDIA API Trial Terms: evaluation/testing use only (not production); prompts are logged by NVIDIA (Kilo's gateway docs quote the trial notice, verified 2026-11-27) -> public-only-free lane. Context seeded at 262,144 (NIM publishes none; OpenRouter lists 1M). A second free pool for the 550B weights beside openrouter/nemotron-3-ultra-free, which is often 429-congested."
+    },
+    {
+      "enabled": false,
+      "limits": {
+        "rpm": 15
+      },
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": 0.0,
+      "id": "nvidia/kimi-k3.1-pro",
+      "provider": "nvidia",
+      "model": "moonshotai/kimi-k3.1-pro",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "lane": "public-only-free",
+      "quality": {
+        "chat": 5,
+        "code": 5,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 5
+      },
+      "context_tokens": 262144,
+      "input_usd_per_million": 0.0,
+      "output_usd_per_million": 0.0,
+      "latency_p50_ms": 50000,
+      "reasoning": true,
+      "supports_tools": true,
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). READY-TO-ENABLE (slow) (probe 2026-11-27, VM103 key read-only, minimal direct calls): chat PONG at 49.2s; tool call valid at 54.0s; code passed at 76.2s (417 tokens); $0. Account CAN reach it, but latency is 50-76s per call (seed was 6s), so latency_p50_ms is raised to 50000. Fit for batch/background work only; the gateway's own timeouts must be checked before any enable. Evaluation-only trial terms, logged -> public lane. Stays DISABLED until Jordan says go. VERIFIED 2026-11-27: listed in NVIDIA's public /v1/models. Paid elsewhere at $1.75-$2.00 in / $9.50-$10 out (HF router listing, verified 2026-11-27), so a free strong reasoner/coder IF the account can reach it (listing != access; probe first). NVIDIA trial terms: evaluation use only, prompts logged -> public-only-free, never sensitive. Tool support REPORTED (paid hosts list tools=true; unverified on NIM). Context seeded conservatively."
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": 0.0,
+      "id": "orcarouter/deepseek-v4.1-flash-free",
+      "provider": "orcarouter",
+      "model": "deepseek/deepseek-v4.1-flash-free",
+      "base_url": "https://api.orcarouter.ai/v1",
+      "lane": "public-only-free",
+      "quality": {
+        "chat": 4,
+        "code": 4,
+        "infra": 4,
+        "long-context": 4,
+        "reasoning": 4
+      },
+      "context_tokens": 1048576,
+      "input_usd_per_million": 0.0,
+      "output_usd_per_million": 0.0,
+      "latency_p50_ms": 3000,
+      "reasoning": true,
+      "supports_tools": true,
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). PENDING-KEY: no VM103 key for this provider; needs Jordan's signup/key approval before any probe. VERIFIED 2026-11-27 (OrcaRouter public /v1/models): listed with $0 prompt/completion, chat_completions endpoint, 1M ctx per its description. OrcaRouter states prompts are not logged by default and never trained on (homepage, verified), BUT the free upstream is not named and its retention is unknown -> public-only-free until proven. Free-tier rate limits: not published (unknown). Tool support REPORTED (model family supports tools; unverified on this route). Hacker plan is free, signup required."
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": 0.0,
+      "id": "orcarouter/glm-5.3-flash-free",
+      "provider": "orcarouter",
+      "model": "z-ai/glm-5.3-flash-free",
+      "base_url": "https://api.orcarouter.ai/v1",
+      "lane": "public-only-free",
+      "quality": {
+        "chat": 3,
+        "code": 4,
+        "infra": 3,
+        "long-context": 5,
+        "reasoning": 4
+      },
+      "context_tokens": 1048576,
+      "input_usd_per_million": 0.0,
+      "output_usd_per_million": 0.0,
+      "latency_p50_ms": 3000,
+      "reasoning": true,
+      "supports_tools": true,
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). PENDING-KEY: no VM103 key for this provider; needs Jordan's signup/key approval before any probe. VERIFIED 2026-11-27 (OrcaRouter public /v1/models): listed free ($0 per request), 1M ctx, chat_completions + anthropic_messages. Quality mirrored from zai/glm-5.3-flash. Same posture caveat as the OrcaRouter V4.1 Flash free route: upstream retention unknown -> public-only-free. Tool support REPORTED. Free-tier limits unpublished."
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": 0.0,
+      "id": "kilo/auto-free",
+      "provider": "kilo",
+      "model": "kilo-auto/free",
+      "base_url": "https://ai-gateway.kilo.ai/api/v1",
+      "lane": "public-only-free",
+      "quality": {
+        "chat": 3,
+        "code": 3,
+        "infra": 3,
+        "long-context": 3,
+        "reasoning": 3
+      },
+      "context_tokens": 256000,
+      "input_usd_per_million": 0.0,
+      "output_usd_per_million": 0.0,
+      "latency_p50_ms": 4000,
+      "supports_tools": true,
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). PENDING-KEY: no VM103 key for this provider; needs Jordan's signup/key approval before any probe. VERIFIED 2026-11-27 (Kilo gateway public /api/v1/models + docs): $0, 256,000 ctx, tools listed; rotates over a curated free set that largely mirrors OpenRouter's :free catalog (nemotron, gemma) which this registry already routes. Kilo's own warning: prompts MAY BE LOGGED by upstream providers and used to improve services; may route to NVIDIA trial endpoints -> public-only-free, never sensitive. Anonymous use allowed at 200 requests/hour/IP (docs) -- even keyless use is Jordan's call. Low marginal value: mostly a different door to models we already have."
+    },
+    {
+      "enabled": false,
+      "limits": {},
+      "probe": {
+        "cadence": "weekly",
+        "kind": "chat",
+        "max_tokens": 4,
+        "prompt": "ping"
+      },
+      "verified_until": null,
+      "cached_input_usd_per_million": 0.0,
+      "id": "kilo/beam-free",
+      "provider": "kilo",
+      "model": "reflection/beam-free",
+      "base_url": "https://ai-gateway.kilo.ai/api/v1",
+      "lane": "public-only-free",
+      "quality": {
+        "chat": 3,
+        "code": 4,
+        "infra": 3,
+        "long-context": 4,
+        "reasoning": 4
+      },
+      "context_tokens": 1048576,
+      "input_usd_per_million": 0.0,
+      "output_usd_per_million": 0.0,
+      "latency_p50_ms": 3000,
+      "reasoning": true,
+      "supports_tools": true,
+      "notes": "DISABLED 2026-11-27 (v0.10.7 model import, Jordan's order 2026-11-27 23:06 MST: 'pull the relevant models both free and not into ours'). Shipped disabled so routing is unchanged; quality figures are SEEDS until the probe + tooling battery run. Candidate sourced from the free-claude-code provider table (model IDs/facts only, no code). PENDING-KEY: no VM103 key for this provider; needs Jordan's signup/key approval before any probe. VERIFIED 2026-11-27 (Kilo gateway public /api/v1/models): $0, 1,048,576 ctx, tools listed; described as Reflection's coding/agentic reasoning model. Not in OpenRouter's free catalog, so genuinely new free capacity. Data retention UNKNOWN (no statement on the listing) -> public-only-free. Same 200 req/hour/IP anonymous cap applies."
     }
   ],
   "version": 2

@@ -9,14 +9,88 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
-## [0.10.3] — 2026-11-27
+## [0.10.7] — 2026-11-27
 
-**v0.10.3 — last-resort request shaping + dead-lane registry cleanup, 2026-11-27** (from the owner's cleanup loop over the Nov 26 soak breaches; every remedy below is quoted from the upstream's own captured error body, persisted since v0.10.1. Rebased onto v0.10.4 — merged earlier the same day, see its entry below; the label order follows the reservation recorded there, and this build ships both changes):
+**Consolidated release onto main** (Jordan's go 2026-11-27 23:33 MST: "build one branch off main with B, C, D and the model import, fix conflicts, test, open one PR"). PRs #23–#25 were merged into their stacked base branches rather than into `main`, so `main` had v0.10.4 (#22) and Muse's v0.10.3 (#26) but not Jobs B/C/D. This release brings v0.10.5 (Job B), v0.10.6 (Job C), Job D and the v0.10.7 model import onto `main` in one branch, and moves `VERSION` to 0.10.7. Before this, `main` reported 0.10.3 even though v0.10.4 had shipped.
 
-- **reasoning_effort value shaping (`_shape_reasoning_effort`).** Two premium last resorts reject specific reasoning_effort *values* with hard 400s — and 400 is not in FAILOVER_STATUSES, so the poisoned value fails the whole turn when the cascade reaches these entries with nothing behind them. Narrow by provider+model, on the per-attempt upstream body: **premium/gpt-5.5 with tools → reasoning_effort forced to "none"** (OpenAI: function tools with a graded reasoning_effort are not supported for gpt-5.5 in /v1/chat/completions; an omitted field defaults server-side to a graded effort, so the value is set even when absent — tool-free turns keep the client's effort); **zai/glm-5.3 "none" → "low"** (Z.ai error 1210: the model always thinks and accepts only low/high/max; an absent field stays absent). Tests: `tests/test_reasoning_effort_shaping.py`.
-- **Temperature guard for premium/gpt-5.5 (`_temperature_stripped`).** The same entry also rejects a client *temperature*: "Unsupported value: 'temperature' does not support 0.2 with this model" (error_body, 2026-11-27 19:22 UTC — three n8n L5 turns died end-to-end when the free pass exhausted on the OpenRouter daily cap + Cloudflare neuron wall and the premium step then 400'd on the forwarded 0.2). GPT-5-class reasoning models run at their default temperature only, so for direct-OpenAI gpt-5.5 the gateway omits the field and lets the upstream default apply; every other entry keeps the client's temperature exactly as sent. Folded into this release as its third commit on the owner's ruling. Tests: `tests/test_reasoning_effort_shaping.py`.
-- **Registry: five proven-dead lanes disabled.** `meta/muse-spark-1.1`, `meta/muse-spark-1.2`, `meta/muse-spark-1.3` (402 `billing_not_configured`, account_dead), `ollama/gpt-oss-120b` (402) and `novita/gpt-oss-120b` (403 ACCESS_DENY) — each burned cascade attempts on every turn that reached it; disabled on error-body proof, not deleted, each entry's note records the evidence. Enabled count 83 → 78; coupled test premises (pin maps, disabled-set unions, the siliconflow slot and effort/gemma mechanism tests) updated in the same pass via the `registry_variant(enable=…)` knob.
-- **Registry: long-context scores measured, not seeded (second commit).** The Nov 27 escalation master cause was sensitive L4 long-context turns with no qualified private-free candidate: the private-free lane's long-context scores were seeds. A purpose-built long-context battery (~76–111k-token synthetic tasks, calibrator-controlled) measured them: `groq/qwen3.6-27b` and `groq/qwen3.8-27b` long-context 3 → 4, `groq/gpt-oss-20b` 2 → 3, `groq/gpt-oss-120b` stamped at 3 — all `long_context_source: long-context-battery:2026-11-27`, `verified_until: 2026-12-27`. Live-proven before this release shipped: an unpinned hermes sensitive L4 turn at 74,714 tokens served on `groq/qwen3.6-27b`, private-free, escalated:false. `openrouter/free-router` and `openrouter/nemotron-3-ultra` remain UNMEASURED (every battery pin hit the OpenRouter free-pool upstream 429) — re-run in a quieter window.
+Conflict resolutions:
+- `src/gateway.py`: the only conflict was the `VERSION` line, now `0.10.7`. Muse's `_shape_reasoning_effort` / `_temperature_stripped` and B/C's depth cap, tool-error detector and tier shadow merged cleanly and all remain.
+- `tests/test_paid_spillway.py`: the version assert is `0.10.7`, and its comment carries the full v0.10.3 to v0.10.7 history.
+- `tests/test_smoke_providers.py`: both `V0103_DISABLED_IDS` (Muse's five dead lanes) and `V0107_IMPORT_DISABLED_IDS` are kept, and both are in the disabled-set union.
+- `CHANGELOG.md`: entries are ordered by version (0.10.7, 0.10.6, 0.10.5, 0.10.4, 0.10.3, 0.10.2).
+- Enabled count 78 (v0.10.3's five disables apply; all 12 imports remain disabled), total entries 110.
+
+### Added — v0.10.7 model import (registry, tools and docs; 2026-11-27)
+
+Jordan's order 2026-11-27 23:06 MST: "pull the relevant models both free and not into ours". The 12 new entries all ship **disabled**, so routing is unchanged (enabled count stays 78 after v0.10.3's five disables; total entries 98 + 12 = 110).
+
+- **PENDING-PROBE** (the key already exists on VM103):
+  - `deepinfra/qwen3-coder-480b-turbo` ($0.30/$1.00)
+  - `deepinfra/qwen3-coder-30b` ($0.07/$0.26)
+  - `deepinfra/deepseek-v4.1-flash` (list $0.20/$0.60, 1M ctx)
+  - `deepinfra/nemotron-3-ultra` ($0.50/$2.20)
+  - `deepinfra/kimi-k2.6` ($0.75/$3.50)
+  - `huggingface/qwen3-coder-480b` (`:deepinfra`, $0.30/$1.00)
+  - `nvidia/nemotron-3-ultra` (free; evaluation terms, logged)
+  - `nvidia/kimi-k3.1-pro` (free; evaluation terms, logged)
+- **PENDING-KEY** (needs Jordan's signup):
+  - `orcarouter/deepseek-v4.1-flash-free`
+  - `orcarouter/glm-5.3-flash-free`
+  - `kilo/auto-free`
+  - `kilo/beam-free`
+- Every paid price was verified 2026-11-27 from the provider's public pricing API. Quality figures are seeds; no tooling score is set before the battery runs.
+- Tests: `tests/test_v0107_model_import.py` (new). The registry count and disabled/sensitive sets in the existing tests are updated.
+- **Probe results (Jordan's go 2026-11-27 11:18 PM MT):** minimal direct chat + tool + code calls from VM103 to all 8 keyed entries. Seven passed (READY-TO-ENABLE); `deepinfra/qwen3-coder-30b` failed its first code test and is verbose (NOT-READY). All stay disabled. `nvidia/kimi-k3.1-pro` latency measured at 49-76s, so its `latency_p50_ms` is now 50000. Total test spend about $0.005.
+- **Backup coder preference:** `CLASS_PREFERRED["code"]["cheap"]` is now nrouter qwen3-coder, then deepinfra qwen3-coder-480b-turbo, then huggingface/qwen3-coder-480b (non-sensitive only). Shadow-only; the last two are disabled.
+- **HF router catalog source:** new `tools/hf_catalog.py`, wired into `tools/price_check.py` and `tools/discovery_tripwire.py` via `--hf-file/--hf-url` (public endpoint, no credential, report-only). Tests in `tests/test_hf_catalog_tools.py`.
+- **Plan only:** `docs/EMBEDDINGS-RERANK-PLAN-2026-11-27.md` (Bounded Job Card for an embeddings + rerank service; nothing built).
+- Docs: `docs/MODEL-IMPORT-2026-11-27.md` covers the evidence grades, the candidates rejected and why (CF kimi-k2.6 deprecated, ZenMux free sunset, no verified free Qwen coder), and the image-gen shortlist.
+
+### Added — Job D: nightly scorecard, proposals only (2026-11-27; tools-only)
+
+Owner go 2026-11-27 20:25 MST, "Do B C D".
+
+- **`tools/scorecard.py`** reads `routes.jsonl` as text and `quota.db` read-only (sqlite `mode=ro`), and names models from `registry.json` without ever writing it. It reports for a window (default 24h):
+  - Per client: requests, non-200, average and worst-day cost vs target, sensitive share, tool-error-next-turn rate, spillway/premium serves, depth-cap hits, `premium_not_required_congestion` skips.
+  - Production tool outcomes per model.
+  - Failed attempts by class, by congested pool and by dead entry, plus fallback depth.
+  - Top model × class serves.
+  - The v0.10.6 `tier_shadow` agreement by class, with tier moves and top swaps.
+- **Proposals.** Each has an id, evidence, proposed change, risk and status "PROPOSED — needs Jordan's approval; nothing applied". Kinds:
+  - tool_quality: ≥20% errors on ≥30 judged turns.
+  - dead_entry: ≥10 entry_missing/account_dead; skipped when the registry already has the entry disabled.
+  - pool_pressure: one pool ≥50% of failed attempts.
+  - depth: max depth ≥6.
+  - cost: average or worst day over target.
+  - sensitivity: OpenClaw >50% flagged.
+  - tier_policy: shadow disagreement ≥30% on ≥50 rows of a class.
+- **Output.** `--out DIR` writes `scorecard-<date>.md/.json`, and `--stdout` prints. Nothing else is written.
+- **Schedule.** `deploy/cron/scorecard.cron` ships commented out (inactive). Activating it is a separate owner decision. No n8n workflow was created.
+- **First run.** On VM103 live logs (72h to 2026-11-27 20:43 MST), run read-only from a RAM temp copy that was then deleted. Report: `reports/scorecard/scorecard-2026-11-27-72h.md`. It made 6 proposals: free-router tooling 4→3 (29% on 52), ling-3.2-flash-free re-probe/disable (10 entry_missing), Cloudflare pool pressure (50% of failures), depth (max 21), Hermes worst day $1.41 vs $1.25, and OpenClaw 98% sensitive → v0.10.4.
+- Tests: `tests/test_scorecard_job_d.py` (7): read-only proof (DB/routes/registry hashes unchanged, only `--out` written), `mode=ro` refuses writes, card contents and every proposal kind, already-disabled entries not proposed, worst-day cost, empty state, cron inactive.
+
+## [0.10.6] — 2026-11-27
+
+**v0.10.6 — Job C of the tiered-routing plan: per-class tiered ranking in SHADOW mode** (owner go 2026-11-27 20:25 MST, "Do B C D"; policy reading 2026-11-27 17:26 MST — "best" = best for the request type and the tools/capability it needs; per class: best free, then best cheap, then premium only when required). Built on v0.10.5 (Job B). **Routing is unchanged.**
+
+- **New `src/tiering.py`.** It ranks the live candidate list, which already has the sensitive wall, lanes, premium gate, tools support, quality floor, context, limits and cooldowns applied by `build_candidates`. The ranking key is tier (free = $0 free-lane entry < cheap = paid or priced private-free < premium), then the owner-preferred specialist for the class, then measured score, then estimated price, then p50 latency.
+  - Score is `_selection_quality`: on tool turns that is min(tooling, class quality), the live definition, minus a production tool-error penalty (−1 at ≥15%, −2 at ≥30% on ≥20 judged turns in the 72h `tool_outcomes` window, cached 60s).
+  - Classes: chat / infra / code / reasoning / long-context.
+  - Capability tags: `tools`, `vision` (entries without `supports_vision` are ineligible), `structured-output` (recorded only; no registry flag yet).
+  - Owner defaults: the free coder is `unorouter/codestral-latest` and the cheap coder is `nrouter/qwen3-coder-480b-a35b`. Each is preferred only within its own tier and only when already eligible. Codestral is public-only-free, so it is never a pick for a sensitive turn.
+  - No image-generation class yet.
+- **Shadow logging.** Every route row gains `tier_shadow`: `{pick, pick_tier, live_pick, live_tier, agree, task_class, tags, low_confidence (<0.6), reason (pinned/sticky/spillway), top: [3 × {model, tier, score, preferred, cost_usd}]}`. `/v1/shadow` gains `tiered_shadow`. `SOVEREIGN_TIER_SHADOW=0` disables it. A shadow exception only adds the `tier_shadow_error` signal and never affects serving.
+- **Proof that routing is unchanged.** For five prompts (hermes/openclaw/n8n, L1–L5, sensitive, failover with deterministic 429s), status, served model, the full upstream call sequence and the response body are identical with the shadow on and off.
+- Tests: `tests/test_v0106_tier_shadow.py` (18). E2E harness gains section "F tier-shadow" (4 checks: every served row carries it; a sensitive row's shadow pick is never public-only-free; the shadow never picks premium while a free/cheap candidate exists; `/v1/shadow` live_pick matches would_route_to). The harness boot check now reads this tree's VERSION. Unit suite 905.
+
+## [0.10.5] — 2026-11-27
+
+**v0.10.5 — Job B of the tiered-routing plan: honest tool-error detector, fallback-depth cap, no premium on congestion** (owner go 2026-11-27 20:25 MST, "Do B C D"; plan in the Drive doc *GROK - Sovereign Router Classification, Tiers & Self-Correction - 2026-11-27*). Built on top of v0.10.4 (not yet merged/deployed) so the two ship together; 0.10.3 stays reserved for the parked reasoning_effort shaping build.
+
+- **Tool-error detector (`_tool_text_has_error`).** Pre-v0.10.5 any tool result containing the substring `"error"` counted as an error, so success payloads such as `{"error": null, ...}`, `{"ok": true, "error": ""}` or `{"errors": []}` were counted. That signal feeds `tool_error_next_turn` on the route row, the F2 sticky break and the v0.10.2 production tool-error ledger, so false positives could demote healthy models. The detector now parses JSON and counts an error only when an error-ish key carries a real value, an `is_error`/`isError` flag is true, `ok`/`success` is false, or `status` is in an error vocabulary (one level of `result`/`data`/`content` wrappers and MCP content arrays included). Plain text counts when it starts with Error/Traceback/Exception/fatal/failed, except zero-count lines like `errors: 0`. Unparseable JSON still counts a non-empty `"error": "…"` field. The telemetry window check now uses the same function.
+- **Fallback-depth cap.** At most `MAX_UPSTREAM_ATTEMPTS = 6` upstream calls per turn across the free-first pass, the same-model length retry, validation escalation and the paid spillway (`SOVEREIGN_MAX_UPSTREAM_ATTEMPTS` overrides). The 72h census to 2026-11-27 saw depths of up to 21. When a spillway can still engage, the free pass hands over after 4 calls (`SPILLWAY_RESERVED_ATTEMPTS = 2`), so a congested free pool cannot consume the whole budget. If no spillway candidate exists the free pass continues to the cap. Route rows carry `fallback_depth_cap:6` / `fallback_depth_reserve_spillway:<n>` signals.
+- **No premium on congestion.** In the spillway pass, premium entries are kept only when the request itself permits premium (client allows it AND level 5 or an explicit premium ask), or when no paid entry can meet the quality floor at all (capability, judged without momentary rate limits). Otherwise they are skipped with reason `premium_not_required_congestion`. **Behaviour change:** a turn whose free AND paid candidates are all congested now returns 429 instead of being rescued by premium. In the local E2E, v0.10.4 made 66 upstream calls and served premium in that scenario; v0.10.5 makes at most 6 and never calls premium.
+- Tests: `tests/test_v0105_tool_error_depth_cap.py` (54 — 18 not-error and 18 error payloads, route-row signal, F2 helper, cap JSON/stream, reserve handover, env override, no-premium for hermes/openclaw JSON/stream, premium still serves at L5 and when no paid clears the floor). E2E harness gains section "E routing" (22 checks); the same section against v0.10.4 fails 11/22. Unit suite 887 (833 + 54).
 
 ## [0.10.4] — 2026-11-27
 
@@ -34,6 +108,15 @@ reports its version at `GET /health` (`version` field) and in the
   - Differential fuzz over 60,000 cases found 0 superset violations and 0 unexplained differences.
   - The same harness against v0.10.2 fails 59/59 OpenClaw runtime-line checks.
 - Tests: `tests/test_session_key_exclusion.py` (25). Suite 833 (808 + 25).
+
+## [0.10.3] — 2026-11-27
+
+**v0.10.3 — last-resort request shaping + dead-lane registry cleanup, 2026-11-27** (from the owner's cleanup loop over the Nov 26 soak breaches; every remedy below is quoted from the upstream's own captured error body, persisted since v0.10.1. Rebased onto v0.10.4 — merged earlier the same day, see its entry below; the label order follows the reservation recorded there, and this build ships both changes):
+
+- **reasoning_effort value shaping (`_shape_reasoning_effort`).** Two premium last resorts reject specific reasoning_effort *values* with hard 400s — and 400 is not in FAILOVER_STATUSES, so the poisoned value fails the whole turn when the cascade reaches these entries with nothing behind them. Narrow by provider+model, on the per-attempt upstream body: **premium/gpt-5.5 with tools → reasoning_effort forced to "none"** (OpenAI: function tools with a graded reasoning_effort are not supported for gpt-5.5 in /v1/chat/completions; an omitted field defaults server-side to a graded effort, so the value is set even when absent — tool-free turns keep the client's effort); **zai/glm-5.3 "none" → "low"** (Z.ai error 1210: the model always thinks and accepts only low/high/max; an absent field stays absent). Tests: `tests/test_reasoning_effort_shaping.py`.
+- **Temperature guard for premium/gpt-5.5 (`_temperature_stripped`).** The same entry also rejects a client *temperature*: "Unsupported value: 'temperature' does not support 0.2 with this model" (error_body, 2026-11-27 19:22 UTC — three n8n L5 turns died end-to-end when the free pass exhausted on the OpenRouter daily cap + Cloudflare neuron wall and the premium step then 400'd on the forwarded 0.2). GPT-5-class reasoning models run at their default temperature only, so for direct-OpenAI gpt-5.5 the gateway omits the field and lets the upstream default apply; every other entry keeps the client's temperature exactly as sent. Folded into this release as its third commit on the owner's ruling. Tests: `tests/test_reasoning_effort_shaping.py`.
+- **Registry: five proven-dead lanes disabled.** `meta/muse-spark-1.1`, `meta/muse-spark-1.2`, `meta/muse-spark-1.3` (402 `billing_not_configured`, account_dead), `ollama/gpt-oss-120b` (402) and `novita/gpt-oss-120b` (403 ACCESS_DENY) — each burned cascade attempts on every turn that reached it; disabled on error-body proof, not deleted, each entry's note records the evidence. Enabled count 83 → 78; coupled test premises (pin maps, disabled-set unions, the siliconflow slot and effort/gemma mechanism tests) updated in the same pass via the `registry_variant(enable=…)` knob.
+- **Registry: long-context scores measured, not seeded (second commit).** The Nov 27 escalation master cause was sensitive L4 long-context turns with no qualified private-free candidate: the private-free lane's long-context scores were seeds. A purpose-built long-context battery (~76–111k-token synthetic tasks, calibrator-controlled) measured them: `groq/qwen3.6-27b` and `groq/qwen3.8-27b` long-context 3 → 4, `groq/gpt-oss-20b` 2 → 3, `groq/gpt-oss-120b` stamped at 3 — all `long_context_source: long-context-battery:2026-11-27`, `verified_until: 2026-12-27`. Live-proven before this release shipped: an unpinned hermes sensitive L4 turn at 74,714 tokens served on `groq/qwen3.6-27b`, private-free, escalated:false. `openrouter/free-router` and `openrouter/nemotron-3-ultra` remain UNMEASURED (every battery pin hit the OpenRouter free-pool upstream 429) — re-run in a quieter window.
 
 ## [0.10.2] — 2026-11-27
 

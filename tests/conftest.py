@@ -9,6 +9,9 @@ Markers:
   FAIL::<upstream model>   -> that model returns 429
   PLEASE_EMPTY             -> groq gpt-oss-120b returns an empty answer
   BADTOOL_STREAM           -> free models stream a tool call with bad JSON args
+  BADTOOL_FIRST2           -> the first TWO upstream calls for this conversation
+                              text return invalid tool args (any model), later
+                              calls are valid (exercises repeated escalation)
 """
 
 from __future__ import annotations
@@ -26,6 +29,8 @@ SRC = Path(__file__).resolve().parent.parent / "src"
 sys.path.insert(0, str(SRC))
 
 from gateway import GatewayConfig, create_app  # noqa: E402
+
+_FIRST2_CALLS: dict = {}
 
 RAW_KEYS = {
     "hermes": "hermes-test-key",
@@ -99,6 +104,10 @@ def fake_upstream(request: httpx.Request) -> httpx.Response:
         if wants_tool:
             name = tools[0]["function"]["name"]
             bad = "BADTOOL_STREAM" in text and model in FREE_MODELS
+            if "BADTOOL_FIRST2" in text:
+                n = _FIRST2_CALLS.get(text, 0)
+                _FIRST2_CALLS[text] = n + 1
+                bad = n < 2
             # arguments split across chunks, but not inside the word
             # "command", so tests can assert on the reassembled call
             arg_parts = ["{not-", "json"] if bad else ['{"command": ', '"ls"}']
@@ -125,6 +134,15 @@ def fake_upstream(request: httpx.Request) -> httpx.Response:
     # non-streaming
     if "PLEASE_EMPTY" in text and model == "openai/gpt-oss-120b":
         return httpx.Response(200, json=_completion(model, ""))
+    if "BADTOOL_FIRST2" in text:
+        n = _FIRST2_CALLS.get(text, 0)
+        _FIRST2_CALLS[text] = n + 1
+        name = (body.get("tools") or [{}])[0].get("function", {}).get("name", "run")
+        args = "{oops" if n < 2 else '{"command":"ls"}'
+        return httpx.Response(200, json=_completion(
+            model, None, finish="tool_calls",
+            tool_calls=[{"id": "c1", "type": "function",
+                         "function": {"name": name, "arguments": args}}]))
     if "BADTOOL" in text and model in FREE_MODELS:
         name = (body.get("tools") or [{}])[0].get("function", {}).get("name", "run")
         return httpx.Response(200, json=_completion(

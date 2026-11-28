@@ -150,3 +150,36 @@ def test_latest_tool_error_looks_only_at_the_trailing_tool_results():
     # a plain-text "Error: ..." prefix counts; the word elsewhere does not
     assert _latest_tool_error(_msgs(["Error: file not found"])) is True
     assert _latest_tool_error(_msgs(["no errors found"])) is False
+
+
+# ----------------------------------------------------------------------
+# per-client break threshold (v0.9.3, opt-in; default = global constant)
+# ----------------------------------------------------------------------
+
+def test_per_client_break_after_three_tolerates_two_errors(app, client):
+    app.state.clients.get("hermes").tool_error_break_after = 3
+    first, _ = _post(client, [])
+    _post(client, [OK]); _post(client, [OK, ERR])
+    still, _ = _post(client, [OK, ERR, ERR])          # 2 in a row: tolerated
+    assert still == first
+    switched, _ = _post(client, [OK, ERR, ERR, ERR])  # 3 in a row: break
+    assert switched != first
+
+
+def test_per_client_break_after_default_is_unchanged_and_invalid_ignored(app, client):
+    from clients import load_clients
+    import json, tempfile, pathlib
+    d = pathlib.Path(tempfile.mkdtemp()) / "c.json"
+    base = {"id": "x", "key_sha256": "0" * 64}
+    d.write_text(json.dumps({"clients": [
+        dict(base), dict(base, id="y", tool_error_break_after=0),
+        dict(base, id="z", tool_error_break_after=3)]}))
+    st = load_clients(d)
+    assert st.get("x").tool_error_break_after is None
+    assert st.get("y").tool_error_break_after is None      # 0 is falsy -> default
+    assert st.get("z").tool_error_break_after == 3
+    # default path still breaks at 2 (covered by the pre-existing tests)
+    first, _ = _post(client, [])
+    _post(client, [OK]); _post(client, [OK, ERR])
+    switched, _ = _post(client, [OK, ERR, ERR])
+    assert switched != first

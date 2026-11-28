@@ -1,0 +1,7 @@
+{
+  "source": "VM103 live routes.jsonl, 25,902 rows, 2026-11-02..2026-11-20, aggregates only (no message content)",
+  "caveat": "rates are tool_error_next_turn on sticky rows (the v0.9.1 attribution, which lands on whichever model serves the next turn); models with >=30 sticky turns",
+  "model_tool_error_rate": {"cloudflare/gpt-oss-120b": 0.293, "deepinfra/deepseek-v4-flash": 0.288, "deepinfra/deepseek-v4-flash-0731": 0.398, "deepinfra/gpt-oss-120b": 0.134, "google/gemini-3.1-flash-lite": 0.019, "groq/gpt-oss-120b": 0.209, "groq/gpt-oss-20b": 0.258, "groq/qwen3.8-27b": 0.04, "huggingface/deepseek-v4-flash": 0.071, "huggingface/gpt-oss-120b-cerebras": 0.296, "mistral/codestral": 0.133, "novita/gpt-oss-120b": 0.359, "nvidia/nemotron-3-nano-omni": 0.39, "nvidia/nemotron-3.5-lightning": 0.325, "openrouter/dots-3-note-preview-free": 0.272, "openrouter/free-router": 0.17, "openrouter/nemotron-3-nano-omni-free": 0.614, "openrouter/nemotron-3-ultra-free": 0.203, "openrouter/nemotron-3.5-lightning-free": 0.363, "openrouter/north-mini-code-free": 0.306, "zai/glm-4.5-flash": 0.381},
+  "hermes_sticky_run_length_hist": [[1,724],[2,251],[3,217],[4,142],[5,84],[6,86],[7,59],[8,45],[9,44],[10,31],[11,30],[12,34],[13,32],[14,20],[15,162]],
+  "live_v091_baselines": {"all_escalation": 0.071, "n8n_escalation": 0.031, "n8n_sticky_tool_err": 0.037, "hermes_sticky_tool_err": 0.328, "openclaw_sticky_tool_err": 0.126}
+}

@@ -16,8 +16,11 @@
 #       -> gateway (no published port; proxy network + internal network)
 #         -> classifier sidecar (internal network only, no published port)
 #
-# Production v0.2.1 on :6070 is NOT part of this stack and MUST stay running
-# untouched — it is the rollback path.
+# Rollback path (corrected 2026-11-19, F-21): the v0.2.1 gateway on :6070 is
+# retired and is NOT the rollback target. Rollback is a Proxmox snapshot of
+# VM103 plus redeploy of the previous tagged gateway image (see
+# docs/IMPROVEMENT-LOOP.md, deploy gate). Never remove a prior image before
+# its replacement has soaked.
 
 name: sovereign-router-v05
 

@@ -84,6 +84,8 @@ never in the registry, compose files, logs or this source tree.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 import asyncio
 import json
 import os
@@ -106,6 +108,7 @@ from registry import FREE_LANES, ModelEntry, Registry, load_registry
 from sensitivity import scan_messages
 from sticky import (StickyStore, TOOL_ERROR_BREAK_AFTER,
                     conversation_key)
+from tool_health import ToolHealth
 from telemetry import RouteRecord, Telemetry
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
@@ -203,6 +206,15 @@ def _latest_tool_error(messages: list[dict]) -> bool:
     return any(_tool_text_has_error(_message_text(m)) for m in trailing)
 
 
+# v0.9.3: how many times ONE request may escalate after a failed validation
+# (invalid tool-call arguments, empty answer, ...). It used to be exactly
+# one, which meant that when the escalation target ALSO failed validation the
+# known-invalid tool call was delivered to the client even though more
+# candidates remained. Two keeps the cost/latency bound (at most three
+# attempts) while closing that hole; found by the live e2e harness.
+MAX_VALIDATION_ESCALATIONS = 2
+
+
 def _selection_quality(entry: ModelEntry, task_class: str,
                        has_tools: bool) -> int:
     """The quality selection ranks and floors on (v0.9.0, Cycle 1
@@ -282,17 +294,24 @@ TOKEN_ESTIMATE_FACTOR = 1.05       # carried from v0.3 (o200k_base x1.05)
 # token estimation (tiktoken o200k_base, as v0.3; heuristic fallback)
 # ----------------------------------------------------------------------
 _ENCODING = None
+_ENCODING_FAILED = False   # v0.9.3: a failed load is remembered, not retried
 
 
 def _encode_len(text: str) -> int:
-    global _ENCODING
-    try:
-        import tiktoken
-        if _ENCODING is None:
-            _ENCODING = tiktoken.get_encoding("o200k_base")
-        return len(_ENCODING.encode(text))
-    except Exception:
-        return max(1, len(text) // 4)
+    """Token count. The tokenizer load can block (it may try to download
+    its vocabulary); a failure is cached so it costs ONE delay per
+    process, not one per call (seen: ~1 s on every request when the
+    download is blocked)."""
+    global _ENCODING, _ENCODING_FAILED
+    if not _ENCODING_FAILED:
+        try:
+            if _ENCODING is None:
+                import tiktoken
+                _ENCODING = tiktoken.get_encoding("o200k_base")
+            return len(_ENCODING.encode(text))
+        except Exception:
+            _ENCODING_FAILED = True
+    return max(1, len(text) // 4)
 
 
 def estimate_input_tokens(body: dict[str, Any]) -> int:
@@ -603,6 +622,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         enabled=cfg.emergency_enabled, daily_limit_usd=cfg.emergency_daily_usd,
         warn_only=cfg.emergency_warn_only))
     sticky = StickyStore()
+    tool_health = ToolHealth(cfg.state_dir / "tool_health.json")
     telemetry = Telemetry(cfg.state_dir / "routes.jsonl")
     provider_keys = cfg.load_provider_keys()
 
@@ -617,13 +637,20 @@ def create_app(config: Optional[GatewayConfig] = None,
         if sidecar_transport else None
     classifier = Classifier(sidecar_url=cfg.sidecar_url, http_client=sidecar_client)
 
-    app = FastAPI(title="Sovereign Router", version=VERSION)
+    @asynccontextmanager
+    async def _lifespan(_app):
+        yield
+        # restart must not lose unsaved tool-health turns (v0.9.3 fix)
+        _app.state.tool_health.flush()
+
+    app = FastAPI(title="Sovereign Router", version=VERSION, lifespan=_lifespan)
     app.state.cfg = cfg
     app.state.registry = registry
     app.state.clients = clients
     app.state.store = store
     app.state.governor = governor
     app.state.sticky = sticky
+    app.state.tool_health = tool_health
     app.state.telemetry = telemetry
     app.state.classifier = classifier
     app.state.provider_keys = provider_keys
@@ -703,6 +730,11 @@ def create_app(config: Optional[GatewayConfig] = None,
                     skip("premium_not_allowed"); continue
             elif not client.lane_allowed(entry.lane):
                 skip("lane_not_allowed"); continue
+            if not client.model_allowed(entry.id):
+                # v0.9.3: the owner's per-client allowlist is a hard
+                # client constraint in every pass (spillway included);
+                # empty list = no restriction (default).
+                skip("client_model_allowlist"); continue
             if paid_off_reason and entry.lane in ("paid", "premium"):
                 skip(paid_off_reason); continue
             if not app.state.provider_keys.get(entry.provider):
@@ -924,6 +956,7 @@ def create_app(config: Optional[GatewayConfig] = None,
                                 "reason": f"pin_blocked:{reason}"}
         if explicit_entry.lane in client.lanes and not (
                 paid_off_reason and explicit_entry.lane in ("paid", "premium")) \
+                and client.model_allowed(explicit_entry.id) \
                 and app.state.provider_keys.get(explicit_entry.provider):
             candidates.insert(0, explicit_entry)
         return candidates, None
@@ -1126,6 +1159,16 @@ def create_app(config: Optional[GatewayConfig] = None,
             return _err(400, "unknown client_id", "invalid_request")
         app.state.store.set_killswitch(client_id, active)
         return {"client_id": client_id, "killswitch_active": active}
+
+    @app.get("/admin/tool-health")
+    async def admin_tool_health(request: Request) -> Any:
+        """Observe-only: per-model tool-loop outcome rates attributed to
+        the model that made the call, with the cap a future enforcement
+        (decision J-2, OPEN) WOULD apply. Selection never reads this."""
+        if not auth_admin(request):
+            return _err(401, "admin key required", "authentication_error")
+        return JSONResponse({"observe_only": True,
+                             "models": app.state.tool_health.snapshot()})
 
     @app.get("/admin/alerts")
     async def admin_alerts(request: Request, after: int = 0) -> Any:
@@ -1373,7 +1416,8 @@ def create_app(config: Optional[GatewayConfig] = None,
 
         # 413 pre-check: no lane-allowed model can EVER fit -> 413.
         lane_entries = [e for e in app.state.registry.entries
-                        if e.enabled and client.lane_allowed(e.lane)]
+                        if e.enabled and client.lane_allowed(e.lane)
+                        and client.model_allowed(e.id)]
         if lane_entries and all(
                 est_tokens + MIN_OUTPUT_TOKENS > e.context_tokens
                 for e in lane_entries):
@@ -1412,9 +1456,17 @@ def create_app(config: Optional[GatewayConfig] = None,
         # that hallucinated tool names) held a whole session or cron run.
         sticky_broken_model = None
         if sticky_entry is not None and in_tool_loop:
+            latest_err = _latest_tool_error(messages)
+            # v0.9.3 (observe-only): the sticky model made the tool call
+            # whose result just came back, so the outcome is attributed
+            # to IT — exact attribution, unlike the route row's
+            # tool_error_next_turn which lands on whichever model serves
+            # the next turn. Never read by selection (decision J-2).
+            app.state.tool_health.record(sticky_entry.model_id, latest_err)
             run = app.state.sticky.record_tool_outcome(
-                conv_key, _latest_tool_error(messages))
-            if run >= TOOL_ERROR_BREAK_AFTER:
+                conv_key, latest_err)
+            break_after = client.tool_error_break_after or TOOL_ERROR_BREAK_AFTER
+            if run >= max(1, break_after):
                 sticky_broken_model = sticky_entry.model_id
                 app.state.sticky.avoid(conv_key, sticky_broken_model)
                 app.state.sticky.invalidate(conv_key)
@@ -1525,7 +1577,15 @@ def create_app(config: Optional[GatewayConfig] = None,
         )
         fingerprint = telemetry.outcomes.fingerprint(
             client.id, system_text, last_user_text, [n for n in tool_names if n])
-        record.repeat_within_60s = telemetry.outcomes.check_and_record(fingerprint)
+        # v0.9.3: a tool-loop continuation (last message is a tool
+        # result) is the SAME fingerprint on every step by construction
+        # (system + last user text + tool names never change inside a
+        # loop), so it is not "a retry of a turn the client disliked".
+        # 74% of Hermes rows were flagged for exactly this. Fresh user
+        # turns are still checked.
+        record.repeat_within_60s = (
+            False if in_tool_loop
+            else telemetry.outcomes.check_and_record(fingerprint))
         if record.repeat_within_60s:
             record.signals.append("repeat_within_60s")
         if has_tool_error:
@@ -1690,6 +1750,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                          spillway_builder: Any = None) -> Any:
     telemetry: Telemetry = app.state.telemetry
     escalated = False
+    esc_count = 0
     last_failures: list[str] = []
     retried_same: set[int] = set()
     budget_override: Optional[int] = None
@@ -1762,7 +1823,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
             and bool(_msg0.get("tool_calls"))
 
         failures = validate_response(data, tools=tools or None, json_mode=json_mode)
-        if failures and not escalated:
+        if failures and esc_count < MAX_VALIDATION_ESCALATIONS:
             if "length_no_content" in failures and entry.reasoning \
                     and idx not in retried_same:
                 # Reasoning models can spend the entire output budget on
@@ -1807,6 +1868,7 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                     None)
             if esc_idx is not None:
                 escalated = True
+                esc_count += 1
                 last_failures = failures
                 skipped.append({"model": entry.id,
                                 "reason": "validation_failed:" + ",".join(failures)})
@@ -1896,6 +1958,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
     async def produce() -> AsyncIterator[str]:
         nonlocal candidates, spillway_reason
         escalated = False
+        esc_count = 0
         if spillway_reason is not None:
             # Selection-time spillway (v0.5.5): the row must show the
             # fallthrough even though the streaming validation machine
@@ -2037,7 +2100,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                             and assembler.has_tool_calls
                         failures = validate_response(
                             assembled, tools=tools or None, json_mode=False)
-                        if failures and not escalated:
+                        if failures and esc_count < MAX_VALIDATION_ESCALATIONS:
                             entry_q = _selection_quality(
                                 entry, task_class, bool(tools))
                             target_q = entry_q + 1
@@ -2063,6 +2126,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                     + ",".join(failures))
                             if esc_idx is not None:
                                 escalated = True
+                                esc_count += 1
                                 record.escalation_reasons = failures
                                 skipped.append({
                                     "model": entry.id,

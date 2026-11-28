@@ -112,7 +112,7 @@ from toolstats import ToolErrorTracker
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.10.4"
+VERSION = "0.10.3"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -299,6 +299,56 @@ def _tool_shaped(body: dict[str, Any]) -> bool:
         if msg.get("role") == "tool" or msg.get("tool_calls"):
             return True
     return False
+
+
+# ----------------------------------------------------------------------
+# reasoning_effort value shaping (v0.10.3, 2026-11-27 cleanup loop)
+# ----------------------------------------------------------------------
+# Two premium last resorts reject specific reasoning_effort VALUES
+# with hard 400s (captured verbatim in attempt_events.error_body);
+# 400 is not in FAILOVER_STATUSES, so a poisoned value fails the
+# whole turn when the cascade reaches these entries with nothing
+# left behind them. Both remedies are the upstreams' own error text:
+# * OpenAI gpt-5.5 + function tools: function tools with a graded
+#   reasoning_effort are not supported for gpt-5.5 in
+#   /v1/chat/completions; the accepted value on a tool-bearing turn
+#   is "none". An omitted field defaults server-side to a graded
+#   effort, so the value is SET even when the client sent none.
+#   Tool-free turns keep the client's effort untouched.
+# * Z.ai glm-5.3 (error 1210): the model always thinks and accepts
+#   only low/high/max; a client-sent "none" is rewritten to "low".
+#   An absent field stays absent — Z.ai applies its own default.
+def _shape_reasoning_effort(entry: ModelEntry, out: dict[str, Any]) -> None:
+    """Rewrite a reasoning_effort value this entry's upstream would
+    400 on (v0.10.3). Narrow by provider+model; `out` is the
+    per-attempt upstream body, so the rewrite cannot leak into a
+    fallback attempt to a different provider."""
+    if entry.provider == "openai" and entry.model == "gpt-5.5":
+        if _tool_shaped(out):
+            out["reasoning_effort"] = "none"
+    elif entry.provider == "zai" and entry.model == "glm-5.3":
+        if out.get("reasoning_effort") == "none":
+            out["reasoning_effort"] = "low"
+
+
+# ----------------------------------------------------------------------
+# temperature guard (v0.10.3, 2026-11-27 cleanup loop — third shape)
+# ----------------------------------------------------------------------
+# premium/gpt-5.5 also rejects a client TEMPERATURE: "Unsupported
+# value: 'temperature' does not support 0.2 with this model"
+# (attempt_events.error_body, 2026-11-27 19:22 UTC — three n8n L5
+# turns died end-to-end when the free pass exhausted on the
+# OpenRouter daily cap + Cloudflare neuron wall and the premium step
+# then 400'd on the forwarded 0.2). GPT-5-class reasoning models run
+# at their default temperature only; omitting the field lets the
+# upstream default apply. Narrow by provider+model, like the effort
+# shaping above — every other entry keeps the client's temperature.
+def _temperature_stripped(entry: ModelEntry) -> bool:
+    """True when a client temperature must not reach this entry's
+    upstream (v0.10.3): direct-OpenAI gpt-5.5 rejects every
+    non-default value. Aggregator-fronted gpt-5.5 is normalized by
+    that stack and is not touched."""
+    return entry.provider == "openai" and entry.model == "gpt-5.5"
 
 
 # ----------------------------------------------------------------------
@@ -1191,6 +1241,15 @@ def create_app(config: Optional[GatewayConfig] = None,
             # top-level reasoning_effort; strip it no matter whether
             # the client or the entry's extra_body put it there.
             out.pop("reasoning_effort", None)
+        # Value shaping (v0.10.3): two last-resort upstreams 400 on
+        # specific reasoning_effort VALUES rather than the field
+        # itself; rewrite to the value their own error text names.
+        _shape_reasoning_effort(entry, out)
+        if _temperature_stripped(entry):
+            # Temperature guard (v0.10.3): this upstream 400s on any
+            # non-default temperature; omit the field so the upstream
+            # default applies, no matter what the client sent.
+            out.pop("temperature", None)
         if _needs_thought_signature_bypass(entry):
             # Gemini 3 signature validation (v0.10.1): tool calls the
             # conversation inherited from other models carry no Google

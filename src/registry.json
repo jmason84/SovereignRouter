@@ -26,16 +26,17 @@
         "chat": 2,
         "code": 2,
         "infra": 2,
-        "long-context": 2,
+        "long-context": 3,
         "reasoning": 2,
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-19",
+      "verified_until": "2026-12-27",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-09",
-      "tooling_source": "tooling-battery:2026-11-19"
+      "tooling_source": "tooling-battery:2026-11-19",
+      "long_context_source": "long-context-battery:2026-11-27"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -67,11 +68,12 @@
         "tooling": 4
       },
       "reasoning": true,
-      "verified_until": "2026-12-19",
+      "verified_until": "2026-12-27",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-09",
-      "tooling_source": "tooling-battery:2026-11-19"
+      "tooling_source": "tooling-battery:2026-11-19",
+      "long_context_source": "long-context-battery:2026-11-27"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -98,15 +100,16 @@
         "chat": 3,
         "code": 3,
         "infra": 3,
-        "long-context": 3,
+        "long-context": 4,
         "reasoning": 3,
         "tooling": 4
       },
-      "verified_until": "2026-12-19",
+      "verified_until": "2026-12-27",
       "price_source": "groq:docs models page (Developer plan figures)",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-09",
-      "tooling_source": "tooling-battery:2026-11-19"
+      "tooling_source": "tooling-battery:2026-11-19",
+      "long_context_source": "long-context-battery:2026-11-27"
     },
     {
       "cached_input_usd_per_million": 0.0,
@@ -129,7 +132,7 @@
         "rpm": 20
       },
       "model": "cohere/north-mini-code:free",
-      "notes": "Spec: private-free only because data_collection=deny is enforced via extra_body on every call. About 1,000 requests/day shared across clients (rpd). Code quality seeded 4 (it is a code model); other classes at the spec's flat 3. 2026-11-04: reasoning disabled via extra_body - direct probes showed this endpoint's hidden reasoning expands to consume ANY budget (512-8192) on most code prompts, returning finish=length with zero content; OpenRouter ignores reasoning.max_tokens and effort caps for it but honours reasoning.enabled=false, after which it answers directly. QUALITY CORRECTION 2026-11-12 (expansion phase 2, owner's order): chat 3->2 and long-context 3->2. Evidence: the Launch AI Works Article Engine census (verified 2026-11-12) reconciled 16 malformed-JSON article-draft failures 1:1 to this model while a control model (nemotron) went 11/11 clean on the same node, and 2026-11-04 records show empty-length failures \u2014 it is demonstrably bad at structured long-form generation. Drafting-class work classifies as chat at L2+ (required quality floor 3) or as long-context for very long inputs, so the lowered scores remove it from auto-selection for drafting while L1 simple chat (floor 2) still reaches it and code (unchanged at 4 \u2014 its genuine strength) is untouched. SENSITIVE-WALL CORRECTION 2026-11-15 (v0.9.1, F-16, owner's ruling): spillway_sensitive_excluded set. This entry sat inside the sensitive wall via its private-free lane while 7 sibling OpenRouter entries were excluded; it served sensitive turns on 2026-11-15 (alert diagnosis A5). It is now dropped for sensitive turns in every pass, pins included. Non-sensitive routing is unchanged (the quality correction above stands); the lane stays private-free. DISABLED 2026-11-27 (v0.10.2, owner's order): the upstream model is GONE — attempt_events.error_body (captured since v0.10.1) reads that cohere/north-mini-code:free is no longer available on OpenRouter and no provider serves it anymore, settling the question v0.10.1 deliberately left open: the 404s were not intermittent endpoint churn, the model is deleted upstream. The two dead OpenRouter entries burned 713 attempts in the 72h before 2026-11-27. Re-enable only on a fresh probe proving the model serves again.",
+      "notes": "Spec: private-free only because data_collection=deny is enforced via extra_body on every call. About 1,000 requests/day shared across clients (rpd). Code quality seeded 4 (it is a code model); other classes at the spec's flat 3. 2026-11-04: reasoning disabled via extra_body - direct probes showed this endpoint's hidden reasoning expands to consume ANY budget (512-8192) on most code prompts, returning finish=length with zero content; OpenRouter ignores reasoning.max_tokens and effort caps for it but honours reasoning.enabled=false, after which it answers directly. QUALITY CORRECTION 2026-11-12 (expansion phase 2, owner's order): chat 3->2 and long-context 3->2. Evidence: the Launch AI Works Article Engine census (verified 2026-11-12) reconciled 16 malformed-JSON article-draft failures 1:1 to this model while a control model (nemotron) went 11/11 clean on the same node, and 2026-11-04 records show empty-length failures \u2014 it is demonstrably bad at structured long-form generation. Drafting-class work classifies as chat at L2+ (required quality floor 3) or as long-context for very long inputs, so the lowered scores remove it from auto-selection for drafting while L1 simple chat (floor 2) still reaches it and code (unchanged at 4 \u2014 its genuine strength) is untouched. SENSITIVE-WALL CORRECTION 2026-11-15 (v0.9.1, F-16, owner's ruling): spillway_sensitive_excluded set. This entry sat inside the sensitive wall via its private-free lane while 7 sibling OpenRouter entries were excluded; it served sensitive turns on 2026-11-15 (alert diagnosis A5). It is now dropped for sensitive turns in every pass, pins included. Non-sensitive routing is unchanged (the quality correction above stands); the lane stays private-free. DISABLED 2026-11-27 (v0.10.2, owner's order): the upstream model is GONE \u2014 attempt_events.error_body (captured since v0.10.1) reads that cohere/north-mini-code:free is no longer available on OpenRouter and no provider serves it anymore, settling the question v0.10.1 deliberately left open: the 404s were not intermittent endpoint churn, the model is deleted upstream. The two dead OpenRouter entries burned 713 attempts in the 72h before 2026-11-27. Re-enable only on a fresh probe proving the model serves again.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -173,7 +176,7 @@
         "rpm": 20
       },
       "model": "dots-studio/dots-3-note-preview:free",
-      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 shared OpenRouter free pool 429 congested on every pinned probe. The protocol S7 degenerate-fresh-call-args evidence stands alone; the entry remains enabled (route sound; the F-09 budget fault was the gateway's). Priority entry for the weekly re-probe. RETIREMENT DATE (flagged 2026-11-15, batch-1 source mining via ClawLabsAI's provider data): OpenRouter publishes a 2026-12-31 retirement date for this preview \u2014 expect the route to die on that date; the weekly re-probe cadence applies. SENSITIVE-WALL CORRECTION 2026-11-15 (v0.9.1, F-16, owner's ruling): spillway_sensitive_excluded set. This entry sat inside the sensitive wall via its private-free lane while 7 sibling OpenRouter entries were excluded; on 2026-11-15 it served a 348,543-token sensitive context (alert diagnosis A5). It is now dropped for sensitive turns in every pass, pins included \u2014 the same posture as its OpenRouter siblings. Non-sensitive routing is unchanged; the lane stays private-free. DISABLED 2026-11-27 (v0.10.2, owner's order): the upstream model is GONE — attempt_events.error_body reads that dots-studio/dots-3-note-preview:free is no longer available on OpenRouter and no provider serves it anymore (the published 2026-12-31 retirement effectively arrived early). This entry was Hermes' compression/auxiliary pin target: under J-1 a pin for a disabled entry drops and the turn routes normally to the next best model, so compression traffic fails over instead of failing. Re-enable only on a fresh probe proving the model serves again.",
+      "notes": "Spec: preview model, re-probe weekly. 512k context makes it the long-context free option (long-context quality seeded 4); other classes at the spec's flat 3. 2026-11-11: reasoning disabled via extra_body (same fix as north-mini 2026-11-04) \u2014 as the free lane's only 512k-context model it had become the sticky server for the Hermes agent sessions; its hidden reasoning consumed the whole output budget on final answers, returning reasoning-only/empty responses (Hermes 'No reply' incident 2026-11-11, and the morning's malformed-tool-call loops). OpenRouter honours the flag for this model \u2014 verified by probe 2026-11-11 (reasoning_len 0, finish=stop, full content). Incident: docs/incidents/2026-11-11-dots-3-reasoning-empty-responses.md. 2026-11-13 (v0.9.0 battery): UNMEASURED in both runs \u2014 shared OpenRouter free pool 429 congested on every pinned probe. The protocol S7 degenerate-fresh-call-args evidence stands alone; the entry remains enabled (route sound; the F-09 budget fault was the gateway's). Priority entry for the weekly re-probe. RETIREMENT DATE (flagged 2026-11-15, batch-1 source mining via ClawLabsAI's provider data): OpenRouter publishes a 2026-12-31 retirement date for this preview \u2014 expect the route to die on that date; the weekly re-probe cadence applies. SENSITIVE-WALL CORRECTION 2026-11-15 (v0.9.1, F-16, owner's ruling): spillway_sensitive_excluded set. This entry sat inside the sensitive wall via its private-free lane while 7 sibling OpenRouter entries were excluded; on 2026-11-15 it served a 348,543-token sensitive context (alert diagnosis A5). It is now dropped for sensitive turns in every pass, pins included \u2014 the same posture as its OpenRouter siblings. Non-sensitive routing is unchanged; the lane stays private-free. DISABLED 2026-11-27 (v0.10.2, owner's order): the upstream model is GONE \u2014 attempt_events.error_body reads that dots-studio/dots-3-note-preview:free is no longer available on OpenRouter and no provider serves it anymore (the published 2026-12-31 retirement effectively arrived early). This entry was Hermes' compression/auxiliary pin target: under J-1 a pin for a disabled entry drops and the turn routes normally to the next best model, so compression traffic fails over instead of failing. Re-enable only on a fresh probe proving the model serves again.",
       "output_usd_per_million": 0.0,
       "probe": {
         "cadence": "weekly",
@@ -238,7 +241,7 @@
         "tpd": 10000000
       },
       "model": "gpt-oss:120b",
-      "notes": "Spec: $0.15/$0.60 per 1M, quality 4, spend alert $5/month (no cap). Daily token limit matches the Ollama Cloud plan behaviour observed 2026-10-31 (400k/day exhausted by 17 Hermes turns); rpd/rpm to be set from the plan page at deploy time. 2026-11-09 CORRECTION: the 400k/day figure was a router-side conservative seed, NOT an Ollama limit \u2014 the owner's Ollama console shows 50 requests / $0.07 total for Nov 1-9 with gpt-oss:120b under free usage. The seed caused the 05:11 self-throttle during the 2026-11-09 DeepInfra outage. Raised to 10M/day (effectively unseeded); a real Ollama ceiling will now surface as upstream errors + lane_dead alerts instead of a silent self-skip. PRICE VERIFIED 2026-11-13 (v0.8.3): Ollama's own pricing table lists gpt-oss:120b at $0.15 in / $0.014 cached / $0.60 out \u2014 the groq-parity seed's in/out were exact; the cached rate is now recorded.",
+      "notes": "Spec: $0.15/$0.60 per 1M, quality 4, spend alert $5/month (no cap). Daily token limit matches the Ollama Cloud plan behaviour observed 2026-10-31 (400k/day exhausted by 17 Hermes turns); rpd/rpm to be set from the plan page at deploy time. 2026-11-09 CORRECTION: the 400k/day figure was a router-side conservative seed, NOT an Ollama limit \u2014 the owner's Ollama console shows 50 requests / $0.07 total for Nov 1-9 with gpt-oss:120b under free usage. The seed caused the 05:11 self-throttle during the 2026-11-09 DeepInfra outage. Raised to 10M/day (effectively unseeded); a real Ollama ceiling will now surface as upstream errors + lane_dead alerts instead of a silent self-skip. PRICE VERIFIED 2026-11-13 (v0.8.3): Ollama's own pricing table lists gpt-oss:120b at $0.15 in / $0.014 cached / $0.60 out \u2014 the groq-parity seed's in/out were exact; the cached rate is now recorded. DISABLED 2026-11-27 (soak-cleanup loop): every recent attempt returns 402 \u2014 Ollama answers \"Add usage credits or subscribe\" (account_dead, error_body-captured); no serving path exists until the owner funds or subscribes the Ollama account. Re-enable only on a fresh probe proving it serves.",
       "output_usd_per_million": 0.6,
       "probe": {
         "cadence": "weekly",
@@ -259,7 +262,8 @@
       "verified_until": null,
       "price_source": "ollama:ollama.com/pricing model pricing table (read 2026-11-13) \u2014 gpt-oss:120b $0.15 in / $0.014 cached / $0.60 out per 1M",
       "price_confidence": "verified",
-      "price_verified_at": "2026-11-13"
+      "price_verified_at": "2026-11-13",
+      "enabled": false
     },
     {
       "cached_input_usd_per_million": 0.26,
@@ -448,7 +452,7 @@
       "cached_input_usd_per_million": 0.15,
       "completion_tokens_param": false,
       "context_tokens": 262144,
-      "enabled": true,
+      "enabled": false,
       "extra_body": {
         "reasoning_effort": "minimal"
       },
@@ -458,7 +462,7 @@
       "latency_p50_ms": 1000,
       "limits": {},
       "model": "muse-spark-1.1",
-      "notes": "Meta Model API, STANDARD tier only (contributor tier lets Meta train on traffic; 1.1 has no contributor variant). Quality: reasoning 5 (HLE #7, 62.1%); chat 5 (Meta's flagship assistant model); code/infra/long-context 4. context_tokens 262144 is a SEED \u2014 UNVERIFIED, confirm against Meta's docs in the probe battery before enabling. Documented team limits 3,000 RPM / 4M TPM (not enforced in limits until deploy decision). ENABLED 2026-11-12: the owner resolved the team billing issue at dev.meta.ai himself (Meta's $20 charge attempt was flagged as suspicious by his bank; he cleared it and completed setup \u2014 Muse's managed browser cannot reach the page: its organization policy blocks auth.meta.ai). Post-fix probes from VM103 with the production key: chat 200, exact-match content, finish=stop. Note the model's reasoning appetite: 190 of 202 completion tokens were reasoning on a trivial prompt \u2014 budget max_tokens accordingly. A second key the owner minted ('META SOVEREIGN ROUTER') never authenticated (invalid_api_key on repeated probes \u2014 presumed mangled copy); the router keeps the ORIGINAL key (meta.key), which works; the bad copy was shredded. Context 262144 remains a seed \u2014 still unverified against Meta's docs. Key file keys/meta.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway \u2014 as a premium entry this model is reachable in the spillway pass in normal cost order. v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a76): extra_body reasoning_effort='minimal' \u2014 Meta defaults an omitted effort to 'high' and the gateway dropped client-sent effort entirely before v0.6.1, so the documented control was unexercisable. Direct probes from VM103 (2026-11-12): 'minimal' kept the correct answer on a reasoning-shaped prompt while cutting hidden reasoning burn vs the default (muse-spark-1.3: 85 vs 546 reasoning tokens; 1.1: 408 vs 1,027) and on a trivial prompt (1.3: 28 vs 256); 'low' did NOT restrain 1.3 on the trivial prompt (274 \u2248 default 256), so 'minimal' is the profile. Per upstream_body merge semantics the registry profile wins over a client-sent reasoning_effort on this entry.",
+      "notes": "Meta Model API, STANDARD tier only (contributor tier lets Meta train on traffic; 1.1 has no contributor variant). Quality: reasoning 5 (HLE #7, 62.1%); chat 5 (Meta's flagship assistant model); code/infra/long-context 4. context_tokens 262144 is a SEED \u2014 UNVERIFIED, confirm against Meta's docs in the probe battery before enabling. Documented team limits 3,000 RPM / 4M TPM (not enforced in limits until deploy decision). ENABLED 2026-11-12: the owner resolved the team billing issue at dev.meta.ai himself (Meta's $20 charge attempt was flagged as suspicious by his bank; he cleared it and completed setup \u2014 Muse's managed browser cannot reach the page: its organization policy blocks auth.meta.ai). Post-fix probes from VM103 with the production key: chat 200, exact-match content, finish=stop. Note the model's reasoning appetite: 190 of 202 completion tokens were reasoning on a trivial prompt \u2014 budget max_tokens accordingly. A second key the owner minted ('META SOVEREIGN ROUTER') never authenticated (invalid_api_key on repeated probes \u2014 presumed mangled copy); the router keeps the ORIGINAL key (meta.key), which works; the bad copy was shredded. Context 262144 remains a seed \u2014 still unverified against Meta's docs. Key file keys/meta.key via the capture page. v0.5.5 (2026-11-07): the owner replaced the gpt-5.5-only rescue pin with the free-first / paid spillway \u2014 as a premium entry this model is reachable in the spillway pass in normal cost order. v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a76): extra_body reasoning_effort='minimal' \u2014 Meta defaults an omitted effort to 'high' and the gateway dropped client-sent effort entirely before v0.6.1, so the documented control was unexercisable. Direct probes from VM103 (2026-11-12): 'minimal' kept the correct answer on a reasoning-shaped prompt while cutting hidden reasoning burn vs the default (muse-spark-1.3: 85 vs 546 reasoning tokens; 1.1: 408 vs 1,027) and on a trivial prompt (1.3: 28 vs 256); 'low' did NOT restrain 1.3 on the trivial prompt (274 \u2248 default 256), so 'minimal' is the profile. Per upstream_body merge semantics the registry profile wins over a client-sent reasoning_effort on this entry. DISABLED 2026-11-27 (soak-cleanup loop): attempt_events.error_body proves the Meta account is dead for API serving \u2014 every attempt returns 402 billing_not_configured (\"Billing verification failed\"), 9 attempts on 2026-11-26 alone, and the entry burned last-resort cascade steps in that day's failed finals. The 2026-11-12 'billing resolved' premise is overturned by the captured bodies. Re-enable only when the owner confirms Meta billing is configured and a fresh probe serves.",
       "output_usd_per_million": 4.25,
       "probe": {
         "cadence": "weekly",
@@ -566,14 +570,14 @@
       "base_url": "https://api.novita.ai/v3/openai",
       "cached_input_usd_per_million": null,
       "context_tokens": 131072,
-      "enabled": true,
+      "enabled": false,
       "id": "novita/gpt-oss-120b",
       "input_usd_per_million": 0.05,
       "lane": "paid",
       "latency_p50_ms": 800,
       "limits": {},
       "model": "openai/gpt-oss-120b",
-      "notes": "Novita AI direct \u2014 added 2026-11-12 (owner-supplied key). Cheapest gpt-oss-120b route seen anywhere: price seeded from Hugging Face's inference catalog listing of Novita's rate (read 2026-11-09, $0.05 in / $0.25 out per 1M) \u2014 NOT yet verified against Novita's own price list; correct on first console check. PROBE 2026-11-12: chat 200 in 1.0s, tool call well-formed in 0.9s (their /v3/openai/models listing 404s; chat completions path works). NON-SENSITIVE ONLY (spillway_sensitive_excluded): third-party compute host, data posture unverified. Quality mirrored from groq/gpt-oss-120b (same weights).",
+      "notes": "Novita AI direct \u2014 added 2026-11-12 (owner-supplied key). Cheapest gpt-oss-120b route seen anywhere: price seeded from Hugging Face's inference catalog listing of Novita's rate (read 2026-11-09, $0.05 in / $0.25 out per 1M) \u2014 NOT yet verified against Novita's own price list; correct on first console check. PROBE 2026-11-12: chat 200 in 1.0s, tool call well-formed in 0.9s (their /v3/openai/models listing 404s; chat completions path works). NON-SENSITIVE ONLY (spillway_sensitive_excluded): third-party compute host, data posture unverified. Quality mirrored from groq/gpt-oss-120b (same weights). DISABLED 2026-11-27 (soak-cleanup loop): every recent attempt returns 403 ACCESS_DENY for this model (account_dead, error_body-captured), on top of a fleet-worst production tool-error rate (34.5%, v0.10.2 census). Re-enable only on a fresh probe proving access is restored.",
       "output_usd_per_million": 0.25,
       "probe": {
         "cadence": "weekly",
@@ -2496,16 +2500,17 @@
         "chat": 3,
         "code": 4,
         "infra": 3,
-        "long-context": 3,
+        "long-context": 4,
         "reasoning": 4,
         "tooling": 5
       },
       "reasoning": true,
-      "verified_until": "2026-12-19",
+      "verified_until": "2026-12-27",
       "price_source": "groq:/models pricing field",
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
-      "tooling_source": "tooling-battery:2026-11-19"
+      "tooling_source": "tooling-battery:2026-11-19",
+      "long_context_source": "long-context-battery:2026-11-27"
     },
     {
       "base_url": "https://api.z.ai/api/paas/v4",
@@ -2590,7 +2595,7 @@
       "latency_p50_ms": 3000,
       "limits": {},
       "model": "muse-spark-1.2",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Version upgrade on the existing Meta pool. Price VERIFIED from Meta's own pricing page (dev.meta.ai/docs/pricing-rate-limits): muse-spark-1.1, 1.2 and 1.3 sit in ONE Standard-mode table at $1.25 in / $0.15 cached / $4.25 out. Standard tier only \u2014 the contributor variants are excluded (Meta may train on that traffic). PROBE 2026-11-12 (connector helper): 200, finish=stop, sane at max_tokens 2048 (8.3s) \u2014 with 1,032 reasoning tokens spent on a one-sentence answer; at 512 the content was null (all reasoning). Effective cost per completed answer runs well above the list rate and budgets below ~2048 return empty. Quality mirrored from muse-spark-1.1. Context 1,048,576 per Meta's docs as cited in model listings (the pricing page does not print context). v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a76): extra_body reasoning_effort='minimal' \u2014 Meta defaults an omitted effort to 'high' and the gateway dropped client-sent effort entirely before v0.6.1, so the documented control was unexercisable. Direct probes from VM103 (2026-11-12): 'minimal' kept the correct answer on a reasoning-shaped prompt while cutting hidden reasoning burn vs the default (muse-spark-1.3: 85 vs 546 reasoning tokens; 1.1: 408 vs 1,027) and on a trivial prompt (1.3: 28 vs 256); 'low' did NOT restrain 1.3 on the trivial prompt (274 \u2248 default 256), so 'minimal' is the profile. Per upstream_body merge semantics the registry profile wins over a client-sent reasoning_effort on this entry.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). Version upgrade on the existing Meta pool. Price VERIFIED from Meta's own pricing page (dev.meta.ai/docs/pricing-rate-limits): muse-spark-1.1, 1.2 and 1.3 sit in ONE Standard-mode table at $1.25 in / $0.15 cached / $4.25 out. Standard tier only \u2014 the contributor variants are excluded (Meta may train on that traffic). PROBE 2026-11-12 (connector helper): 200, finish=stop, sane at max_tokens 2048 (8.3s) \u2014 with 1,032 reasoning tokens spent on a one-sentence answer; at 512 the content was null (all reasoning). Effective cost per completed answer runs well above the list rate and budgets below ~2048 return empty. Quality mirrored from muse-spark-1.1. Context 1,048,576 per Meta's docs as cited in model listings (the pricing page does not print context). v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a76): extra_body reasoning_effort='minimal' \u2014 Meta defaults an omitted effort to 'high' and the gateway dropped client-sent effort entirely before v0.6.1, so the documented control was unexercisable. Direct probes from VM103 (2026-11-12): 'minimal' kept the correct answer on a reasoning-shaped prompt while cutting hidden reasoning burn vs the default (muse-spark-1.3: 85 vs 546 reasoning tokens; 1.1: 408 vs 1,027) and on a trivial prompt (1.3: 28 vs 256); 'low' did NOT restrain 1.3 on the trivial prompt (274 \u2248 default 256), so 'minimal' is the profile. Per upstream_body merge semantics the registry profile wins over a client-sent reasoning_effort on this entry. DISABLED 2026-11-27 (soak-cleanup loop): same Meta account failure as muse-spark-1.1 \u2014 every attempt returns 402 billing_not_configured (error_body-captured). Re-enable only when the owner confirms Meta billing is configured and a fresh probe serves.",
       "output_usd_per_million": 4.25,
       "probe": {
         "cadence": "weekly",
@@ -2613,13 +2618,14 @@
       "price_confidence": "verified",
       "price_verified_at": "2026-11-12",
       "spend_alert_usd": 10.0,
-      "tooling_source": "tooling-battery:2026-11-13"
+      "tooling_source": "tooling-battery:2026-11-13",
+      "enabled": false
     },
     {
       "base_url": "https://api.meta.ai/v1",
       "cached_input_usd_per_million": 0.15,
       "context_tokens": 1048576,
-      "enabled": true,
+      "enabled": false,
       "extra_body": {
         "reasoning_effort": "minimal"
       },
@@ -2629,7 +2635,7 @@
       "latency_p50_ms": 5000,
       "limits": {},
       "model": "muse-spark-1.3",
-      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). DISABLED AT DEPLOY \u2014 on probe behavior, not price. Price VERIFIED from Meta's own pricing page (dev.meta.ai/docs/pricing-rate-limits): muse-spark-1.1, 1.2 and 1.3 sit in ONE Standard-mode table at $1.25 in / $0.15 cached / $4.25 out. Standard tier only \u2014 the contributor variants are excluded (Meta may train on that traffic). PROBES 2026-11-12 (connector helper): 200s but NO content at max_tokens 512 (510 reasoning tokens) and none even at 2048 (2,046 reasoning tokens, finish=length, 32.3s). Do not enable until a budget/latency profile is chosen for a model that spends >2048 tokens reasoning on a trivial prompt. v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a76): extra_body reasoning_effort='minimal' \u2014 Meta defaults an omitted effort to 'high' and the gateway dropped client-sent effort entirely before v0.6.1, so the documented control was unexercisable. Direct probes from VM103 (2026-11-12): 'minimal' kept the correct answer on a reasoning-shaped prompt while cutting hidden reasoning burn vs the default (muse-spark-1.3: 85 vs 546 reasoning tokens; 1.1: 408 vs 1,027) and on a trivial prompt (1.3: 28 vs 256); 'low' did NOT restrain 1.3 on the trivial prompt (274 \u2248 default 256), so 'minimal' is the profile. Per upstream_body merge semantics the registry profile wins over a client-sent reasoning_effort on this entry. Entry STAYS DISABLED in the fix package \u2014 re-enable at this effort profile is the owner's deploy decision. RE-ENABLED 2026-11-12 by the owner's deploy decision (v0.6.1 deploy + re-enable at this minimal-effort profile, both approved 2026-11-12 ~22:58 MST): the no-content behavior was a default-effort artifact, not a model fault \u2014 differential diagnosis in docs/cycles/route-health-investigation-protocol.md \u00a76, fix package in docs/cycles/fix-package-v0.6.1-decision.md. The weekly re-probe cadence on this entry applies.",
+      "notes": "Added 2026-11-12, expansion phase 2 (Jordan's order). DISABLED AT DEPLOY \u2014 on probe behavior, not price. Price VERIFIED from Meta's own pricing page (dev.meta.ai/docs/pricing-rate-limits): muse-spark-1.1, 1.2 and 1.3 sit in ONE Standard-mode table at $1.25 in / $0.15 cached / $4.25 out. Standard tier only \u2014 the contributor variants are excluded (Meta may train on that traffic). PROBES 2026-11-12 (connector helper): 200s but NO content at max_tokens 512 (510 reasoning tokens) and none even at 2048 (2,046 reasoning tokens, finish=length, 32.3s). Do not enable until a budget/latency profile is chosen for a model that spends >2048 tokens reasoning on a trivial prompt. v0.6.1 FIX PACKAGE (2026-11-12; diagnosis: docs/cycles/route-health-investigation-protocol.md \u00a76): extra_body reasoning_effort='minimal' \u2014 Meta defaults an omitted effort to 'high' and the gateway dropped client-sent effort entirely before v0.6.1, so the documented control was unexercisable. Direct probes from VM103 (2026-11-12): 'minimal' kept the correct answer on a reasoning-shaped prompt while cutting hidden reasoning burn vs the default (muse-spark-1.3: 85 vs 546 reasoning tokens; 1.1: 408 vs 1,027) and on a trivial prompt (1.3: 28 vs 256); 'low' did NOT restrain 1.3 on the trivial prompt (274 \u2248 default 256), so 'minimal' is the profile. Per upstream_body merge semantics the registry profile wins over a client-sent reasoning_effort on this entry. Entry STAYS DISABLED in the fix package \u2014 re-enable at this effort profile is the owner's deploy decision. RE-ENABLED 2026-11-12 by the owner's deploy decision (v0.6.1 deploy + re-enable at this minimal-effort profile, both approved 2026-11-12 ~22:58 MST): the no-content behavior was a default-effort artifact, not a model fault \u2014 differential diagnosis in docs/cycles/route-health-investigation-protocol.md \u00a76, fix package in docs/cycles/fix-package-v0.6.1-decision.md. The weekly re-probe cadence on this entry applies. DISABLED 2026-11-27 (soak-cleanup loop): same Meta account failure as muse-spark-1.1 \u2014 every attempt returns 402 billing_not_configured (error_body-captured). Re-enable only when the owner confirms Meta billing is configured and a fresh probe serves.",
       "output_usd_per_million": 4.25,
       "probe": {
         "cadence": "weekly",

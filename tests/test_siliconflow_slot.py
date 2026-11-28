@@ -78,6 +78,7 @@ def _last_record(app):
 
 
 def _registry_variant(tmp_path: Path, *, disable: tuple[str, ...] = (),
+                      enable: tuple[str, ...] = (),
                       flatten_all_but_sf: bool = False,
                       groq_tpm: int | None = None) -> Path:
     """Production registry with entries disabled and/or every model
@@ -87,6 +88,8 @@ def _registry_variant(tmp_path: Path, *, disable: tuple[str, ...] = (),
     for m in data["models"]:
         if m["id"] in disable:
             m["enabled"] = False
+        if m["id"] in enable:
+            m.pop("enabled", None)
         if flatten_all_but_sf and m["id"] != "siliconflow/glm-5.3":
             m["quality"] = {k: 3 for k in m["quality"]}
         if groq_tpm is not None and m["provider"] == "groq":
@@ -267,8 +270,13 @@ def test_non_sensitive_cost_order_position(tmp_path):
     # execution order is proven by
     # test_non_sensitive_failover_reaches_siliconflow_third, which
     # isolates the original comparison set.)
+    # v0.10.3 premise: ollama/gpt-oss-120b is DISABLED in production
+    # (402, error_body-proven); the relative-order claim is about the
+    # price mechanism, so the variant re-enables it.
     app, calls = build_recording_app(tmp_path, _ok_handler,
-                                     registry_path=registry_variant(tmp_path, groq_tpm=8000),
+                                     registry_path=registry_variant(
+                                         tmp_path, groq_tpm=8000,
+                                         enable=("ollama/gpt-oss-120b",)),
                                      provider_keys_extra=SF_KEY)
     with TestClient(app) as client:
         r = client.post("/v1/shadow", json=chat_body(BIG_PLAIN_TEXT),
@@ -293,7 +301,10 @@ def test_non_sensitive_failover_reaches_siliconflow_third(tmp_path):
             return httpx.Response(500, json={"error": {"message": "boom"}})
         return _ok_handler(model, body, n)
 
+    # v0.10.3 premise: ollama re-enabled in the variant (disabled in
+    # production — see test_non_sensitive_cost_order_position).
     reg = _registry_variant(tmp_path, disable=PHASE2_PAID_IDS,
+                            enable=("ollama/gpt-oss-120b",),
                             groq_tpm=8000)
     app, calls = build_recording_app(tmp_path, fail_two,
                                      registry_path=reg,

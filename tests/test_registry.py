@@ -103,7 +103,10 @@ def test_starting_registry_matches_spec_table():
     assert (glm.input_usd_per_million, glm.output_usd_per_million) == (1.40, 4.40)
     assert glm.effective_base_url == "https://api.z.ai/api/paas/v4"
     spark = by_id["meta/muse-spark-1.1"]
-    assert spark.lane == "premium" and spark.enabled is True
+    # Enabled 2026-11-12 when the owner resolved Meta billing;
+    # DISABLED again 2026-11-27 (v0.10.3) — the account died a second
+    # time (402 billing_not_configured, error_body-proven).
+    assert spark.lane == "premium" and spark.enabled is False
     assert (spark.input_usd_per_million, spark.output_usd_per_million) == (1.25, 4.25)
     # SiliconFlow slot 2026-11-07 (v0.5.6): GLM-5.3 in the paid lane;
     # V4 Pro present but disabled. Both are flagged

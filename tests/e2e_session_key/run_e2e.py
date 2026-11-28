@@ -107,7 +107,8 @@ def main() -> int:
         if not ok:
             print((tmp / "gateway.log").read_text()[-3000:]); return 2
         st, _, raw = http("GET", f"{GW}/health"); h = json.loads(raw)
-        check("boot", "version is 0.10.4", h.get("version") == "0.10.4", h.get("version"))
+        _want = re.search(r'^VERSION = "([^"]+)"', (Path(__file__).resolve().parents[2] / "src" / "gateway.py").read_text(), re.M).group(1)
+        check("boot", f"version is {_want} (this tree)", h.get("version") == _want, h.get("version"))
         def routes():
             p = state / "routes.jsonl"
             return [json.loads(l) for l in p.read_text().splitlines() if l.strip()] if p.exists() else []
@@ -207,6 +208,36 @@ def main() -> int:
         check("C traffic", "n8n bulk: 0 sensitive flags", not any(r.get("data_class") == "sensitive" for r in n8n_r), f"n={len(n8n_r)}")
         st, _, _ = http("POST", f"{GW}/v1/chat/completions", "wrong-key", {"model": "auto", "messages": [{"role": "user", "content": "hi"}]})
         check("C traffic", "bad client key -> 401", st == 401, st)
+
+        # ---------------- E. routing self-correction (v0.10.5, Job B) ----------------
+        def _ups(): return len(uplog.read_text().splitlines())
+        def _lanes_since(n0): return [json.loads(l)["lane"] for l in uplog.read_text().splitlines()[n0:]]
+        CONG_FREE = " MOCK_STATUS::429::private-free MOCK_STATUS::429::public-only-free"
+        CONG_ALL_BUT_PREMIUM = CONG_FREE + " MOCK_STATUS::429::paid"
+        for stream in (False, True):
+            for cl in ("n8n", "hermes", "openclaw"):
+                n0 = _ups()
+                st, hd, raw = chat(cl, [{"role": "user", "content": "summarise the paragraph about cats" + CONG_FREE}], stream=stream)
+                ls = _lanes_since(n0); r = last_route()
+                check("E routing", f"{cl} free congested stream={stream}: <=6 upstream calls", len(ls) <= 6, f"calls={len(ls)} lanes={ls}")
+                check("E routing", f"{cl} free congested stream={stream}: served paid, premium never called",
+                      st == 200 and r.get("lane") == "paid" and "premium" not in ls, f"st={st} lane={r.get('lane')} lanes={ls}")
+                n0 = _ups()
+                st, hd, raw = chat(cl, [{"role": "user", "content": "summarise the paragraph about cats" + CONG_ALL_BUT_PREMIUM}], stream=stream)
+                ls = _lanes_since(n0)
+                check("E routing", f"{cl} free+paid congested stream={stream}: premium never called, <=6 calls",
+                      "premium" not in ls and len(ls) <= 6, f"st={st} calls={len(ls)} lanes={ls}")
+        for content, want in (('{"error": null, "stdout": "nginx restarted"}', False),
+                              ('{"ok": true, "error": ""}', False),
+                              ('{"error": "container not found"}', True),
+                              ("Error: permission denied", True)):
+            msgs = [{"role": "system", "content": "You are Hermes."}, {"role": "user", "content": "restart nginx"},
+                    {"role": "assistant", "content": None, "tool_calls": [{"id": "c9", "type": "function", "function": {"name": "terminal", "arguments": "{}"}}]},
+                    {"role": "tool", "tool_call_id": "c9", "content": content}]
+            st, hd, raw = chat("hermes", msgs, tools=TOOLS)
+            r = last_route()
+            check("E routing", f"tool result {content[:28]!r} -> tool_error_next_turn={want}",
+                  st == 200 and bool(r.get("tool_error_next_turn")) is want, f"st={st} got={r.get('tool_error_next_turn')}")
 
         # ---------------- D. edge cases ----------------
         rt = corpus.runtime_line("agent:main:main")

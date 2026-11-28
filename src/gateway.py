@@ -105,7 +105,7 @@ from pools import (DemotionTracker, classify_failure,
 from quota import AttemptEvent, QuotaStore, UsageEvent
 from registry import FREE_LANES, ModelEntry, Registry, load_registry
 import tiering
-from sensitivity import scan_messages
+from sensitivity import ScanResult, scan_messages, scan_pii_messages
 from sticky import (StickyStore, TOOL_ERROR_BREAK_AFTER,
                     conversation_key)
 from telemetry import RouteRecord, Telemetry
@@ -113,7 +113,7 @@ from toolstats import ToolErrorTracker
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.10.9"
+VERSION = "0.10.10"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -653,6 +653,11 @@ class GatewayConfig:
     # Sensitivity scan: Phase 0 log-only trial is available via this flag;
     # default False = matches change routing (post-Phase-0 behaviour).
     sensitivity_log_only: bool = os.environ.get("SOVEREIGN_SENSITIVITY_LOG_ONLY") == "1"
+    # v0.10.10 PII detectors (SSN, payment card). Default OFF = log-only:
+    # matches are recorded as a ``pii_log_only:<names>`` route signal and
+    # do not change routing. "1" promotes a match to data_class=sensitive
+    # (public lanes refused). Owner policy gate — see sensitivity.py.
+    pii_detectors: bool = os.environ.get("SOVEREIGN_PII_DETECTORS") == "1"
     emergency_enabled: bool = os.environ.get("SOVEREIGN_EMERGENCY_SWITCH") == "1"
     emergency_daily_usd: float = float(os.environ.get("SOVEREIGN_EMERGENCY_DAILY_USD", "25"))
     # v0.5.7 (owner ruling 2026-11-09): warn-only emergency — alert at
@@ -1774,6 +1779,10 @@ def create_app(config: Optional[GatewayConfig] = None,
                                if m.get("role") == "user"), "")
 
         scan = scan_messages(messages)
+        pii = scan_pii_messages(messages)
+        if pii and cfg.pii_detectors:
+            scan = ScanResult(sensitive=True,
+                              detectors=sorted(set(scan.detectors) | set(pii)))
         data_class = client.default_data_class
         if scan.sensitive and not cfg.sensitivity_log_only:
             data_class = "sensitive"
@@ -1972,6 +1981,10 @@ def create_app(config: Optional[GatewayConfig] = None,
 
         # ---- sensitivity scan ------------------------------------------
         scan = scan_messages(messages)
+        pii = scan_pii_messages(messages)
+        if pii and cfg.pii_detectors:
+            scan = ScanResult(sensitive=True,
+                              detectors=sorted(set(scan.detectors) | set(pii)))
         data_class = client.default_data_class
         sensitive_active = scan.sensitive and not cfg.sensitivity_log_only
         if sensitive_active:
@@ -2128,6 +2141,8 @@ def create_app(config: Optional[GatewayConfig] = None,
             latency_queue_ms=round(queue_ms, 2),
             tool_error_next_turn=has_tool_error,
         )
+        if pii and not cfg.pii_detectors:
+            record.signals.append("pii_log_only:" + ",".join(pii))
         fingerprint = telemetry.outcomes.fingerprint(
             client.id, system_text, last_user_text, [n for n in tool_names if n])
         record.repeat_within_60s = telemetry.outcomes.check_and_record(fingerprint)

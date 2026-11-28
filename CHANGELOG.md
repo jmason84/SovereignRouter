@@ -9,6 +9,15 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+### Added — v0.10.10 PII detectors, log-only by default (2026-11-28; gateway VERSION 0.10.10) — OWNER POLICY GATE
+
+Job ROUTER-STRESS-20261128. The stress matrix confirmed OPERATIONS-REVIEW-2026-11-11 item 8 ("Sensitivity scan has no SSN / payment-card detectors — owner policy decision") on the live v0.10.3 gateway and the v0.10.8 branch: a fake SSN plus a test card number classified `internal` and was first-routed to a **public-only-free** lane (`cloudflare/gpt-oss-120b` in the local stack).
+
+- `sensitivity.scan_pii_messages`: `pii_ssn` (hyphenated NNN-NN-NNNN, SSA never-issued blocks excluded) and `pii_payment_card` (13–19 digits, Luhn-valid AND a Visa/Mastercard/Amex/Discover prefix). Names only are ever logged.
+- **Default OFF (log-only):** routing is unchanged; the route row gains a `pii_log_only:<names>` signal so the false-positive rate on real Hermes/OpenClaw/n8n traffic can be measured first.
+- **`SOVEREIGN_PII_DETECTORS=1`:** a match promotes the turn to `data_class=sensitive` (public lanes refused, pins included). Trade-off: those turns leave the free public lanes and may use the paid spillway. Turning it on is Jordan's decision.
+- Tests: `tests/test_v01010_pii_detectors.py` (26, incl. 16 negative shapes: phone, order IDs, dates, IPs, SHAs, UUIDs, never-issued SSN blocks, Luhn-invalid cards). Scan cost ≈0.15 s per 2.6 MB of digit-heavy text. Full suite 1091 passed (on top of v0.10.9).
+
 ### Fixed — v0.10.9 stress-test ingress hardening (2026-11-28; gateway VERSION 0.10.9)
 
 - Full stress-test report (live 0.10.3 vs branch vs fix matrices, Hermes/OpenClaw runs, live load ramp 1-40, provider-down scenarios, open owner decisions): `docs/STRESS-TEST-2026-11-28.md`.

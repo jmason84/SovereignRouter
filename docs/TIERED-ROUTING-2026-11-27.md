@@ -17,3 +17,20 @@ Owner defaults for this round: free coder = `unorouter/codestral-latest`, cheap 
 Behaviour change to watch after deploy: a turn whose free and paid pools are all congested now gets a 429 (Retry-After 60) instead of a premium rescue.
 
 Rollback: redeploy the previous image tag (see the deploy record for the job).
+
+## Job C — v0.10.6 (branch `feat/v0.10.6-tier-shadow`) — SHADOW ONLY
+
+`src/tiering.py` ranks the live, already-walled candidate list:
+
+```
+tier (free < cheap < premium)  ->  owner-preferred specialist for the class
+  ->  score (class quality; tool turns min(tooling, class) minus production tool-error penalty)
+  ->  estimated price  ->  p50 latency
+```
+
+- free = $0 entry on a free lane; cheap = paid lane or priced private-free (e.g. Groq); premium = premium lane (present only when the live premium gate allows it).
+- Tags: tools, vision (requires `supports_vision`), structured-output (recorded).
+- Code class defaults: free `unorouter/codestral-latest`, cheap `nrouter/qwen3-coder-480b-a35b`.
+- Output: `tier_shadow` on every route row, `tiered_shadow` on `/v1/shadow`. Live routing is not touched (tests prove identical upstream call sequences with the shadow on/off).
+
+How to read it after deploy: the share of rows with `agree=false`, split by class and by `pick_tier` vs `live_tier`, is the size of the policy change. Job D's scorecard reports it nightly.

@@ -107,7 +107,8 @@ def main() -> int:
         if not ok:
             print((tmp / "gateway.log").read_text()[-3000:]); return 2
         st, _, raw = http("GET", f"{GW}/health"); h = json.loads(raw)
-        check("boot", "version is 0.10.4", h.get("version") == "0.10.4", h.get("version"))
+        _want = re.search(r'^VERSION = "([^"]+)"', (Path(__file__).resolve().parents[2] / "src" / "gateway.py").read_text(), re.M).group(1)
+        check("boot", f"version is {_want} (this tree)", h.get("version") == _want, h.get("version"))
         def routes():
             p = state / "routes.jsonl"
             return [json.loads(l) for l in p.read_text().splitlines() if l.strip()] if p.exists() else []

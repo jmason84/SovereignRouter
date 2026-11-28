@@ -9,6 +9,28 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+### Added — v0.10.7 model import, registry-only (2026-11-27; gateway VERSION unchanged at 0.10.6)
+
+Jordan's order 2026-11-27 23:06 MST: "pull the relevant models both free and not into ours". The 12 new entries all ship **disabled**, so routing is unchanged (enabled count stays 83, total 110).
+
+- **PENDING-PROBE** (the key already exists on VM103):
+  - `deepinfra/qwen3-coder-480b-turbo` ($0.30/$1.00)
+  - `deepinfra/qwen3-coder-30b` ($0.07/$0.26)
+  - `deepinfra/deepseek-v4.1-flash` (list $0.20/$0.60, 1M ctx)
+  - `deepinfra/nemotron-3-ultra` ($0.50/$2.20)
+  - `deepinfra/kimi-k2.6` ($0.75/$3.50)
+  - `huggingface/qwen3-coder-480b` (`:deepinfra`, $0.30/$1.00)
+  - `nvidia/nemotron-3-ultra` (free; evaluation terms, logged)
+  - `nvidia/kimi-k3.1-pro` (free; evaluation terms, logged)
+- **PENDING-KEY** (needs Jordan's signup):
+  - `orcarouter/deepseek-v4.1-flash-free`
+  - `orcarouter/glm-5.3-flash-free`
+  - `kilo/auto-free`
+  - `kilo/beam-free`
+- Every paid price was verified 2026-11-27 from the provider's public pricing API. Quality figures are seeds; no tooling score is set before the battery runs.
+- Tests: `tests/test_v0107_model_import.py` (new). The registry count and disabled/sensitive sets in the existing tests are updated.
+- Docs: `docs/MODEL-IMPORT-2026-11-27.md` covers the evidence grades, the candidates rejected and why (CF kimi-k2.6 deprecated, ZenMux free sunset, no verified free Qwen coder), and the image-gen shortlist.
+
 ### Added — Job D: nightly scorecard, proposals only (2026-11-27; tools-only, gateway VERSION unchanged at 0.10.6)
 
 Owner go 2026-11-27 20:25 MST, "Do B C D".

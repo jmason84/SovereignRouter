@@ -44,6 +44,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Optional
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import hf_catalog  # noqa: E402  (v0.10.7: HF router catalog source)
+
 DEFAULT_MAP_URL = (
     "https://raw.githubusercontent.com/BerriAI/litellm/main/"
     "model_prices_and_context_window.json")
@@ -172,6 +175,14 @@ def main(argv: Optional[list[str]] = None) -> int:
                     help="limit nominations to these provider prefixes "
                          "(default: the registry's own providers)")
     ap.add_argument("--all-providers", action="store_true")
+    ap.add_argument("--hf-file", default=None,
+                    help="HF router catalog JSON (offline/tests)")
+    ap.add_argument("--hf-url", default=None,
+                    help="fetch the public HF router catalog (no "
+                         "credential is sent)")
+    ap.add_argument("--hf-tools-only", action="store_true",
+                    help="HF source: only models with a tool-capable "
+                         "live provider")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--out", default=None)
     args = ap.parse_args(argv)
@@ -201,6 +212,11 @@ def main(argv: Optional[list[str]] = None) -> int:
             with urllib.request.urlopen(req, timeout=60) as resp:
                 feed_xml = resp.read().decode("utf-8")
         nominations += nominate_from_feed(feed_xml, known, providers)
+
+    if args.hf_file or args.hf_url:
+        nominations += hf_catalog.nominate_from_hf(
+            hf_catalog.load_hf_catalog(args.hf_file, args.hf_url),
+            hf_catalog.known_model_keys(registry), args.hf_tools_only)
 
     report = render_report(nominations)
     if args.out:

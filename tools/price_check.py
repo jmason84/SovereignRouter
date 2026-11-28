@@ -44,6 +44,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Optional
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import hf_catalog  # noqa: E402  (v0.10.7: HF router catalog source)
+
 DEFAULT_MAP_URL = (
     "https://raw.githubusercontent.com/BerriAI/litellm/main/"
     "model_prices_and_context_window.json")
@@ -173,16 +176,31 @@ def main(argv: Optional[list[str]] = None) -> int:
                     help="also write the Markdown report here")
     ap.add_argument("--strict", action="store_true",
                     help="exit 1 when drift is found")
+    ap.add_argument("--hf-file", default=None,
+                    help="HF router catalog JSON (offline/tests); adds "
+                         "the Hugging Face cross-check section")
+    ap.add_argument("--hf-url", default=None,
+                    help="fetch the public HF router catalog (no "
+                         "credential is sent), e.g. "
+                         + hf_catalog.DEFAULT_HF_URL)
     args = ap.parse_args(argv)
 
     registry = json.loads(Path(args.registry).read_text(encoding="utf-8"))
     litellm = load_litellm_map(args.map_file, args.map_url)
     summary = run_check(registry, litellm, args.tolerance)
     report = render_report(summary)
+    if args.hf_file or args.hf_url:
+        hf = hf_catalog.run_hf_check(
+            registry, hf_catalog.load_hf_catalog(args.hf_file, args.hf_url),
+            args.tolerance)
+        summary["hf"] = hf
+        report += "\n" + hf_catalog.render_hf_section(hf)
+        summary["drifted_any"] = bool(summary["drifted"] or hf["drifted"])
     if args.out:
         Path(args.out).write_text(report, encoding="utf-8")
     print(json.dumps(summary, indent=2) if args.json else report)
-    return 1 if (args.strict and summary["drifted"]) else 0
+    return 1 if (args.strict and (summary["drifted"]
+                                   or summary.get("hf", {}).get("drifted"))) else 0
 
 
 if __name__ == "__main__":

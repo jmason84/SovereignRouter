@@ -254,6 +254,9 @@ V0107_IMPORT_DISABLED_IDS = (
     "orcarouter/deepseek-v4.1-flash-free", "orcarouter/glm-5.3-flash-free",
     "kilo/auto-free", "kilo/beam-free",
 )
+# v0.10.8 (ROUTER-KEYS-20261127, Jordan's go 2026-11-27 23:39 MST): keys
+# installed on VM103; one more OrcaRouter free route added, disabled.
+V0108_DISABLED_IDS = ("orcarouter/deepseek-v4-flash-free",)
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -343,9 +346,9 @@ def test_entry_raw_json_required_keys(entry):
 
 
 def test_registry_counts_and_unique_ids():
-    assert len(REG.entries) == 110
-    assert len(BY_ID) == 110  # ids unique (loader also enforces)
-    # 2026-11-27 (v0.10.7 model import): +12 routes, all disabled;
+    assert len(REG.entries) == 111
+    assert len(BY_ID) == 111  # ids unique (loader also enforces)
+    # 2026-11-27 (v0.10.8): +1 orcarouter route, disabled. (v0.10.7 model import: +12 routes, all disabled;
     # the enabled count is unchanged.
     # 73 enabled at 81 entries; 2026-11-15 added 7 disabled routes
     # and disabled lfm-2.5-2.6b-free (upstream deleted): 88 - 16 = 72.
@@ -389,7 +392,8 @@ def test_disabled_entries_are_exactly_the_known_set():
         set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS) | \
         set(NOV15_DISABLED_IDS) | set(V091_DISABLED_IDS) | \
         set(NROUTER_DISABLED_IDS) | set(V0102_DISABLED_IDS) | \
-        set(V0103_DISABLED_IDS) | set(V0107_IMPORT_DISABLED_IDS)
+        set(V0103_DISABLED_IDS) | set(V0107_IMPORT_DISABLED_IDS) | \
+        set(V0108_DISABLED_IDS)
     # the siliconflow entry is a duplicate ROUTE, not a distinct
     # model: DeepSeek V4 Pro is still reachable via the direct entry
     assert BY_ID["siliconflow/deepseek-v4-pro"].model == \

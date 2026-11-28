@@ -89,6 +89,12 @@ PROVIDER_BASE_URLS: dict[str, str] = {
     "openai": "https://api.openai.com/v1",
     "anthropic": "https://api.anthropic.com/v1",
     "siliconflow": "https://api.siliconflow.com/v1",
+    # v0.10.8 (ROUTER-KEYS-20261127): both verified 2026-11-27 against the
+    # providers' public /models endpoints and docs. Kilo also answers on
+    # https://api.kilo.ai/api/openrouter (same catalog); its docs name
+    # ai-gateway.kilo.ai/api/v1 as the gateway base, so that is used.
+    "orcarouter": "https://api.orcarouter.ai/v1",
+    "kilo": "https://ai-gateway.kilo.ai/api/v1",
 }
 
 

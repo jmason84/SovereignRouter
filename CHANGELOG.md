@@ -9,6 +9,17 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+### Added — v0.10.8 OrcaRouter + Kilo keys, models switched off (2026-11-27; registry/config only, gateway VERSION stays 0.10.7)
+
+Job ROUTER-KEYS-20261127. Jordan's go 2026-11-27 23:39 MST: "store both keys in the vault and VM103, add the models switched off, turn on OrcaRouter zero data retention, Kilo non-sensitive only".
+
+- **Keys:** installed on VM103 as `secrets/orcarouter.key` and `secrets/kilo.key` (mode 600, gateway uid), following the key-file convention in `deploy/deploy-runbook.md`; the gateway does not use an env file. The secrets dir was backed up first to `secrets.grok-bak-20261127-keys/`. The running gateway reads keys at start and on `POST /admin/reload`; neither was done, and the entries are disabled anyway.
+- **Provider config:** `PROVIDER_BASE_URLS` gains `orcarouter` → `https://api.orcarouter.ai/v1` and `kilo` → `https://ai-gateway.kilo.ai/api/v1` (verified 2026-11-27 against each public `/models` endpoint and Kilo's docs; `https://api.kilo.ai/api/openrouter` serves the same catalog).
+- **Registry:** new DISABLED `orcarouter/deepseek-v4-flash-free`. The existing disabled `orcarouter/deepseek-v4.1-flash-free`, `orcarouter/glm-5.3-flash-free`, `kilo/beam-free` (`reflection/beam-free`) and `kilo/auto-free` move from PENDING-KEY to key-installed. 111 entries, 78 enabled (unchanged).
+- **Sensitive wall:** every OrcaRouter and Kilo entry is `public-only-free`, which is how the registry marks non-sensitive only. The gateway refuses public-lane entries for sensitive turns (`sensitive_public_lane`), pins included, and the paid spillway never considers them. `spillway_sensitive_excluded` is not set, because the registry invariant reserves it for paid and private lanes. **OrcaRouter ZDR is NOT on** (it needs a DPA signature that has not been approved), so OrcaRouter stays non-sensitive and can be relaxed only after ZDR is confirmed on, by Jordan's ruling. Kilo `reflection/beam-free` has `mayTrainOnYourPrompts: true`.
+- **$0 test calls (2026-11-27):** `kilo/beam-free` is READY-TO-ENABLE (200, 1.2s, correct reply, cost 0). All three OrcaRouter free routes are NOT-READY: HTTP 429 `free_rate_limited` / `err_free_access_denied`, because free models need the workspace owner to link an established GitHub account in OrcaRouter settings (or buy credits). `kilo/auto-free` was not probed. Everything stays disabled.
+- Tests: `tests/test_v0108_orca_kilo.py` (19). These enable the five entries in a registry variant and prove sensitive turns never reach them, pinned or unpinned, while a non-sensitive pin still serves. Count asserts 110 → 111. Doc: `docs/ORCA-KILO-KEYS-2026-11-27.md`.
+
 ## [0.10.7] — 2026-11-27
 
 **Consolidated release onto main** (Jordan's go 2026-11-27 23:33 MST: "build one branch off main with B, C, D and the model import, fix conflicts, test, open one PR"). PRs #23–#25 were merged into their stacked base branches rather than into `main`, so `main` had v0.10.4 (#22) and Muse's v0.10.3 (#26) but not Jobs B/C/D. This release brings v0.10.5 (Job B), v0.10.6 (Job C), Job D and the v0.10.7 model import onto `main` in one branch, and moves `VERSION` to 0.10.7. Before this, `main` reported 0.10.3 even though v0.10.4 had shipped.

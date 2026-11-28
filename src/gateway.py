@@ -113,7 +113,7 @@ from toolstats import ToolErrorTracker
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.10.7"
+VERSION = "0.10.9"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -720,13 +720,115 @@ def _err(status: int, message: str, code: str,
     return JSONResponse(payload, status_code=status, headers=headers or {})
 
 
+_VALID_ROLES = frozenset({"system", "developer", "user", "assistant", "tool", "function"})
+_REASONING_EFFORTS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh", "max"})
+_NUMERIC_FIELDS = ("temperature", "top_p", "presence_penalty", "frequency_penalty")
+_SURROGATE_RE = re.compile("[\ud800-\udfff]")
+
+
+def _scrub_surrogates(value: Any) -> Any:
+    if isinstance(value, str):
+        return _SURROGATE_RE.sub("\ufffd", value) if _SURROGATE_RE.search(value) else value
+    if isinstance(value, list):
+        return [_scrub_surrogates(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _scrub_surrogates(v) for k, v in value.items()}
+    return value
+
+
+def _normalize_chat_body(body: dict[str, Any]) -> Optional[JSONResponse]:
+    """v0.10.9 (ROUTER-STRESS-20261128): reject malformed shapes with a
+    400 instead of letting them crash the handler into a bare 500.
+
+    Found by the 2026-11-28 stress matrix: a non-object ``messages`` item
+    (``["hi"]``, ``[null]``) raised AttributeError, a non-numeric
+    ``max_tokens`` raised ValueError, and a negative ``max_tokens`` gave a
+    negative cost estimate that made a PAID model look cheaper than every
+    free one. Normalises in place: ``max_tokens``/``max_completion_tokens``
+    become positive ints, ``stream`` becomes a real bool (the string
+    "false" used to mean streaming on). Returns an error response or None.
+    """
+    for i, m in enumerate(body["messages"]):
+        if not isinstance(m, dict):
+            return _err(400, f"messages[{i}] must be an object", "invalid_request")
+        role = m.get("role")
+        if role not in _VALID_ROLES:
+            return _err(400, f"messages[{i}].role must be one of "
+                             f"{sorted(_VALID_ROLES)}", "invalid_request")
+        content = m.get("content")
+        if content is None:
+            if role in ("user", "system", "developer"):
+                return _err(400, f"messages[{i}].content is required for role "
+                                 f"{role}", "invalid_request")
+        elif isinstance(content, list):
+            if not all(isinstance(part, dict) for part in content):
+                return _err(400, f"messages[{i}].content parts must be objects",
+                            "invalid_request")
+        elif not isinstance(content, str):
+            return _err(400, f"messages[{i}].content must be a string, a list "
+                             "of parts, or null", "invalid_request")
+    # Sampling knobs: a wrong type here 400s at EVERY upstream, and the
+    # failover used to walk the whole fleet — paid spillway and even the
+    # premium last resort (whose temperature guard strips the field) —
+    # before answering. Reject once, here, for free.
+    for field in _NUMERIC_FIELDS:
+        v = body.get(field)
+        if v is not None and (isinstance(v, bool) or not isinstance(v, (int, float))):
+            return _err(400, f"{field} must be a number", "invalid_request")
+    tools = body.get("tools")
+    if tools is not None:
+        if not isinstance(tools, list) or not all(
+                isinstance(t, dict) and isinstance(t.get("function"), dict)
+                and isinstance(t["function"].get("name"), str)
+                for t in tools):
+            return _err(400, "tools must be a list of {type: function, function: "
+                             "{name, ...}} objects", "invalid_request")
+    rf = body.get("response_format")
+    if rf is not None and not isinstance(rf, dict):
+        return _err(400, "response_format must be an object", "invalid_request")
+    # reasoning_effort: an unknown value ("bogus", 7) 400s at most
+    # upstreams and walked the failover onto paid (live 2026-11-28:
+    # "bogus" was served by mistral/ministral-8b). The field is a hint,
+    # not a contract, so an unknown value is dropped (provider default)
+    # rather than refused; known values are case-normalised.
+    if "reasoning_effort" in body:
+        effort = body["reasoning_effort"]
+        norm = effort.strip().lower() if isinstance(effort, str) else None
+        if norm in _REASONING_EFFORTS:
+            body["reasoning_effort"] = norm
+        else:
+            body.pop("reasoning_effort")
+    # A lone UTF-16 surrogate ("\\ud800" in the JSON) is legal JSON but
+    # not encodable UTF-8: it crashed the sticky hash and every upstream
+    # call (httpx encodes UTF-8). Replace with U+FFFD, as browsers do.
+    body["messages"] = _scrub_surrogates(body["messages"])
+    for field in ("max_tokens", "max_completion_tokens"):
+        if field not in body or body[field] is None:
+            continue
+        v = body[field]
+        try:
+            if isinstance(v, bool):
+                raise ValueError
+            n = int(v) if isinstance(v, (int, float)) else int(str(v).strip())
+        except (TypeError, ValueError, OverflowError):
+            return _err(400, f"{field} must be a positive integer", "invalid_request")
+        if n < 1:
+            return _err(400, f"{field} must be a positive integer", "invalid_request")
+        body[field] = n
+    if "stream" in body and not isinstance(body["stream"], bool):
+        sv = body["stream"]
+        body["stream"] = sv.strip().lower() == "true" if isinstance(sv, str) else bool(sv)
+    return None
+
+
 def _message_text(msg: dict[str, Any]) -> str:
     content = msg.get("content")
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        return "\n".join(p.get("text", "") for p in content
-                         if isinstance(p, dict) and p.get("type", "text") == "text")
+        return "\n".join(p["text"] for p in content
+                         if isinstance(p, dict) and p.get("type", "text") == "text"
+                         and isinstance(p.get("text"), str))
     return ""
 
 
@@ -1629,6 +1731,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         if not isinstance(body, dict) or not isinstance(body.get("messages"), list) \
                 or not body["messages"]:
             return _err(400, "messages must be a non-empty list", "invalid_request")
+        bad_shape = _normalize_chat_body(body)
+        if bad_shape is not None:
+            return bad_shape
         if app.state.governor.killswitch_active(client.id):
             return _err(403, f"client {client.id} is stopped by the admin killswitch",
                         "killswitch_active")
@@ -1799,6 +1904,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         if not isinstance(body, dict) or not isinstance(body.get("messages"), list) \
                 or not body["messages"]:
             return _err(400, "messages must be a non-empty list", "invalid_request")
+        bad_shape = _normalize_chat_body(body)
+        if bad_shape is not None:
+            return bad_shape
 
         # Manual killswitch: an operator stop, not a budget refusal.
         if app.state.governor.killswitch_active(client.id):

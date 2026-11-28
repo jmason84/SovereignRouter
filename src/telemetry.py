@@ -96,7 +96,7 @@ class OutcomeTracker:
         h = hashlib.sha256()
         for part in (client_id, system_text or "", user_text or "",
                      ",".join(sorted(tool_names))):
-            h.update(part.encode("utf-8"))
+            h.update(part.encode("utf-8", "surrogatepass"))
             h.update(b"\x00")
         return h.hexdigest()
 

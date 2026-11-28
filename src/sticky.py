@@ -43,11 +43,11 @@ TOOL_ERROR_BREAK_AFTER = 2
 
 def conversation_key(client_id: str, first_user_text: str, system_text: str) -> str:
     h = hashlib.sha256()
-    h.update(client_id.encode("utf-8"))
+    h.update(client_id.encode("utf-8", "surrogatepass"))
     h.update(b"\x00")
-    h.update((first_user_text or "").encode("utf-8"))
+    h.update((first_user_text or "").encode("utf-8", "surrogatepass"))
     h.update(b"\x00")
-    h.update((system_text or "").encode("utf-8"))
+    h.update((system_text or "").encode("utf-8", "surrogatepass"))
     return h.hexdigest()
 
 

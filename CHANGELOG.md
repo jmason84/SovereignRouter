@@ -9,6 +9,17 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+### Fixed — v0.10.9 stress-test ingress hardening (2026-11-28; gateway VERSION 0.10.9)
+
+Job ROUTER-STRESS-20261128 (Jordan: "Test, retest, and keep testing until solid … Try to break it and fix it" / "Stress test it"). Every item below was reproduced against the LIVE v0.10.3 gateway (fingerprint-matched to commit 1133f38) and against the v0.10.8 branch in a local stack; full results in `docs/STRESS-TEST-2026-11-28.md`. Not deployed.
+
+- **500s on malformed bodies are now 400s.** A non-object `messages` item (`["hi"]`, `[null]`) raised AttributeError; a non-numeric `max_tokens` raised ValueError; a lone UTF-16 surrogate (`"\ud800"`, legal JSON) raised UnicodeEncodeError in the sticky hash and would have crashed every upstream call. `_normalize_chat_body` (both `/v1/chat/completions` and `/v1/shadow`) now validates message objects/roles/content types, `max_tokens`/`max_completion_tokens` (positive integers), and scrubs lone surrogates to U+FFFD. Text parts whose `text` is not a string are ignored instead of crashing the text join.
+- **Negative `max_tokens` no longer routes to PAID.** `max_tokens: -5` produced a negative cost estimate, so a paid model (live: `mistral/mistral-medium`) looked cheaper than every free one. Now a 400.
+- **Wrongly-typed params no longer walk the fleet onto paid/premium.** `temperature: "hot"` 400'd at every upstream until the premium last resort (whose temperature guard strips the field) served it: live, the **crm client (premium_allowed=false) was served by premium/gpt-5.5** after ~14 s. `response_format: "json"` ended on a paid Claude; `content: 12345`, `content: [1, null]` and bad `tools` ended in a misleading 429 after 11–23 s. Now 400 at ingress with no upstream call: `temperature`/`top_p`/`presence_penalty`/`frequency_penalty` must be numbers, `tools` a list of `{function: {name}}` objects, `response_format` an object, `content` a string, a list of part objects, or null (null not allowed for user/system/developer), and `role` one of system/developer/user/assistant/tool/function.
+- **Unknown `reasoning_effort` values are dropped, not forwarded.** `"bogus"` 400'd at the free upstreams and was served by paid `mistral/ministral-8b`. Known values (none/minimal/low/medium/high/xhigh/max) are lower-cased and kept; anything else is removed so the provider default applies.
+- **`stream: "false"` (a string) no longer means streaming on.** Strings are read as `"true"`/other; non-bool values are coerced.
+- Tests: `tests/test_v0109_stress_hardening.py` (59; 47 fail on the v0.10.8 base). Full suite 1061 passed. `tests/conftest.py`'s fake upstream ignores non-string text parts.
+
 ### Added — v0.10.8 OrcaRouter + Kilo keys, models switched off (2026-11-27; registry/config only, gateway VERSION stays 0.10.7)
 
 Job ROUTER-KEYS-20261127. Jordan's go 2026-11-27 23:39 MST: "store both keys in the vault and VM103, add the models switched off, turn on OrcaRouter zero data retention, Kilo non-sensitive only".

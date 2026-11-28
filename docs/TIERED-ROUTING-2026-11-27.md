@@ -34,3 +34,19 @@ tier (free < cheap < premium)  ->  owner-preferred specialist for the class
 - Output: `tier_shadow` on every route row, `tiered_shadow` on `/v1/shadow`. Live routing is not touched (tests prove identical upstream call sequences with the shadow on/off).
 
 How to read it after deploy: the share of rows with `agree=false`, split by class and by `pick_tier` vs `live_tier`, is the size of the policy change. Job D's scorecard reports it nightly.
+
+## Job D — nightly scorecard, proposals only (branch `feat/job-d-nightly-scorecard`)
+
+`tools/scorecard.py` turns the router's own logs into a scorecard and a numbered list of **proposed** changes. It cannot change anything: the DB is opened read-only, the registry is only read, and output goes to `--out` or stdout. The schedule (`deploy/cron/scorecard.cron`) ships commented out. Thresholds are constants at the top of the tool:
+
+| Proposal | Fires when |
+|---|---|
+| tool_quality | ≥20% tool errors on ≥30 judged turns |
+| dead_entry | ≥10 entry_missing / account_dead attempts on an entry still enabled |
+| pool_pressure | one pool is ≥50% of failed attempts |
+| depth | max fallback depth ≥6 |
+| cost | average or worst-day cost over the client's target |
+| sensitivity | OpenClaw >50% flagged sensitive |
+| tier_policy | tier shadow disagrees with live on ≥30% of ≥50 rows of a class |
+
+First live run (read-only, 72h to 2026-11-27 20:43 MST): `reports/scorecard/scorecard-2026-11-27-72h.md`.

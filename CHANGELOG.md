@@ -9,6 +9,29 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+### Added — Job D: nightly scorecard, proposals only (2026-11-27; tools-only, gateway VERSION unchanged at 0.10.6)
+
+Owner go 2026-11-27 20:25 MST, "Do B C D".
+
+- **`tools/scorecard.py`** reads `routes.jsonl` as text and `quota.db` read-only (sqlite `mode=ro`), and names models from `registry.json` without ever writing it. It reports for a window (default 24h):
+  - Per client: requests, non-200, average and worst-day cost vs target, sensitive share, tool-error-next-turn rate, spillway/premium serves, depth-cap hits, `premium_not_required_congestion` skips.
+  - Production tool outcomes per model.
+  - Failed attempts by class, by congested pool and by dead entry, plus fallback depth.
+  - Top model × class serves.
+  - The v0.10.6 `tier_shadow` agreement by class, with tier moves and top swaps.
+- **Proposals.** Each has an id, evidence, proposed change, risk and status "PROPOSED — needs Jordan's approval; nothing applied". Kinds:
+  - tool_quality: ≥20% errors on ≥30 judged turns.
+  - dead_entry: ≥10 entry_missing/account_dead; skipped when the registry already has the entry disabled.
+  - pool_pressure: one pool ≥50% of failed attempts.
+  - depth: max depth ≥6.
+  - cost: average or worst day over target.
+  - sensitivity: OpenClaw >50% flagged.
+  - tier_policy: shadow disagreement ≥30% on ≥50 rows of a class.
+- **Output.** `--out DIR` writes `scorecard-<date>.md/.json`, and `--stdout` prints. Nothing else is written.
+- **Schedule.** `deploy/cron/scorecard.cron` ships commented out (inactive). Activating it is a separate owner decision. No n8n workflow was created.
+- **First run.** On VM103 live logs (72h to 2026-11-27 20:43 MST), run read-only from a RAM temp copy that was then deleted. Report: `reports/scorecard/scorecard-2026-11-27-72h.md`. It made 6 proposals: free-router tooling 4→3 (29% on 52), ling-3.2-flash-free re-probe/disable (10 entry_missing), Cloudflare pool pressure (50% of failures), depth (max 21), Hermes worst day $1.41 vs $1.25, and OpenClaw 98% sensitive → v0.10.4.
+- Tests: `tests/test_scorecard_job_d.py` (7): read-only proof (DB/routes/registry hashes unchanged, only `--out` written), `mode=ro` refuses writes, card contents and every proposal kind, already-disabled entries not proposed, worst-day cost, empty state, cron inactive.
+
 ## [0.10.6] — 2026-11-27
 
 **v0.10.6 — Job C of the tiered-routing plan: per-class tiered ranking in SHADOW mode** (owner go 2026-11-27 20:25 MST, "Do B C D"; policy reading 2026-11-27 17:26 MST — "best" = best for the request type and the tools/capability it needs; per class: best free, then best cheap, then premium only when required). Built on v0.10.5 (Job B). **Routing is unchanged.**

@@ -106,6 +106,7 @@ from quota import AttemptEvent, QuotaStore, UsageEvent
 from registry import FREE_LANES, ModelEntry, Registry, load_registry
 import tiering
 from sensitivity import ScanResult, scan_messages, scan_pii_messages
+from spread import LoadSpreader, tier_of
 from sticky import (StickyStore, TOOL_ERROR_BREAK_AFTER,
                     conversation_key)
 from telemetry import RouteRecord, Telemetry
@@ -113,7 +114,7 @@ from toolstats import ToolErrorTracker
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.10.10"
+VERSION = "0.10.11"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -653,11 +654,13 @@ class GatewayConfig:
     # Sensitivity scan: Phase 0 log-only trial is available via this flag;
     # default False = matches change routing (post-Phase-0 behaviour).
     sensitivity_log_only: bool = os.environ.get("SOVEREIGN_SENSITIVITY_LOG_ONLY") == "1"
-    # v0.10.10 PII detectors (SSN, payment card). Default OFF = log-only:
-    # matches are recorded as a ``pii_log_only:<names>`` route signal and
-    # do not change routing. "1" promotes a match to data_class=sensitive
-    # (public lanes refused). Owner policy gate — see sensitivity.py.
-    pii_detectors: bool = os.environ.get("SOVEREIGN_PII_DETECTORS") == "1"
+    # v0.10.10 PII detectors (SSN, payment card). v0.10.11: default ON
+    # (owner go 2026-11-28 1:40 AM MT) — a match makes the turn
+    # data_class=sensitive (public lanes refused). "0" = the v0.10.10
+    # log-only mode (``pii_log_only:<names>`` route signal, no routing
+    # change). See sensitivity.py.
+    pii_detectors: bool = field(default_factory=lambda: os.environ.get(
+        "SOVEREIGN_PII_DETECTORS", "1").strip() != "0")
     emergency_enabled: bool = os.environ.get("SOVEREIGN_EMERGENCY_SWITCH") == "1"
     emergency_daily_usd: float = float(os.environ.get("SOVEREIGN_EMERGENCY_DAILY_USD", "25"))
     # v0.5.7 (owner ruling 2026-11-09): warn-only emergency — alert at
@@ -1103,6 +1106,8 @@ def create_app(config: Optional[GatewayConfig] = None,
     # hook); build_candidates demotes flagged entries within their
     # cost tier. See toolstats.py for gates and basis.
     app.state.toolstats = ToolErrorTracker(store)
+    # v0.10.11: burst spreading (in-flight + 429 cooldown hints).
+    app.state.spreader = LoadSpreader()
     app.state.tier_tool_stats = tiering.ToolStatsCache(app.state.toolstats)
     app.state.classifier = classifier
     app.state.provider_keys = provider_keys
@@ -1295,6 +1300,24 @@ def create_app(config: Optional[GatewayConfig] = None,
                 if e.id in tool_flagged:
                     skipped.append({"model": e.id,
                                     "reason": "tool_error_rate_demoted"})
+        # v0.10.11 (owner go 2026-11-28 1:40 AM MT): burst spreading.
+        # Reorders WITHIN a tier only (free / paid / premium, plus the
+        # tool-flag bit): entries that 429'd in the last few seconds go
+        # to the back of their tier, and contended equal-rank bands are
+        # spread by in-flight count with a seedable RNG tie-break. With
+        # no load the order is unchanged. See spread.py.
+        spreader = app.state.spreader
+        if spreader.enabled and len(candidates) > 1:
+            def _tier_key(e: ModelEntry) -> tuple:
+                return (tier_of(e.lane),
+                        1 if e.id in tool_flagged else 0)
+            candidates, moved = spreader.reorder(
+                candidates, tier_key=_tier_key,
+                quality=lambda e: _selection_quality(e, task_class, has_tools),
+                cost=lambda e: e.estimate_cost(est_tokens, max_tokens // 2))
+            for mid in moved:
+                skipped.append({"model": mid,
+                                "reason": "burst_cooldown_deprioritized"})
         return candidates, skipped
 
     def build_spillway_candidates(
@@ -2143,6 +2166,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         )
         if pii and not cfg.pii_detectors:
             record.signals.append("pii_log_only:" + ",".join(pii))
+        # v0.10.11: an explicit model pin opts out of attempt-time
+        # burst reordering (plain attribute, not a serialized field).
+        record.spread_pinned = explicit_entry is not None  # type: ignore[attr-defined]
         fingerprint = telemetry.outcomes.fingerprint(
             client.id, system_text, last_user_text, [n for n in tool_names if n])
         record.repeat_within_60s = telemetry.outcomes.check_and_record(fingerprint)
@@ -2285,7 +2311,14 @@ def _record_attempt(app: FastAPI, record: RouteRecord, client: ClientPolicy,
     the critical path: a ledger failure must not break serving, so
     errors fold into a route-record signal instead of raising.
     Selection does not read any of this in v0.8.0 (decision J-2).
+    v0.10.11: a 429/503 also starts the short per-model burst cooldown
+    (spread.py) - a per-process ordering hint, not a demotion.
     """
+    if outcome == "failed" and status is not None:
+        try:
+            app.state.spreader.note_status(entry.id, status, headers)
+        except Exception:  # noqa: BLE001 - a hint must never break serving
+            pass
     try:
         pool = pool_for(entry)
         failure = None
@@ -2328,6 +2361,11 @@ def _record_attempt(app: FastAPI, record: RouteRecord, client: ClientPolicy,
                 record.would_demote.append(ann)
     except Exception:  # noqa: BLE001 — observability never breaks serving
         record.signals.append("attempt_ledger_error")
+
+
+def _spread_tier_key(e: ModelEntry) -> int:
+    """Attempt-time tier key (v0.10.11): free / paid / premium."""
+    return tier_of(e.lane)
 
 
 class _DepthBudget:
@@ -2395,6 +2433,9 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
     # first-pass candidate failed upstream (v0.5.5).
     spillway_engaged = spillway_reason is not None
     budget = _DepthBudget(app.state.cfg.max_upstream_attempts)
+    # v0.10.11: attempt-time burst reorder is off for an explicit pin
+    # (the caller asked for that model first).
+    spread_ok = not getattr(record, "spread_pinned", False)
     idx = 0
     while True:
         if budget.exhausted():
@@ -2425,6 +2466,11 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
                 _keep_premium_skips(skipped, extra_skipped)
             if not early:
                 break
+        if spread_ok and idx not in retried_same:
+            moved_back = app.state.spreader.promote_uncooled(
+                candidates, idx, _spread_tier_key, attempted)
+            if moved_back:
+                record.signals.append(f"burst_cooldown_reordered:{moved_back}")
         entry = candidates[idx]
         attempted.add(entry.id)
         payload = upstream_body(body, entry, est_tokens, stream=False,
@@ -2432,8 +2478,15 @@ async def _json_response(*, app: FastAPI, body: dict[str, Any],
         budget_override = None
         budget.calls += 1
         t_u0 = time.perf_counter()
+        app.state.spreader.acquire(entry.id)
         try:
-            resp = await call_upstream(entry, payload)
+            try:
+                resp = await call_upstream(entry, payload)
+            finally:
+                _conc = app.state.spreader.inflight.get(entry.id, 0)
+                app.state.spreader.release(entry.id)
+            if resp.status_code < 400:
+                app.state.spreader.note_ok(entry.id, _conc)
         except (httpx.TimeoutException, httpx.TransportError):
             record.latency_upstream_ms += (time.perf_counter() - t_u0) * 1000
             skipped.append({"model": entry.id, "reason": "upstream_unreachable"})
@@ -2608,7 +2661,23 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                              record.cost_estimate_usd, False)
     http: httpx.AsyncClient = app.state.http
 
+    inflight_held: list[str] = []
+    spread_ok = not getattr(record, "spread_pinned", False)
+
+    def _release_held() -> None:
+        while inflight_held:
+            app.state.spreader.release(inflight_held.pop())
+
     async def produce() -> AsyncIterator[str]:
+        # v0.10.11: in-flight counters are released per attempt (top of
+        # the loop) and, whatever happens, when the stream ends.
+        try:
+            async for item in _produce():
+                yield item
+        finally:
+            _release_held()
+
+    async def _produce() -> AsyncIterator[str]:
         nonlocal candidates, spillway_reason
         escalated = False
         if spillway_reason is not None:
@@ -2624,6 +2693,7 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
         idx = 0
         finalized = False
         while True:
+            _release_held()
             if budget.exhausted():
                 _note_depth_cap(record, skipped, budget)
                 break
@@ -2660,10 +2730,18 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                     _keep_premium_skips(skipped, extra_skipped)
                 if not early:
                     break
+            if spread_ok:
+                moved_back = app.state.spreader.promote_uncooled(
+                    candidates, idx, _spread_tier_key, attempted)
+                if moved_back:
+                    record.signals.append(
+                        f"burst_cooldown_reordered:{moved_back}")
             entry = candidates[idx]
             attempted.add(entry.id)
             payload = upstream_body(body, entry, est_tokens, stream=True)
             budget.calls += 1
+            app.state.spreader.acquire(entry.id)
+            inflight_held.append(entry.id)
             url = f"{entry.effective_base_url}/chat/completions"
             hdrs = {"Content-Type": "application/json"}
             key = app.state.provider_keys.get(entry.provider)
@@ -2678,6 +2756,9 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
             try:
                 async with http.stream("POST", url, json=payload, headers=hdrs) as resp:
                     if resp.status_code != 200:
+                        # v0.10.11: free the in-flight slot first so the
+                        # 429 is judged against the OTHER open calls.
+                        _release_held()
                         raw = await asyncio.wait_for(
                             resp.aread(),
                             timeout=cfg.stream_first_chunk_timeout_s)
@@ -2693,6 +2774,8 @@ async def _stream_response(*, app: FastAPI, cfg: GatewayConfig,
                                            f"upstream_{resp.status_code}")
                         idx += 1
                         continue
+                    app.state.spreader.note_ok(
+                        entry.id, app.state.spreader.inflight.get(entry.id, 0))
                     assembler = ToolCallAssembler()
                     buffered: list[str] = []
                     decided: Optional[str] = None   # None | "text" | "tool"

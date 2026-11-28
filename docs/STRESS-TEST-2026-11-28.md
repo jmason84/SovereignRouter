@@ -116,3 +116,90 @@ Inferred: that the OpenClaw trigger is runtime-injected text; that the herd effe
 ## Spend
 
 Live test traffic: crm matrix $0.002366, live load $0.000667, Hermes $0.004652, OpenClaw $0.017916 = **about $0.026** (route rows). Hard cap was $2.
+
+---
+
+## Round 2 - burst spreading and PII on by default (v0.10.11, 2026-11-28 01:40-02:30 MT)
+
+Owner go (1:40 AM MT): "Go: fix the burst failures by spreading requests across models, then retest up to 80" and "Turn the SSN and card detectors on by default". Branch `fix/v0.10.11-burst-spread`, stacked on #30. Nothing live was deployed, restarted or reconfigured. No live load was run this round; the only live action was a read-only count of 24 h of route logs.
+
+### What changed
+
+- **Burst spreading** (`src/spread.py`). Per-process load hints:
+  - in-flight count per model;
+  - a learned concurrency ceiling, set from a 429/503 that arrives while other calls are open on the model;
+  - a 3 s cooldown for a 429/503 with nothing else open, i.e. a plain rate limit.
+
+  Candidates are reordered only inside a contiguous run of one tier (free / paid / premium):
+  - saturated entries move behind unsaturated ones, and cooled entries go to the back of the run;
+  - contended equal-rank bands are spread by in-flight count, with a seedable RNG breaking ties;
+  - at attempt time, a candidate that has become saturated or cooled swaps with a later sibling in the same tier, without spending attempt budget.
+
+  Tier order, the sensitivity wall, no-premium-on-congestion, pins and sticky reuse are unchanged, and with no load the order is the old one. The "preferred coder" order lives only in the v0.10.6 tier *shadow* (`tiering.py`), which never reorders serving, so it is untouched.
+- **Depth cap.** Attempts were already distinct models: the spillway excludes attempted ids, and the only repeat is the length retry. The cap stays at 6. The attempt-time swap is what stops a turn from spending budget on models other turns have just saturated.
+- **PII detectors ON by default.** `SOVEREIGN_PII_DETECTORS=0` turns them off. The false-positive guards are listed in the CHANGELOG.
+
+### Load: same mock (300-1500 ms latency, 3 in-flight per model), run to 80
+
+Errors are failed turns as a share of all turns. Served lanes come from each stack's own route log, not response headers. Premium serves were 0 everywhere.
+
+crm key (no public lane; its free pool is RPM-limited, so paid carries bursts):
+
+| Concurrency | v0.10.3 (live code) | #30 branch (v0.10.10) | v0.10.11 (final code) | v0.10.11 replicates |
+|---|---|---|---|---|
+| 1 | 0% p95 0.92 s | 0% p95 1.55 s | 0% p95 1.65 s | 0%, 0%, 0% |
+| 5 | 0% p95 1.49 | 0% p95 1.61 | 0% p95 1.39 | 0%, 0%, 0% |
+| 10 | 0% p95 1.44 | 0% p95 1.62 | 0% p95 1.53 | 0%, 0%, 0% |
+| 20 | 0% p95 1.70 | 1.7% p95 1.96 | 0% p95 2.48 | 0%, 0%, 0% |
+| 40 | 0% p95 2.37 | **33.3%** p95 1.76 | 0% p95 2.02 | 0%, 0%, 0% |
+| 60 | 0% p95 2.90 | **37.2%** p95 2.61 | 0.6% p95 2.47 | 1.1%, 0.6%, 1.1% |
+| 80 | 0% p95 3.79 | **45.4%** p95 2.93 | **0.0%** p95 2.64 | 0.8%, 0.0%, 0.4% |
+| Failed upstream calls per turn at 80 | 5.11 | 3.98 | 0.89 | 1.25, 1.16, - |
+
+hermes key (public lane allowed):
+
+| Concurrency | v0.10.3 | #30 branch | v0.10.11 run A | v0.10.11 run B (final code) |
+|---|---|---|---|---|
+| 20 | 0%; 56 free / 4 paid | 0%; 41 free / 19 paid | 0%; 60 free | 0%; 60 free |
+| 40 | 0%; 109 / 11 | **25.0%** | 0%; 101 / 19 | 0%; 108 / 12 |
+| 60 | 0%; 140 / 40 | **35.0%** | 0%; 120 / 60 | 0.6%; 113 / 66 |
+| 80 | 0%; 159 / 81, p95 3.43 s | **37.9%** | 0%; 167 / 73, p95 2.53 s | **1.3%**; 141 / 96, p95 2.93 s |
+
+**Target:** under 2% errors at 80 with no premium for non-premium keys. Met in all 6 runs at 80 (worst 1.3%). Paid share at 80 on the hermes key is 30-40%, against 34% on v0.10.3. Latency p95 is equal to or below v0.10.3.
+
+The remaining few 429s are turns that hit six 429s before a ceiling was learned: the first seconds of a burst, or a ceiling growing back by one. v0.10.3 never 429s here because it has no depth cap, but it pays for that with about 5 failed upstream calls per turn.
+
+### Matrix (82 cases, local, PII default)
+
+| Stack | hermes | crm | openclaw |
+|---|---|---|---|
+| v0.10.3 | 76 | 78 | 75 |
+| #30 branch (PII flag off) | 80 | 82 | 79 |
+| v0.10.11 (PII on by default) | **82** | **82** | **81** |
+
+The single OpenClaw "failure" is a test-expectation artifact: the premium alias is allowed for OpenClaw. Sensitive markers reaching a public-only-free upstream in the mock log: v0.10.3 `ssn 4, card 4`; #30 `ssn 4, card 4`; v0.10.11 **none**.
+
+### PII impact estimate (live 24 h route log, counts only; read 2026-11-28 ~01:58 MT)
+
+Route rows carry no prompt text, so the log cannot say how many turns contained an SSN or card. What it can bound is the exposure: turns that would change route if they did.
+
+| Client | Turns | Non-sensitive turns served on public-only-free | Sensitive turns today (served private-free / paid) |
+|---|---|---|---|
+| n8n | 1459 | 1204 | 0 |
+| hermes | 325 | 185 | 26 (13 / 13), $0.439 total |
+| openclaw | 192 | 11 | 178 (164 / 14), $0.987 total |
+| crm | 214 | 0 (no public lane) | 13 (13 / 0) |
+
+- **What can move:** about 1,400 public-lane turns a day (n8n 86%, hermes 13%). A turn moves only if it carries an SSN-format or Luhn-valid card number, which is rare in automation traffic. OpenClaw is already ~93% sensitive, and crm has no public lane, so neither changes.
+- **Inferred cost:** today's sensitive turns averaged about $0.017 (hermes) when they spilled to paid.
+  - 1% of public turns matching: about 14 turns a day, roughly +$0.10 to +$0.25 a day.
+  - 5% matching: roughly +$0.50 to +$1.20 a day, plus extra load on the private-free pool.
+- **How to measure it:** run a day with `SOVEREIGN_PII_DETECTORS=0`. v0.10.10's `pii_log_only` signal then gives the exact rate.
+
+### Remaining risks
+
+- The load hints are per process. With more than one uvicorn worker each worker learns separately; that is still safe, just slower to learn. The live container runs one worker.
+- The mock limits concurrency, not RPM, so real provider limits (RPM/TPM, provider-wide 429s) will learn differently. An RPM limit shows up as cooldowns rather than ceilings. Not proven live.
+- A learned ceiling can sit one below a provider's true limit for up to 120 s after a 429. That is a little paid spill that could have been free.
+- PII-on can move up to ~1,400 public turns a day onto private-free, then paid. The rate is unknown until it is measured.
+- The PII detectors still flag Luhn-valid, Visa-prefixed 16-digit order numbers.

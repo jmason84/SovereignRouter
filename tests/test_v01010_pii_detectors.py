@@ -54,8 +54,10 @@ def _routes(tmp_path):
     return [json.loads(l) for l in p.read_text().splitlines() if l.strip()]
 
 
-def test_default_is_log_only(tmp_path):
-    app = build_app(tmp_path)
+def test_flag_off_is_log_only(tmp_path):
+    # v0.10.11: default is ON; SOVEREIGN_PII_DETECTORS=0 / False keeps
+    # the v0.10.10 log-only behaviour tested here.
+    app = build_app(tmp_path, pii_detectors=False)
     assert app.state.cfg.pii_detectors is False
     with TestClient(app) as tc:
         sh = tc.post("/v1/shadow", json=chat_body(PII), headers=auth("hermes")).json()

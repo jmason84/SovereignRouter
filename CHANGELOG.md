@@ -9,6 +9,28 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+### Changed — v0.10.11 burst spreading + PII detectors ON by default (2026-11-28; gateway VERSION 0.10.11)
+
+Owner go 2026-11-28 1:40 AM MT: "fix the burst failures by spreading requests across models, then retest up to 80" and "Turn the SSN and card detectors on by default". Job ROUTER-STRESS-20261128.
+
+- **Burst spreading (`src/spread.py`, new).** Under a burst, every turn used to walk the identical cost order. The top models 429'd together and the v0.10.5 6-attempt cap ran out. Against the stress mock (300-1500 ms, 3 in-flight per model) the v0.10.10 branch failed 33-45% of crm turns at 40-80 concurrent; v0.10.3 had 0% but averaged 5.1 failed upstream calls per turn. The gateway now keeps per-process load hints:
+  - **In-flight count per model.**
+  - **Learned concurrency ceiling.** A 429/503 that arrives while other calls are open on the model sets its ceiling to that number. The model is "saturated" while in-flight is at or above the ceiling. The ceiling grows by one after 10 s without a new 429 and is forgotten 120 s after the last one.
+  - **Short cooldown.** A 429/503 with nothing else open is a rate limit: 3 s, Retry-After honoured, capped at 30 s.
+- **How selection uses the hints.** Reordering happens only inside a contiguous run of one tier (free / paid / premium, plus the v0.10.2 tool-flag bit):
+  - Saturated entries move behind unsaturated ones, and cooled entries go to the back of the run.
+  - Contended equal-rank bands (same quality, cost within 50%) are ordered by in-flight count, with a seedable RNG (`SOVEREIGN_SPREAD_SEED`) breaking ties.
+  - With no load the order is exactly the old one.
+  - At attempt time, a candidate that became saturated or cooled after selection swaps with a later sibling in the same tier. This spends no attempt budget, and pins are exempt.
+  - Nothing is removed, so a cooldown can never turn a servable turn into a 429. Free-first, the sensitivity wall, no-premium-on-congestion, pins and sticky reuse are unchanged.
+  - The depth cap already counts distinct models (the spillway excludes attempted ids); it is unchanged.
+  - Knobs: `SOVEREIGN_SPREAD=0` (off), `SOVEREIGN_SPREAD_COOLDOWN_S`, `SOVEREIGN_SPREAD_MAX_COOLDOWN_S`, `SOVEREIGN_SPREAD_BAND_REL`, `SOVEREIGN_SPREAD_CAP_TTL_S`, `SOVEREIGN_SPREAD_CAP_GROW_S`.
+  - New route-row annotations: skip reason `burst_cooldown_deprioritized` and signal `burst_cooldown_reordered:<id>`.
+- **Load results with the same mock** (crm, 3 requests per worker, 3 runs at 60/80): 0-1.1% errors at 60 and 0-0.8% at 80. Hermes key: 0-1.3% at 80. Failed upstream calls per turn at 80 dropped to 0.9-2.2, against 5.1-5.5 on v0.10.3. No premium serves. Full tables are in `docs/STRESS-TEST-2026-11-28.md`.
+- **PII detectors ON by default.** `SOVEREIGN_PII_DETECTORS` now defaults to on; `=0` restores v0.10.10 log-only. The config is read at construction time.
+- **False-positive guards.** A match may not touch a word character, `.`, `/`, `+` or `-`. Cards must be one contiguous run or a standard grouping with one consistent separator (4-4-4-4[-3], Amex 4-6-5), and may not sit inside a longer grouped number. Single repeated-digit masks are ignored. Five false positives the v0.10.10 regexes flagged are now clean: `AB123-45-6789`, a 20-digit grouped tracking number, `id=x4111…`, a decimal `0.4111…`, and a card-like number in a URL path. Known residual: a Luhn-valid 16-digit order number with a Visa prefix is still flagged.
+- `tests/test_v01011_burst_spread_pii.py`: 76 tests, including a deterministic 80-turn burst simulation (herd at least 50 failures, spread 0). Full suite: 1167 passed.
+
 ### Added — v0.10.10 PII detectors, log-only by default (2026-11-28; gateway VERSION 0.10.10) — OWNER POLICY GATE
 
 Job ROUTER-STRESS-20261128. The stress matrix confirmed OPERATIONS-REVIEW-2026-11-11 item 8 ("Sensitivity scan has no SSN / payment-card detectors — owner policy decision") on the live v0.10.3 gateway and the v0.10.8 branch: a fake SSN plus a test card number classified `internal` and was first-routed to a **public-only-free** lane (`cloudflare/gpt-oss-120b` in the local stack).

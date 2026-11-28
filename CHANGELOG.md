@@ -29,6 +29,10 @@ Jordan's order 2026-11-27 23:06 MST: "pull the relevant models both free and not
   - `kilo/beam-free`
 - Every paid price was verified 2026-11-27 from the provider's public pricing API. Quality figures are seeds; no tooling score is set before the battery runs.
 - Tests: `tests/test_v0107_model_import.py` (new). The registry count and disabled/sensitive sets in the existing tests are updated.
+- **Probe results (Jordan's go 2026-11-27 11:18 PM MT):** minimal direct chat + tool + code calls from VM103 to all 8 keyed entries. Seven passed (READY-TO-ENABLE); `deepinfra/qwen3-coder-30b` failed its first code test and is verbose (NOT-READY). All stay disabled. `nvidia/kimi-k3.1-pro` latency measured at 49-76s, so its `latency_p50_ms` is now 50000. Total test spend about $0.005.
+- **Backup coder preference:** `CLASS_PREFERRED["code"]["cheap"]` is now nrouter qwen3-coder, then deepinfra qwen3-coder-480b-turbo, then huggingface/qwen3-coder-480b (non-sensitive only). Shadow-only; the last two are disabled.
+- **HF router catalog source:** new `tools/hf_catalog.py`, wired into `tools/price_check.py` and `tools/discovery_tripwire.py` via `--hf-file/--hf-url` (public endpoint, no credential, report-only). Tests in `tests/test_hf_catalog_tools.py`.
+- **Plan only:** `docs/EMBEDDINGS-RERANK-PLAN-2026-11-27.md` (Bounded Job Card for an embeddings + rerank service; nothing built).
 - Docs: `docs/MODEL-IMPORT-2026-11-27.md` covers the evidence grades, the candidates rejected and why (CF kimi-k2.6 deprecated, ZenMux free sunset, no verified free Qwen coder), and the image-gen shortlist.
 
 ### Added — Job D: nightly scorecard, proposals only (2026-11-27; tools-only, gateway VERSION unchanged at 0.10.6)

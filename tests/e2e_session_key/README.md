@@ -13,3 +13,7 @@ Local end-to-end harness built for Job ROUTER-J1C-20261127 (2026-11-27). It is n
   - Agent-shaped keys never flag.
   It also reports FP/FN rates on synthetic corpora.
 - `corpus.py` holds the synthetic corpora. Secret fixtures are generated randomly at run time, and the harness prints case names only, never values.
+
+## Section E — routing self-correction (added v0.10.5, Job B)
+
+`run_e2e.py` section "E routing" (22 checks) drives congested free pools (`MOCK_STATUS::429::private-free` / `::public-only-free`) and congested free+paid pools for n8n, hermes and openclaw, JSON and streaming. It asserts at most 6 upstream calls per turn, a paid serve when only free is congested, and that premium is never called on congestion. It also checks that tool results like `{"error": null}` / `{"ok": true, "error": ""}` do not set `tool_error_next_turn`, while real error payloads do. Run against v0.10.4, the section fails 11/22 (17 and 66 upstream calls, premium served, two false tool errors).

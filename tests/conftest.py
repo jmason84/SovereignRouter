@@ -51,7 +51,8 @@ def _all_text(body: dict) -> str:
         if isinstance(c, str):
             parts.append(c)
         elif isinstance(c, list):
-            parts.extend(p.get("text", "") for p in c if isinstance(p, dict))
+            parts.extend(p["text"] for p in c
+                         if isinstance(p, dict) and isinstance(p.get("text"), str))
     return "\n".join(parts)
 
 

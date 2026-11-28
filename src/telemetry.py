@@ -59,6 +59,7 @@ class RouteRecord:
     sticky: bool = False
     data_class: str = "internal"
     sensitive_detectors: list[str] = field(default_factory=list)  # names only
+    sensitive_match_shapes: list[str] = field(default_factory=list)  # v0.10.9: char-class shapes, never values
     sidecar_fallback: bool = False
     override: Optional[str] = None       # alias / header that overrode routing
     repeat_within_60s: bool = False
@@ -96,7 +97,7 @@ class OutcomeTracker:
         h = hashlib.sha256()
         for part in (client_id, system_text or "", user_text or "",
                      ",".join(sorted(tool_names))):
-            h.update(part.encode("utf-8"))
+            h.update(part.encode("utf-8", "surrogatepass"))
             h.update(b"\x00")
         return h.hexdigest()
 

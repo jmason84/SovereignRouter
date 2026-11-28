@@ -9,6 +9,24 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+## [0.10.4] — 2026-11-27
+
+**v0.10.4 — OpenClaw session-key false positive fixed in the credential detector, 2026-11-27** (owner go 2026-11-27 14:23 MST, Tier 2, exactly this one change; Job ROUTER-J1B-20261127, following the read-only Job 1 check ROUTER-J1-20261127). Version label 0.10.4 chosen deliberately: 0.10.3 is reserved for the parked reasoning_effort shaping build (built, not pushed — it must rebase onto this release).
+
+- **Root cause.** OpenClaw's system prompt carries a runtime line on every request — `Runtime: agent=main | session=agent:main:main | host=… | model=sovereign/auto` — and its `/status` output prints `Session: agent:<id>:<scope>`. The bare `session` noun that v0.9.1 (F-18) added to `credential_assignment` matched that value, a colon-delimited routing identifier, not a credential. Effect: OpenClaw's sensitive-flag rate went from ~0% to ~100% at the v0.9.1 deploy (2026-11-15 04:00 MST) and stayed ~97% (1,173 of 1,207 OpenClaw requests in the 7 days to 2026-11-27 were flagged, every one by `credential_assignment` alone), holding OpenClaw to the sensitive wall (private-free + paid spillway) instead of the full registry. No known-format key/token detector fired for OpenClaw in that window. Detail: `docs/incidents/2026-11-27-openclaw-session-key-false-positive.md`.
+- **Fix.** For the `session` noun only, a value of the exact shape `agent:<agentId>:<scope>[:…]` (`_OPENCLAW_SESSION_KEY_RE`) is skipped. Every other noun is unchanged (`password=agent:main:main` still flags), and every random cookie/token shape still flags: `session=<random>`, `session: <random>`, `Cookie: session=…`, `Set-Cookie: session=…`, express-signed `session=s:<id>.<sig>`, golden g180 `session=FAKESESSIONVALUE000`, and the prose `session cookie is …` form. Prefix-format detectors untouched. The scan can only flag less than before, never more.
+- **Not in this release (deliberately).** `sessionid=` and `session_token=` were NOT flagged before this release and are still not flagged (the noun list does not include them; `Set-Cookie: sessionid=…` is caught by the prose detector). Widening the noun list is a separate detector change for the owner. No registry, lane, client, free-router or OpenClaw change.
+- **E2E hardening loop (Job ROUTER-J1C-20261127, same day, before deploy).** A local end-to-end harness was added at `tests/e2e_session_key/`. It runs the real gateway and classifier sidecar against mock upstreams, using the live registry and client shape. It found three issues in the first cut, all fixed with tests:
+  - (1) Markdown or prose wrapping around the key (`` `session=agent:main:main` ``, `**…**`, `(…)`) still flagged. Wrapping characters are now stripped before the shape check.
+  - (2) Differential fuzz showed that `Cookie: session=agent:…` would have been exempted. Cookie context on the same line is now never exempt.
+  - (3) A 900k-character single-line prompt with 20k session keys took 34 s per scan, because the unbounded per-match look-back was quadratic. The cookie offsets are now computed once per scan, giving O(n log n) and about 0.2 s. The v0.10.2 baseline was about 0.16 s.
+- **E2E results.**
+  - 252/252 checks pass across OpenClaw runtime-line routing (full candidate set preserved), real secrets (38 must-flag shapes, served only off public lanes, no canary in logs or at any public or excluded upstream), Hermes tool turns, n8n bulk, streaming, 402/403/429/500 and stall failover, and edge cases.
+  - Differential fuzz over 60,000 cases found 0 superset violations and 0 unexplained differences.
+  - The same harness against v0.10.2 fails 59/59 OpenClaw runtime-line checks.
+- Tests: `tests/test_session_key_exclusion.py` (25). Suite 833 (808 + 25).
+
+
 ## [0.10.2] — 2026-11-27
 
 **v0.10.2 — production tool-error avoidance + quick wins, 2026-11-27** (owner ruling 2026-11-27, from the same-day Hermes/OpenClaw tool-error diagnosis: Hermes' production tool_error_next_turn rate is ~24% pooled over 72h and unmoved since F2/F3, because the battery tooling scores cannot discriminate — every major entry carries tooling 5 while measured production rates span 12.4% to 34.5%):

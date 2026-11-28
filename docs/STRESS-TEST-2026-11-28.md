@@ -131,7 +131,7 @@ Owner go (1:40 AM MT): "Go: fix the burst failures by spreading requests across 
   - a 3 s cooldown for a 429/503 with nothing else open, i.e. a plain rate limit.
 
   Candidates are reordered only inside a contiguous run of one tier (free / paid / premium):
-  - saturated entries move behind free ones, and cooled entries go to the back of the run;
+  - saturated entries move behind unsaturated ones, and cooled entries go to the back of the run;
   - contended equal-rank bands are spread by in-flight count, with a seedable RNG breaking ties;
   - at attempt time, a candidate that has become saturated or cooled swaps with a later sibling in the same tier, without spending attempt budget.
 

@@ -107,7 +107,8 @@ def main() -> int:
         if not ok:
             print((tmp / "gateway.log").read_text()[-3000:]); return 2
         st, _, raw = http("GET", f"{GW}/health"); h = json.loads(raw)
-        check("boot", "version is 0.10.4", h.get("version") == "0.10.4", h.get("version"))
+        _want = re.search(r'^VERSION = "([^"]+)"', (Path(__file__).resolve().parents[2] / "src" / "gateway.py").read_text(), re.M).group(1)
+        check("boot", f"version is {_want} (this tree)", h.get("version") == _want, h.get("version"))
         def routes():
             p = state / "routes.jsonl"
             return [json.loads(l) for l in p.read_text().splitlines() if l.strip()] if p.exists() else []
@@ -208,6 +209,36 @@ def main() -> int:
         st, _, _ = http("POST", f"{GW}/v1/chat/completions", "wrong-key", {"model": "auto", "messages": [{"role": "user", "content": "hi"}]})
         check("C traffic", "bad client key -> 401", st == 401, st)
 
+        # ---------------- E. routing self-correction (v0.10.5, Job B) ----------------
+        def _ups(): return len(uplog.read_text().splitlines())
+        def _lanes_since(n0): return [json.loads(l)["lane"] for l in uplog.read_text().splitlines()[n0:]]
+        CONG_FREE = " MOCK_STATUS::429::private-free MOCK_STATUS::429::public-only-free"
+        CONG_ALL_BUT_PREMIUM = CONG_FREE + " MOCK_STATUS::429::paid"
+        for stream in (False, True):
+            for cl in ("n8n", "hermes", "openclaw"):
+                n0 = _ups()
+                st, hd, raw = chat(cl, [{"role": "user", "content": "summarise the paragraph about cats" + CONG_FREE}], stream=stream)
+                ls = _lanes_since(n0); r = last_route()
+                check("E routing", f"{cl} free congested stream={stream}: <=6 upstream calls", len(ls) <= 6, f"calls={len(ls)} lanes={ls}")
+                check("E routing", f"{cl} free congested stream={stream}: served paid, premium never called",
+                      st == 200 and r.get("lane") == "paid" and "premium" not in ls, f"st={st} lane={r.get('lane')} lanes={ls}")
+                n0 = _ups()
+                st, hd, raw = chat(cl, [{"role": "user", "content": "summarise the paragraph about cats" + CONG_ALL_BUT_PREMIUM}], stream=stream)
+                ls = _lanes_since(n0)
+                check("E routing", f"{cl} free+paid congested stream={stream}: premium never called, <=6 calls",
+                      "premium" not in ls and len(ls) <= 6, f"st={st} calls={len(ls)} lanes={ls}")
+        for content, want in (('{"error": null, "stdout": "nginx restarted"}', False),
+                              ('{"ok": true, "error": ""}', False),
+                              ('{"error": "container not found"}', True),
+                              ("Error: permission denied", True)):
+            msgs = [{"role": "system", "content": "You are Hermes."}, {"role": "user", "content": "restart nginx"},
+                    {"role": "assistant", "content": None, "tool_calls": [{"id": "c9", "type": "function", "function": {"name": "terminal", "arguments": "{}"}}]},
+                    {"role": "tool", "tool_call_id": "c9", "content": content}]
+            st, hd, raw = chat("hermes", msgs, tools=TOOLS)
+            r = last_route()
+            check("E routing", f"tool result {content[:28]!r} -> tool_error_next_turn={want}",
+                  st == 200 and bool(r.get("tool_error_next_turn")) is want, f"st={st} got={r.get('tool_error_next_turn')}")
+
         # ---------------- D. edge cases ----------------
         rt = corpus.runtime_line("agent:main:main")
         edge_benign = {
@@ -251,6 +282,20 @@ def main() -> int:
             e = json.loads(l); mid, lane, ex = lane_of[e["idx"]]
             bad += [f"{n}->{mid}" for n in e["canaries"] if n in must and (lane == PUB or ex)]
         check("B secrets", "upstream: no must-secret reached public-only-free or excluded entry", not bad, f"bad={bad[:5]}")
+        # ---------------- F. tiered shadow (v0.10.6, Job C) ----------------
+        rr_all = routes(); id_lane = {v[0]: (v[1], v[2]) for v in lane_of.values()}
+        missing = [i for i, r in enumerate(rr_all) if r.get("status") == 200 and not r.get("tier_shadow")]
+        check("F tier-shadow", "every served route row carries tier_shadow", not missing, f"missing={len(missing)}/{len(rr_all)}")
+        bad_wall = [r["tier_shadow"]["pick"] for r in rr_all if r.get("data_class") == "sensitive" and r.get("tier_shadow")
+                    and r["tier_shadow"].get("pick") and (id_lane.get(r["tier_shadow"]["pick"], ("?", False))[0] == PUB
+                                                          or (id_lane.get(r["tier_shadow"]["pick"], ("?", False))[1] and id_lane[r["tier_shadow"]["pick"]][0] not in ("paid", "premium")))]
+        check("F tier-shadow", "sensitive rows: shadow pick never public-only-free", not bad_wall, f"bad={bad_wall[:5]}")
+        prem = [r for r in rr_all if r.get("tier_shadow") and r["tier_shadow"].get("pick_tier") == "premium"
+                and any(t.get("tier") in ("free", "cheap") for t in r["tier_shadow"].get("top", []))]
+        check("F tier-shadow", "shadow never picks premium while a free/cheap candidate exists", not prem, f"n={len(prem)}")
+        st, sh = shadow("hermes", [{"role": "user", "content": "hello there"}])
+        check("F tier-shadow", "/v1/shadow carries tiered_shadow with live_pick == would_route_to",
+              st == 200 and (sh.get("tiered_shadow") or {}).get("live_pick") == (sh.get("would_route_to") or {}).get("model"), f"st={st}")
         rr = routes()
         lat = sorted(float(r.get("latency_upstream_ms") or 0) + float(r.get("latency_classify_ms") or 0) for r in rr)
         check("C traffic", "no gateway 5xx in route log", not any(int(r.get("status") or 200) >= 500 for r in rr), f"n={len(rr)}")

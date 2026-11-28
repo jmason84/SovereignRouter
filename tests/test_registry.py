@@ -40,7 +40,11 @@ def test_starting_registry_matches_spec_table():
     # build-in order): probe-proven aggregator routes on the paid
     # lane, flagged spillway_sensitive_excluded provider-wide,
     # staged for the owner's enable ruling.
-    assert len(reg.entries) == 98
+    # + 12 entries added DISABLED 2026-11-27 (v0.10.7 model import,
+    # Jordan's order 23:06 MST): 8 PENDING-PROBE on providers whose
+    # VM103 key already exists (deepinfra x5, huggingface x1, nvidia
+    # x2) and 4 PENDING-KEY (orcarouter x2, kilo x2). Routing unchanged.
+    assert len(reg.entries) == 110
     by_id = {e.id: e for e in reg.entries}
     assert by_id["groq/gpt-oss-20b"].quality_for("chat") == 2
     assert by_id["groq/gpt-oss-120b"].quality_for("infra") == 4

@@ -244,6 +244,16 @@ V0102_DISABLED_IDS = ("openrouter/north-mini-code-free",
 V0103_DISABLED_IDS = ("meta/muse-spark-1.1", "meta/muse-spark-1.2",
                       "meta/muse-spark-1.3", "ollama/gpt-oss-120b",
                       "novita/gpt-oss-120b")
+# v0.10.7 model import (Jordan's order 2026-11-27 23:06 MST): every
+# imported route ships disabled (PENDING-PROBE / PENDING-KEY).
+V0107_IMPORT_DISABLED_IDS = (
+    "deepinfra/qwen3-coder-480b-turbo", "deepinfra/qwen3-coder-30b",
+    "deepinfra/deepseek-v4.1-flash", "deepinfra/nemotron-3-ultra",
+    "deepinfra/kimi-k2.6", "huggingface/qwen3-coder-480b",
+    "nvidia/nemotron-3-ultra", "nvidia/kimi-k3.1-pro",
+    "orcarouter/deepseek-v4.1-flash-free", "orcarouter/glm-5.3-flash-free",
+    "kilo/auto-free", "kilo/beam-free",
+)
 # Every entry whose provider posture was reviewed and NOT cleared for
 # sensitive traffic. The gateway drops these for sensitive turns in
 # every pass, pins included (gateway v0.5.6+).
@@ -283,6 +293,9 @@ SENSITIVE_EXCLUDED_IDS = (
     "nrouter/qwen3-32b", "nrouter/qwen3-coder-480b-a35b",
     "nrouter/deepseek-v4.1-flash", "nrouter/amazon-nova-lite-v1",
     "nrouter/llama-3.3-70b-instruct",
+    # v0.10.7 (2026-11-27): the HF Qwen3-Coder import inherits the
+    # provider-wide HF flag (shipped disabled).
+    "huggingface/qwen3-coder-480b",
 )
 ALL_PROVIDER_KEYS = {p: "fake" for p in {e.provider for e in REG.entries}}
 
@@ -330,8 +343,10 @@ def test_entry_raw_json_required_keys(entry):
 
 
 def test_registry_counts_and_unique_ids():
-    assert len(REG.entries) == 98
-    assert len(BY_ID) == 98  # ids unique (loader also enforces)
+    assert len(REG.entries) == 110
+    assert len(BY_ID) == 110  # ids unique (loader also enforces)
+    # 2026-11-27 (v0.10.7 model import): +12 routes, all disabled;
+    # the enabled count is unchanged.
     # 73 enabled at 81 entries; 2026-11-15 added 7 disabled routes
     # and disabled lfm-2.5-2.6b-free (upstream deleted): 88 - 16 = 72.
     # v0.9.1 (F-17) disabled both Aion entries: 88 - 18 = 70.
@@ -374,7 +389,7 @@ def test_disabled_entries_are_exactly_the_known_set():
         set(FREE20_DISABLED_IDS) | set(EXPAND2_DISABLED_IDS) | \
         set(NOV15_DISABLED_IDS) | set(V091_DISABLED_IDS) | \
         set(NROUTER_DISABLED_IDS) | set(V0102_DISABLED_IDS) | \
-        set(V0103_DISABLED_IDS)
+        set(V0103_DISABLED_IDS) | set(V0107_IMPORT_DISABLED_IDS)
     # the siliconflow entry is a duplicate ROUTE, not a distinct
     # model: DeepSeek V4 Pro is still reachable via the direct entry
     assert BY_ID["siliconflow/deepseek-v4-pro"].model == \

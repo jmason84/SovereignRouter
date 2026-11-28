@@ -282,6 +282,20 @@ def main() -> int:
             e = json.loads(l); mid, lane, ex = lane_of[e["idx"]]
             bad += [f"{n}->{mid}" for n in e["canaries"] if n in must and (lane == PUB or ex)]
         check("B secrets", "upstream: no must-secret reached public-only-free or excluded entry", not bad, f"bad={bad[:5]}")
+        # ---------------- F. tiered shadow (v0.10.6, Job C) ----------------
+        rr_all = routes(); id_lane = {v[0]: (v[1], v[2]) for v in lane_of.values()}
+        missing = [i for i, r in enumerate(rr_all) if r.get("status") == 200 and not r.get("tier_shadow")]
+        check("F tier-shadow", "every served route row carries tier_shadow", not missing, f"missing={len(missing)}/{len(rr_all)}")
+        bad_wall = [r["tier_shadow"]["pick"] for r in rr_all if r.get("data_class") == "sensitive" and r.get("tier_shadow")
+                    and r["tier_shadow"].get("pick") and (id_lane.get(r["tier_shadow"]["pick"], ("?", False))[0] == PUB
+                                                          or (id_lane.get(r["tier_shadow"]["pick"], ("?", False))[1] and id_lane[r["tier_shadow"]["pick"]][0] not in ("paid", "premium")))]
+        check("F tier-shadow", "sensitive rows: shadow pick never public-only-free", not bad_wall, f"bad={bad_wall[:5]}")
+        prem = [r for r in rr_all if r.get("tier_shadow") and r["tier_shadow"].get("pick_tier") == "premium"
+                and any(t.get("tier") in ("free", "cheap") for t in r["tier_shadow"].get("top", []))]
+        check("F tier-shadow", "shadow never picks premium while a free/cheap candidate exists", not prem, f"n={len(prem)}")
+        st, sh = shadow("hermes", [{"role": "user", "content": "hello there"}])
+        check("F tier-shadow", "/v1/shadow carries tiered_shadow with live_pick == would_route_to",
+              st == 200 and (sh.get("tiered_shadow") or {}).get("live_pick") == (sh.get("would_route_to") or {}).get("model"), f"st={st}")
         rr = routes()
         lat = sorted(float(r.get("latency_upstream_ms") or 0) + float(r.get("latency_classify_ms") or 0) for r in rr)
         check("C traffic", "no gateway 5xx in route log", not any(int(r.get("status") or 200) >= 500 for r in rr), f"n={len(rr)}")

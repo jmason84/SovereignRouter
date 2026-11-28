@@ -17,3 +17,7 @@ Local end-to-end harness built for Job ROUTER-J1C-20261127 (2026-11-27). It is n
 ## Section E — routing self-correction (added v0.10.5, Job B)
 
 `run_e2e.py` section "E routing" (22 checks) drives congested free pools (`MOCK_STATUS::429::private-free` / `::public-only-free`) and congested free+paid pools for n8n, hermes and openclaw, JSON and streaming. It asserts at most 6 upstream calls per turn, a paid serve when only free is congested, and that premium is never called on congestion. It also checks that tool results like `{"error": null}` / `{"ok": true, "error": ""}` do not set `tool_error_next_turn`, while real error payloads do. Run against v0.10.4, the section fails 11/22 (17 and 66 upstream calls, premium served, two false tool errors).
+
+## Section F — tiered shadow (added v0.10.6, Job C)
+
+Four checks over the whole run's route log: every served row carries `tier_shadow`; on sensitive rows the shadow pick is never public-only-free; the shadow never picks premium while a free/cheap candidate exists; and `/v1/shadow` carries `tiered_shadow` whose `live_pick` equals `would_route_to`. The boot check now reads this tree's `VERSION` instead of a hard-coded string.

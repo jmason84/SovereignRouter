@@ -104,6 +104,7 @@ from pools import (DemotionTracker, classify_failure,
                    classify_truncated_tool_call, pool_for)
 from quota import AttemptEvent, QuotaStore, UsageEvent
 from registry import FREE_LANES, ModelEntry, Registry, load_registry
+import tiering
 from sensitivity import scan_messages
 from sticky import (StickyStore, TOOL_ERROR_BREAK_AFTER,
                     conversation_key)
@@ -112,7 +113,7 @@ from toolstats import ToolErrorTracker
 from validation import (ToolCallAssembler, validate_response,
                         validate_streamed_text_outcome)
 
-VERSION = "0.10.5"
+VERSION = "0.10.6"
 
 # Fields forwarded upstream (spec: "allowlisted fields"). Anything else
 # a client sends is dropped so provider-specific junk cannot leak across
@@ -623,6 +624,11 @@ class GatewayConfig:
     max_upstream_attempts: int = int(
         os.environ.get("SOVEREIGN_MAX_UPSTREAM_ATTEMPTS",
                        MAX_UPSTREAM_ATTEMPTS))
+    # v0.10.6 (Job C): per-class tiered ranking in SHADOW mode — logs
+    # what the free > cheap > premium policy would pick next to the live
+    # pick on every route row (``tier_shadow``). Never changes routing.
+    # SOVEREIGN_TIER_SHADOW=0 turns the logging off.
+    tier_shadow: bool = os.environ.get("SOVEREIGN_TIER_SHADOW", "1") != "0"
     provider_keys: dict[str, str] = field(default_factory=dict)  # tests/dev injection
 
     def resolved_registry_path(self) -> Path:
@@ -940,6 +946,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     # hook); build_candidates demotes flagged entries within their
     # cost tier. See toolstats.py for gates and basis.
     app.state.toolstats = ToolErrorTracker(store)
+    app.state.tier_tool_stats = tiering.ToolStatsCache(app.state.toolstats)
     app.state.classifier = classifier
     app.state.provider_keys = provider_keys
     app.state.http = upstream_client
@@ -1676,8 +1683,22 @@ def create_app(config: Optional[GatewayConfig] = None,
                     + spill_skipped
 
         first = candidates[0] if candidates else None
+        tiered = None
+        if cfg.tier_shadow:
+            try:
+                tiered = tiering.decide(
+                    candidates, task_class=task_class, has_tools=bool(tools),
+                    has_images=has_images, json_mode=json_mode,
+                    quality_fn=_selection_quality, est_tokens=est_tokens,
+                    max_tokens=max_tokens,
+                    classifier_confidence=float(classification.confidence or 0.0),
+                    tool_stats=app.state.tier_tool_stats.get() if tools else None,
+                ).to_dict()
+            except Exception:  # noqa: BLE001
+                tiered = {"error": "tier_shadow_error"}
         return {
             "shadow": True,
+            "tiered_shadow": tiered,
             "client": client.id,
             "requested_model": requested_model,
             "level": level,
@@ -1987,6 +2008,25 @@ def create_app(config: Optional[GatewayConfig] = None,
                 candidates = spill_candidates
                 spillway_reason = SPILLWAY_REASON
                 record.signals.append(f"paid_spillway:{spill_candidates[0].id}")
+
+        # v0.10.6 (Job C) SHADOW ONLY: what the per-class tiered policy
+        # would pick from this same walled candidate list. Reads the
+        # list, never reorders it; any failure folds into a signal.
+        if cfg.tier_shadow:
+            try:
+                record.tier_shadow = tiering.decide(
+                    candidates, task_class=task_class, has_tools=bool(tools),
+                    has_images=has_images, json_mode=json_mode,
+                    quality_fn=_selection_quality, est_tokens=est_tokens,
+                    max_tokens=max_tokens,
+                    classifier_confidence=float(classification.confidence or 0.0),
+                    tool_stats=app.state.tier_tool_stats.get() if tools else None,
+                    reason=("pinned" if explicit_entry is not None
+                            else "sticky" if sticky_used
+                            else "spillway" if spillway_reason else ""),
+                ).to_dict()
+            except Exception:  # noqa: BLE001 — shadow never breaks serving
+                record.signals.append("tier_shadow_error")
 
         if not candidates:
             if data_class == "sensitive":

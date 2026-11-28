@@ -68,6 +68,10 @@ class RouteRecord:
     # applied from this turn's attempt outcomes, per the pool ledger's
     # demotion tracker. Recorded, never enforced (decision J-2).
     would_demote: list[dict[str, Any]] = field(default_factory=list)
+    # v0.10.6 (Job C, shadow only): the per-class tiered policy's pick
+    # vs the live pick for this turn (model ids, tiers, tags, top-3
+    # with scores). Recorded, never enforced. None when disabled.
+    tier_shadow: Optional[dict[str, Any]] = None
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), separators=(",", ":"), sort_keys=True)

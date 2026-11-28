@@ -9,6 +9,20 @@ reports its version at `GET /health` (`version` field) and in the
 
 ## [Unreleased]
 
+## [0.10.6] — 2026-11-27
+
+**v0.10.6 — Job C of the tiered-routing plan: per-class tiered ranking in SHADOW mode** (owner go 2026-11-27 20:25 MST, "Do B C D"; policy reading 2026-11-27 17:26 MST — "best" = best for the request type and the tools/capability it needs; per class: best free, then best cheap, then premium only when required). Built on v0.10.5 (Job B). **Routing is unchanged.**
+
+- **New `src/tiering.py`.** It ranks the live candidate list, which already has the sensitive wall, lanes, premium gate, tools support, quality floor, context, limits and cooldowns applied by `build_candidates`. The ranking key is tier (free = $0 free-lane entry < cheap = paid or priced private-free < premium), then the owner-preferred specialist for the class, then measured score, then estimated price, then p50 latency.
+  - Score is `_selection_quality`: on tool turns that is min(tooling, class quality), the live definition, minus a production tool-error penalty (−1 at ≥15%, −2 at ≥30% on ≥20 judged turns in the 72h `tool_outcomes` window, cached 60s).
+  - Classes: chat / infra / code / reasoning / long-context.
+  - Capability tags: `tools`, `vision` (entries without `supports_vision` are ineligible), `structured-output` (recorded only; no registry flag yet).
+  - Owner defaults: the free coder is `unorouter/codestral-latest` and the cheap coder is `nrouter/qwen3-coder-480b-a35b`. Each is preferred only within its own tier and only when already eligible. Codestral is public-only-free, so it is never a pick for a sensitive turn.
+  - No image-generation class yet.
+- **Shadow logging.** Every route row gains `tier_shadow`: `{pick, pick_tier, live_pick, live_tier, agree, task_class, tags, low_confidence (<0.6), reason (pinned/sticky/spillway), top: [3 × {model, tier, score, preferred, cost_usd}]}`. `/v1/shadow` gains `tiered_shadow`. `SOVEREIGN_TIER_SHADOW=0` disables it. A shadow exception only adds the `tier_shadow_error` signal and never affects serving.
+- **Proof that routing is unchanged.** For five prompts (hermes/openclaw/n8n, L1–L5, sensitive, failover with deterministic 429s), status, served model, the full upstream call sequence and the response body are identical with the shadow on and off.
+- Tests: `tests/test_v0106_tier_shadow.py` (18). E2E harness gains section "F tier-shadow" (4 checks: every served row carries it; a sensitive row's shadow pick is never public-only-free; the shadow never picks premium while a free/cheap candidate exists; `/v1/shadow` live_pick matches would_route_to). The harness boot check now reads this tree's VERSION. Unit suite 905.
+
 ## [0.10.5] — 2026-11-27
 
 **v0.10.5 — Job B of the tiered-routing plan: honest tool-error detector, fallback-depth cap, no premium on congestion** (owner go 2026-11-27 20:25 MST, "Do B C D"; plan in the Drive doc *GROK - Sovereign Router Classification, Tiers & Self-Correction - 2026-11-27*). Built on top of v0.10.4 (not yet merged/deployed) so the two ship together; 0.10.3 stays reserved for the parked reasoning_effort shaping build.
